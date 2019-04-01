@@ -20,10 +20,8 @@ def create_profile(sender, instance, created, **kwargs):
 
     :return: None.
     """
-    print("============", instance.user_type, getattr(instance, '_id'), type(getattr(instance, '_id')) )
     if created:
         user_id = str(getattr(instance, '_id', ''))
-        print("----------", user_id, type(user_id))
         # user
         if instance.user_type == 'user':
             pass
