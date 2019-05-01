@@ -10,7 +10,7 @@ Since we're developing with docker, all you need is to install [docker](https://
 1. Clone to code to your local env
 2. Run the following command, which will start all the instances.
 ```sh
-docker-compose up web
+$ docker-compose up web
 ```
 
 Make sure you've run the following commands for the initial run:
@@ -22,7 +22,7 @@ $ python manage.py createsuperuser
 
 To rebuild the docker image:
 ```
-docker-compose build web
+$ docker-compose build web
 ```
 
 When running, the **Admin page** of the backend by default will be served at: `http://localhost:8000/admin`, and the Swagger Doc (Interactive API Doc) is at `http://localhost:8000`.
