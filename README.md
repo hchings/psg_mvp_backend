@@ -34,6 +34,8 @@ The following commands will run all the unit tests with filename `test_*.py` and
 ```sh
 $ cd ./backend
 $ pytest
+or
+$ pytest -v --disable-pytest-warnings
 ```
 #### C.2 Coverage Report
 The coverage report is to show which parts of the code are untested.
