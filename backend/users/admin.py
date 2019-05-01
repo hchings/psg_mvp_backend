@@ -5,9 +5,7 @@ Model registration for admin site.
 
 from django.contrib import admin
 from .models import User
-from .clinic_models import ClinicProfile
-# TODO: tmp, for understanding ContentType, remove this
-# from django.contrib.contenttypes.models import ContentType
+from .clinics.models import ClinicProfile
 
 
 class UserAdmin(admin.ModelAdmin):
@@ -21,7 +19,7 @@ class UserAdmin(admin.ModelAdmin):
     search_fields = ('username', 'email')
     # raw_id_fields = ('username',)
     ordering = ['user_type', 'uuid']
-#     #
+
     # list_display = ('username', 'uuid', 'email', 'user_type',
     #                 'is_staff', 'user_profile')
     # list_filter = ('is_staff', 'user_type')
@@ -35,7 +33,7 @@ class ClinicProfileAdmin(admin.ModelAdmin):
     Customizing Admin Page for ClinicProfile Model
 
     """
-    list_display = ('display_name', 'user_id')
+    list_display = ('display_name', 'user_id', 'uuid')
 
 #
 # class ClinicBranchAdmin(admin.ModelAdmin):
@@ -60,5 +58,3 @@ admin.site.register(User, UserAdmin)
 # admin.site.register(DoctorProfile)
 admin.site.register(ClinicProfile, ClinicProfileAdmin)
 # admin.site.register(ClinicBranch, ClinicBranchAdmin)
-# TODO: tmp, for understanding ContentType, remove this
-# admin.site.register(ContentType)

@@ -7,7 +7,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from .models import User
-from .clinic_models import ClinicProfile
+from .clinics.models import ClinicProfile
 
 
 @receiver(post_save, sender=User)
@@ -21,6 +21,7 @@ def create_profile(sender, instance, created, **kwargs):
     :return: None.
     """
     if created:
+        profile = None
         user_id = str(getattr(instance, '_id', ''))
         # user
         if instance.user_type == 'user':
@@ -32,9 +33,10 @@ def create_profile(sender, instance, created, **kwargs):
             # profile = DoctorProfile(user=instance)
         # clinic
         elif instance.user_type == 'clinic':
-            profile = ClinicProfile(user_id=user_id, display_name=instance.username)
+            profile = ClinicProfile(user_id=user_id, display_name=instance.username, uuid=str(instance.uuid))
         # admin
         else:
             return
 
-        profile.save()
+        if profile:
+            profile.save()
