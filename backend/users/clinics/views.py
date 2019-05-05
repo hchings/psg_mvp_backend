@@ -31,7 +31,7 @@ class ClinicPublicList(generics.ListAPIView):
 
 
 # TODO: change to list and update only, modify docstring
-class ClinicPublicDetail(generics.RetrieveAPIView):
+class ClinicPublicDetail(generics.RetrieveUpdateAPIView):
     """
     get: Return the info of a clinic of given uuid.
 

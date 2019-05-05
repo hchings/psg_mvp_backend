@@ -46,6 +46,11 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
     # case_num = serializers.SerializerMethodField()
 
     def get_branches(self, obj):
+        """
+        To serialize ArrayModelField from djongo.
+        :param obj:
+        :return:
+        """
         if type(obj.branches) == list:
             embedded_list = []
             for item in obj.branches:

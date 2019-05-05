@@ -11,6 +11,7 @@ from imagekit.processors import ResizeToFill
 # from django import forms
 # from django.db import models
 from djongo import models
+from django import forms
 from django.conf import settings
 # from django.contrib.postgres.fields import ArrayField
 from django.contrib.auth import get_user_model
@@ -80,7 +81,6 @@ class ClinicBranch(models.Model):
 
     # --- atmosphere info ---
     rating = models.FloatField(help_text="ratings from google map API",
-                               null=True,
                                blank=True)
 
     # --- address info ---
@@ -94,6 +94,23 @@ class ClinicBranch(models.Model):
 
     def __str__(self):
         return self.branch_name
+
+
+class ClinicBranchForm(forms.ModelForm):
+    """
+    Customize form for ArrayModelField from djongo bcz
+    the self-generated Form has all fields set to required.
+    """
+    class Meta:
+        model = ClinicBranch
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super(ClinicBranchForm, self).__init__(*args, **kwargs)
+        # all fields are not required except for branch_name
+        for key, _ in self.fields.items():
+            if key not in ['branch_name']:
+                self.fields[key].required = False
 
 
 class ClinicProfile(models.Model):
@@ -157,6 +174,7 @@ class ClinicProfile(models.Model):
     # branches = models.EmbeddedModelField(model_container=ClinicBranch)
     branches = models.ArrayModelField(
         model_container=ClinicBranch,
+        model_form_class=ClinicBranchForm,
         default=[]
     )
 
