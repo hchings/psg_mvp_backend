@@ -58,6 +58,10 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
                 for key in list(embedded_dict.keys()):
                     if key.startswith('_'):
                         embedded_dict.pop(key)
+                    # TODO: tmp fix. PhoneNumber package has bug and is not JSON serializable
+                    # https://github.com/stefanfoulis/django-phonenumber-field/issues/225
+                    elif key == 'phone':
+                        embedded_dict[key] = str(embedded_dict[key])
                 embedded_list.append(embedded_dict)
             return_data = embedded_list
         else:
@@ -65,6 +69,10 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
             for key in list(embedded_dict.keys()):
                 if key.startswith('_'):
                     embedded_dict.pop(key)
+                # TODO: tmp as above
+                elif key == 'phone':
+                    embedded_dict[key] = str(embedded_dict[key])
+
             return_data = embedded_dict
         return return_data
 

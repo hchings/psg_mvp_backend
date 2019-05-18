@@ -136,9 +136,15 @@ class ClinicProfile(models.Model):
                             editable=False)
 
     display_name = models.CharField(max_length=30, blank=False)
+    obsolete_name = models.CharField(max_length=30,
+                                     blank=True,
+                                     help_text="the original names for clinics who changed their names")
     english_name = models.CharField(max_length=50,
                                     default='',
                                     blank=True)
+
+    obsolete_english_name = models.CharField(max_length=50,
+                                             blank=True)
 
     # TODO: check params and path
     # logo_full = models.ImageField(upload_to=get_logo_full_dir_name,
@@ -161,15 +167,24 @@ class ClinicProfile(models.Model):
                               blank=True)
 
     color_code = models.CharField(blank=True, default='', max_length=20)
+    phone = PhoneNumberField(blank=True, help_text="general customer service phone")
 
     # --- social media ---
     website_url = models.URLField(blank=True)
     fb_url = models.URLField(blank=True)
     weibo_url = models.URLField(blank=True)
     instagram_url = models.URLField(blank=True)
+    wechat_url = models.URLField(blank=True, help_text="wechat QR code url")
+    line_url = models.URLField(blank=True, help_text="line QR code url")
+    youtube_url = models.URLField(blank=True, help_text="youtube channel")
+    pixnet_url = models.URLField(blank=True)
+
     line_id = models.CharField(max_length=50, default='', blank=True)
     wechat_id = models.CharField(max_length=50, default='', blank=True)
     customer_email = models.EmailField(max_length=254, blank=True, verbose_name='email address')
+
+    # --- for internal user only ---
+    first_check = models.BooleanField(default=False, blank=True)
 
     # branches = models.EmbeddedModelField(model_container=ClinicBranch)
     branches = models.ArrayModelField(
