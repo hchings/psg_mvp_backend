@@ -34,7 +34,7 @@ class ClinicProfileAdmin(admin.ModelAdmin):
 
     """
     list_display = ('display_name', 'user_id', 'uuid', 'first_check')
-    list_filter = ('first_check',)
+    list_filter = ('first_check', 'is_oob')
     search_fields = ['display_name']
 
 

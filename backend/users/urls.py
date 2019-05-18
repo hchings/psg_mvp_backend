@@ -18,6 +18,7 @@ urlpatterns = [
     # exclude default user and login APIs from django-rest-auth package
     url(r'^', include([url for url in rest_auth_urls
                        if url.name != 'rest_user_details'])),
+    url(r'^', include('django.contrib.auth.urls')),  # TODO: tmp, need this for reset email
     url(r'^registration/$', RegisterViewEx.as_view(), name=RegisterViewEx.name),
     url(r'^registration/verify-email/$', VerifyEmailView.as_view(), name='rest_verify_email'),
     url(r'^registration/account-confirm-email/(?P<key>[-:\w]+)/$', TemplateView.as_view(),

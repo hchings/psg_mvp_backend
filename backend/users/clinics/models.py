@@ -184,7 +184,9 @@ class ClinicProfile(models.Model):
     customer_email = models.EmailField(max_length=254, blank=True, verbose_name='email address')
 
     # --- for internal user only ---
-    first_check = models.BooleanField(default=False, blank=True)
+    first_check = models.BooleanField(default=False, blank=True, help_text="first manual data checking")
+    is_sm = models.BooleanField(default=False, blank=True, help_text="is small. for marking tiny clinics")
+    is_oob = models.BooleanField(default=False, blank=True, help_text="might be out-of-business")
 
     # branches = models.EmbeddedModelField(model_container=ClinicBranch)
     branches = models.ArrayModelField(
