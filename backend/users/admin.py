@@ -33,9 +33,12 @@ class ClinicProfileAdmin(admin.ModelAdmin):
     Customizing Admin Page for ClinicProfile Model
 
     """
-    list_display = ('display_name', 'user_id', 'uuid')
+    list_display = ('display_name', 'user_id', 'uuid', 'first_check')
+    list_filter = ('first_check', 'is_oob')
+    search_fields = ['display_name']
 
-#
+
+#i
 # class ClinicBranchAdmin(admin.ModelAdmin):
 #     """
 #     Customizing Admin Page for ClinicBranch Model

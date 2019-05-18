@@ -60,6 +60,10 @@ INSTALLED_APPS = [
     'allauth.socialaccount',
     # --- django imagekit package ---
     'imagekit',
+    # --- django fileField auto clean up ---
+    'django_cleanup.apps.CleanupConfig',
+    # --- tagging system (django-taggit) ---
+    'taggit',
     # --- users app ---
     'users'
 ]
