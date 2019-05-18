@@ -13,6 +13,9 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 import os
 from pathlib import Path
 
+from django.urls import reverse_lazy
+
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOP_DIR = Path(__file__).resolve().parent.parent.parent
@@ -48,13 +51,13 @@ INSTALLED_APPS = [
     # --- to solve CORS ---
     'corsheaders',
     # --- registration app ---
-    # 'rest_framework.authtoken',
-    # 'rest_auth',
-    # 'django.contrib.sites',
-    # 'allauth',
-    # 'allauth.account',
-    # 'rest_auth.registration',
-    # 'allauth.socialaccount',
+    'rest_framework.authtoken',
+    'rest_auth',
+    'django.contrib.sites',
+    'allauth',
+    'allauth.account',
+    'rest_auth.registration',
+    'allauth.socialaccount',
     # --- django imagekit package ---
     'imagekit',
     # --- users app ---
@@ -156,3 +159,63 @@ MEDIA_URL = '/media/'
 
 # Extended User Auth Model
 AUTH_USER_MODEL = 'users.User'
+
+
+SITE_ID = 1
+
+# Django Email backend Settings.
+EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_FILE_PATH = os.path.join(BASE_DIR, 'tmp/email')
+
+
+# django-rest-framework settings
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.TokenAuthentication', # must set this for django_rest_auth
+    ),
+    'TEST_REQUEST_DEFAULT_FORMAT': 'json',
+    # filtering settings
+    # 'DEFAULT_FILTER_BACKENDS': (
+    #     'django_filters.rest_framework.DjangoFilterBackend',
+    # ),
+    # pagination settings
+    'DEFAULT_PAGINATION_CLASS':
+        'rest_framework.pagination.LimitOffsetPagination',
+    # 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 5
+}
+
+
+# django-rest-auth configuration
+REST_AUTH_SERIALIZERS = {
+    'REGISTER_SERIALIZER': 'users.serializers.RegisterSerializerEx',
+}
+
+
+# django_rest_auth configuration
+# Doc: http://django-allauth.readthedocs.io/en/latest/configuration.html
+ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_USERNAME_REQUIRED = False
+
+AUTHENTICATION_BACKENDS = (
+    # Needed to login by username in Django admin, regardless of `allauth`
+    'django.contrib.auth.backends.ModelBackend',
+    # `allauth` specific authentication methods, such as login by e-mail
+    'allauth.account.auth_backends.AuthenticationBackend',
+)
+
+# Login/logout url configuration
+# LOGOUT_REDIRECT_URL = reverse_lazy('swagger-root')
+LOGIN_URL = reverse_lazy('rest_login')
+LOGOUT_URL = reverse_lazy('rest_logout')
+
+
+# Swagger settings
+# SWAGGER_SETTINGS = {
+#     # A list URL namespaces to ignore
+#     "exclude_namespaces": ["internal_apis"],
+#     "exclude_url_names": ['swagger-root']
+# }
