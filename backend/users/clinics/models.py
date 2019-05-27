@@ -1,5 +1,5 @@
 """
-Database models for clinic / doctors
+Database models for clinic
 
 """
 import os
@@ -44,12 +44,6 @@ def get_logo_dir_name(instance, filename):
     return os.path.join(settings.MEDIA_ROOT, '/'.join(['clinics', 'clinic_' + str(clinic.uuid), new_filename]))
 
 
-def get_doctor_dir_name(instance, filename):
-    extension = filename.split(".")[-1]
-    new_filename = 'profile_photo.' + extension
-    return os.path.join(settings.MEDIA_ROOT, '/'.join(['doctors', 'doctor_' + str(instance.user.uuid), new_filename]))
-
-
 class ClinicBranch(models.Model):
     """
     Abstract model representing the info of a clinic branch.
@@ -69,6 +63,8 @@ class ClinicBranch(models.Model):
     place_id = models.CharField(max_length=50,
                                 blank=True,
                                 help_text="unique google place_id")
+    is_exact_place_id = models.BooleanField(default=True,
+                                            help_text="whether the clinic has Google Business ID")
     is_head_quarter = models.BooleanField(default=False, blank=True)
     branch_name = models.CharField(max_length=50)
 
@@ -129,11 +125,13 @@ class ClinicProfile(models.Model):
 
     # ---fields copy from the User colleciton ---
     user_id = models.CharField(max_length=30,
-                               blank=False)
-    # equals the uuid field in the corresponding user
+                               blank=False,
+                               editable=False,
+                               help_text="the _id field of the User collection. Do not fill in this manually.")
     uuid = models.CharField(max_length=30,
                             unique=True,
-                            editable=False)
+                            editable=False,
+                            help_text="the uuid field in the corresponding user. Do not fill in this manually.")
 
     display_name = models.CharField(max_length=30, blank=False)
     obsolete_name = models.CharField(max_length=30,
@@ -185,6 +183,7 @@ class ClinicProfile(models.Model):
 
     # --- for internal user only ---
     first_check = models.BooleanField(default=False, blank=True, help_text="first manual data checking")
+    all_doctors_loaded = models.BooleanField(default=False, blank=True, help_text="has doctors in the db")
     is_sm = models.BooleanField(default=False, blank=True, help_text="is small. for marking tiny clinics")
     is_oob = models.BooleanField(default=False, blank=True, help_text="might be out-of-business")
 

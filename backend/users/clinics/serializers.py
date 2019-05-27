@@ -40,6 +40,7 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
 
     # nested field
     branches = serializers.SerializerMethodField()
+    # tmp = serializers.ListField() # TODO: use this to make list
 
     # read_only = True
     # source = 'clinic_profile.branches',

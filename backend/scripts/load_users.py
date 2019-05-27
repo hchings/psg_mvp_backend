@@ -22,7 +22,7 @@ def run():
 
     print(df.head())
 
-    for col, row in df[8:].iterrows():
+    for col, row in df.iterrows():
         name = row['clinic name'].strip().split("(")[0].split("（")[0]
         website = str(row['website']).strip()
         fb_url = str(row['fb_url']).split(",")[0]
