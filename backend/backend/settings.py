@@ -63,9 +63,11 @@ INSTALLED_APPS = [
     # --- django fileField auto clean up ---
     'django_cleanup.apps.CleanupConfig',
     # --- tagging system (django-taggit) ---
-    'taggit',
+    # 'taggit',
+    # --- tags app ---
+    'tags',
     # --- users app ---
-    'users'
+    'users',
 ]
 
 MIDDLEWARE = [

@@ -5,7 +5,6 @@ Database models - User Model.
 
 from djongo import models
 # from django_extensions.db.fields import ShortUUIDField
-# from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils.translation import gettext_lazy as _
 
@@ -40,3 +39,4 @@ class User(AbstractUser):
     user_type = models.CharField(max_length=10,
                                  choices=USER_TYPE_CHOICES,
                                  default=1)
+
