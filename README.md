@@ -29,7 +29,7 @@ When running, the **Admin page** of the backend by default will be served at: `h
 
 
 ## C. To Test
-#### C.1 Unit Tests
+#### C.1 Run Unit Tests only
 The following commands will run all the unit tests with filename `test_*.py` and show you the number of pass/failed.
 ```sh
 $ cd ./backend
@@ -37,7 +37,7 @@ $ pytest
 or
 $ pytest -v --disable-pytest-warnings
 ```
-#### C.2 Coverage Report
+#### C.2 Run Unit Tests with Coverage Report
 The coverage report is to show which parts of the code are untested.
 Use the below commands to generate the coverage report:
 ```sh
