@@ -2,7 +2,7 @@
 Model registration for admin site.
 
 """
-
+from django.utils.safestring import mark_safe
 from django.contrib import admin
 from .models import User
 from .clinics.models import ClinicProfile
@@ -27,9 +27,23 @@ class ClinicProfileAdmin(admin.ModelAdmin):
     Customizing Admin Page for ClinicProfile Model
 
     """
-    list_display = ('display_name', 'user_id', 'uuid', 'all_doctors_loaded', 'first_check')
+    list_display = ('display_name', 'user_id', 'uuid', 'logo_img', 'all_doctors_loaded', 'first_check')
     list_filter = ('first_check', 'all_doctors_loaded', 'is_oob')
     search_fields = ['display_name']
+    # readonly_fields = ['logo_img']
+
+    @mark_safe
+    def logo_img(self, obj):
+        """
+        For diplaying pic in Django admin.
+        ref: https://books.agiliq.com/projects/django-admin-cookbook/en/latest/imagefield.html
+        :param obj:
+        :return:
+        """
+        if obj.logo:
+            return '<img src="%s"  height="50px"/>' % obj.logo.url
+        else:
+            return 'No_image'
 
 
 class DoctorProfileAdmin(admin.ModelAdmin):
