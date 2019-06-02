@@ -7,6 +7,7 @@ import os
 from phonenumber_field.modelfields import PhoneNumberField
 from imagekit.models import ProcessedImageField
 from imagekit.processors import ResizeToFill
+from imagekit.models import ImageSpecField
 # from taggit.managers import TaggableManager
 # from django import forms
 # from django.db import models
@@ -41,7 +42,8 @@ def get_logo_dir_name(instance, filename):
     clinic = user_model.objects.get(_id=instance.user_id)
     extension = filename.split(".")[-1]
     new_filename = 'logo.' + extension
-    return os.path.join(settings.MEDIA_ROOT, '/'.join(['clinics', 'clinic_' + str(clinic.uuid), new_filename]))
+    # obj.log.url, Media root is by default loaded
+    return os.path.join('clinics', 'clinic_' + str(clinic.uuid), new_filename)
 
 
 class ClinicBranch(models.Model):
@@ -50,6 +52,7 @@ class ClinicBranch(models.Model):
     Many-to-one relationship to ClinicProfile.
 
     """
+
     class Meta:
         abstract = True
 
@@ -97,6 +100,7 @@ class ClinicBranchForm(forms.ModelForm):
     Customize form for ArrayModelField from djongo bcz
     the self-generated Form has all fields set to required.
     """
+
     class Meta:
         model = ClinicBranch
         fields = '__all__'
@@ -152,12 +156,18 @@ class ClinicProfile(models.Model):
 
     # Image is resized to 120X120 pixels with django-imagekit
     logo = ProcessedImageField(upload_to=get_logo_dir_name,
-                               processors=[ResizeToFill(120, 120)],
+                               processors=[ResizeToFill(400, 400)],
                                format='JPEG',
-                               options={'quality': 90},
+                               options={'quality': 100},
                                blank=True,
                                null=True,
                                help_text="pure logo in square")
+
+    # logo = models.ImageField(upload_to=get_logo_dir_name)
+    logo_thumbnail = ImageSpecField(source='logo',
+                                    processors=[ResizeToFill(130, 130)],
+                                    format='JPEG',
+                                    options={'quality': 100})
 
     # main service if the website does specify
     slogan = models.CharField(max_length=30,
