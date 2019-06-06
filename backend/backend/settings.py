@@ -15,7 +15,6 @@ from pathlib import Path
 
 from django.urls import reverse_lazy
 
-
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOP_DIR = Path(__file__).resolve().parent.parent.parent
@@ -29,7 +28,17 @@ SECRET_KEY = 'hck+)fy3p9x789tx(x^-j*^!8ylg*e-n=lkh5*3zs^k&f$)h_='
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['0.0.0.0', 'localhost']
+
+# CORS_REPLACE_HTTPS_REFERER = False
+# HOST_SCHEME = "http://"
+# SECURE_PROXY_SSL_HEADER = None
+# SECURE_SSL_REDIRECT = False
+# SESSION_COOKIE_SECURE = False
+# CSRF_COOKIE_SECURE = False
+# SECURE_HSTS_SECONDS = None
+# SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+# SECURE_FRAME_DENY = False
 
 
 # Application definition
@@ -100,17 +109,20 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'backend.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/2.1/ref/settings/#databases
 
 DATABASES = {
     'default': {
         'ENGINE': 'djongo',
+        'ENFORCE_SCHEMA': False,
         'NAME': 'core_db',
+        'USER': os.environ.get('MONGO_USER'),
+        'PASSWORD': os.environ.get('MONGO_PW'),
         'HOST': 'mongo',
-        'ENFORCE_SCHEMA': False
-
+        'PORT': 27017,
+        'AUTH_SOURCE': 'core_db',
+        'AUTH_MECHANISM': 'SCRAM-SHA-1'
     }
 
     # 'default': {
@@ -118,7 +130,6 @@ DATABASES = {
     #     'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     # }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/2.1/ref/settings/#auth-password-validators
@@ -138,7 +149,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/2.1/topics/i18n/
 
@@ -152,7 +162,6 @@ USE_L10N = True
 
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.1/howto/static-files/
 
@@ -162,10 +171,8 @@ STATIC_URL = '/static/'
 MEDIA_ROOT = os.path.join(TOP_DIR, 'media')
 MEDIA_URL = '/media/'
 
-
 # Extended User Auth Model
 AUTH_USER_MODEL = 'users.User'
-
 
 SITE_ID = 1
 
@@ -174,11 +181,10 @@ EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_FILE_PATH = os.path.join(BASE_DIR, 'tmp/email')
 
-
 # django-rest-framework settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework.authentication.TokenAuthentication', # must set this for django_rest_auth
+        'rest_framework.authentication.TokenAuthentication',  # must set this for django_rest_auth
     ),
     'TEST_REQUEST_DEFAULT_FORMAT': 'json',
     # filtering settings
@@ -192,12 +198,10 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 5
 }
 
-
 # django-rest-auth configuration
 REST_AUTH_SERIALIZERS = {
     'REGISTER_SERIALIZER': 'users.serializers.RegisterSerializerEx',
 }
-
 
 # django_rest_auth configuration
 # Doc: http://django-allauth.readthedocs.io/en/latest/configuration.html
@@ -218,10 +222,16 @@ AUTHENTICATION_BACKENDS = (
 LOGIN_URL = reverse_lazy('rest_login')
 LOGOUT_URL = reverse_lazy('rest_logout')
 
-
 # Swagger settings
 # SWAGGER_SETTINGS = {
 #     # A list URL namespaces to ignore
 #     "exclude_namespaces": ["internal_apis"],
 #     "exclude_url_names": ['swagger-root']
 # }
+
+
+###################################
+#     Elastic Search Instance
+###################################
+ES_HOST = os.environ.get('ES_HOST')
+ES_PORT = os.environ.get('ES_PORT')
