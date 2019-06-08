@@ -30,7 +30,7 @@ class ClinicProfileAdmin(admin.ModelAdmin):
     list_display = ('display_name', 'user_id', 'uuid', 'logo_img', 'all_doctors_loaded', 'first_check')
     list_filter = ('first_check', 'all_doctors_loaded', 'is_oob')
     search_fields = ['display_name']
-    # readonly_fields = ['logo_img']
+    readonly_fields = ['services_raw']
 
     @mark_safe
     def logo_img(self, obj):
@@ -44,6 +44,17 @@ class ClinicProfileAdmin(admin.ModelAdmin):
             return '<img src="%s"  height="50px"/>' % obj.logo.url
         else:
             return 'No_image'
+
+    def changelist_view(self, request, extra_context=None):
+        """
+        Change list view for non superuser.
+        ref: https://stackoverflow.com/questions/19043842/display-different-list-display-depends-on-user
+        """
+        if not request.user.is_superuser:
+            self.list_display = ('display_name', 'logo_img', 'is_oob', 'all_doctors_loaded', 'first_check')
+        else:
+            self.list_display = ('display_name', 'user_id', 'uuid', 'logo_img', 'all_doctors_loaded', 'first_check')
+        return super(ClinicProfileAdmin, self).changelist_view(request, extra_context)
 
 
 class DoctorProfileAdmin(admin.ModelAdmin):

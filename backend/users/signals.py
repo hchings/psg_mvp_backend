@@ -6,10 +6,22 @@ from annoying.functions import get_object_or_None
 
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
+from django.utils.text import normalize_newlines
 
 from .models import User
 from .clinics.models import ClinicProfile
 from .doctors.models import DoctorProfile
+from .doc_type import ClinicProfileDoc
+
+
+def remove_newlines(text):
+    """
+    Removes all newline characters from a block of text.
+    """
+    # First normalize the newlines using Django's nifty utility
+    normalized_text = normalize_newlines(text)
+    # Then simply remove the newlines like so.
+    return normalized_text.replace('\n', ',')
 
 
 @receiver(post_save, sender=User)
@@ -47,6 +59,29 @@ def create_profile(sender, instance, created, **kwargs):
             profile.save()
 
 
+@receiver(pre_save, sender=ClinicProfile)
+def clinic_profile_store_service_tags_raw(sender, instance, **kwargs):
+    """
+    Turn services_raw_input field (TextField) of a ClinicProfile into services_raw field (ListField, plain array).
+    Need this bcz Djongo does not support users to modify ListField through admin page.
+
+    :param sender:
+    :param instance:
+    :param kwargs:
+    :return:
+    """
+    services_raw_input = instance.services_raw_input
+
+    if services_raw_input:
+        services_raw_input = remove_newlines(services_raw_input)
+        services_raw_input.replace("\n", ",")
+        services_raw_input.replace("，", ",")
+
+        instance.services_raw = [item.strip() for item in services_raw_input.split(',') if item.strip()]
+    else:
+        instance.services_raw = []
+
+
 @receiver(pre_save, sender=DoctorProfile)
 def store_clinic(sender, instance, **kwargs):
     """
@@ -79,3 +114,16 @@ def store_clinic(sender, instance, **kwargs):
             pass
         else:
             instance.clinic_uuid = str(getattr(clinic_profile_obj, 'uuid', ''))
+
+
+# @receiver(post_save, sender=ClinicProfile)
+# def clinic_profile_index_handler(sender, instance, **kwargs):
+#     """
+#     Index clinic profile into ElasticSearch on save.
+#
+#     :param sender:
+#     :param instance:
+#     :param kwargs:
+#     :return:
+#     """
+#     instance.indexing()
