@@ -11,7 +11,7 @@ from django.utils.text import normalize_newlines
 from .models import User
 from .clinics.models import ClinicProfile
 from .doctors.models import DoctorProfile
-from .doc_type import ClinicProfileDoc
+# from .doc_type import ClinicProfileDoc
 
 
 def remove_newlines(text):
