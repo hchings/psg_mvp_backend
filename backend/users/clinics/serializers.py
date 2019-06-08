@@ -40,7 +40,7 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
 
     # nested field
     branches = serializers.SerializerMethodField()
-    # tmp = serializers.ListField() # TODO: use this to make list
+    services_raw = serializers.ListField() # TODO: use this to make list
 
     # read_only = True
     # source = 'clinic_profile.branches',
@@ -146,7 +146,7 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
         # fields = ('url', 'uuid', 'username', 'logo', 'opening_info',
         #           'concise_regions', 'services', 'rating',
         #           'branches', 'case_num')
-        fields = ('website_url', 'uuid', 'user_id', 'display_name', 'logo',
+        fields = ('website_url', 'uuid', 'user_id', 'display_name', 'logo', 'services_raw',
                   'branches')
 
 
