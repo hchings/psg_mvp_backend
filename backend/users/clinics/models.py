@@ -17,7 +17,7 @@ from django.conf import settings
 # from django.contrib.postgres.fields import ArrayField
 from django.contrib.auth import get_user_model
 from backend.shared.models import SimpleString, SimpleStringForm
-from ..doc_type import ClinicProfileDoc
+# from ..doc_type import ClinicProfileDoc
 
 
 # from django.utils.translation import ugettext_lazy as _
