@@ -16,6 +16,8 @@ from django import forms
 from django.conf import settings
 # from django.contrib.postgres.fields import ArrayField
 from django.contrib.auth import get_user_model
+from backend.shared.models import SimpleString, SimpleStringForm
+# from ..doc_type import ClinicProfileDoc
 
 
 # from django.utils.translation import ugettext_lazy as _
@@ -204,8 +206,34 @@ class ClinicProfile(models.Model):
         default=[]
     )
 
+    # services_raw = models.ArrayModelField(
+    #     model_container=SimpleString,
+    #     model_form_class=SimpleStringForm,
+    #     default=[]
+    # )
+
+    services_raw_input = models.TextField(blank=True, help_text="隆鼻, 雙眼皮, 抽脂, ...")
+    services_raw = models.ListField(blank=True,
+                                    default=[],
+                                    help_text="the original service tags on official sites w/out any normalization")
+
     # tags
     # services = TaggableManager(through=ServiceTaggedItem, blank=True)
 
     def __str__(self):
         return 'clinic_profile_' + self.display_name
+    #
+    # def indexing(self):
+    #     """
+    #     An indexing instance method that adds the object instance
+    #     to the Elasticsearch index via the DocType we just created.
+    #
+    #     :return:
+    #     """
+    #     doc = ClinicProfileDoc(
+    #         meta={'id': self.uuid},
+    #         display_name=self.display_name,
+    #         english_name=self.english_name
+    #     )
+    #     doc.save()
+    #     return doc.to_dict(include_meta=True)
