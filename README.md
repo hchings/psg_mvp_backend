@@ -8,7 +8,8 @@ Since we're developing with docker, all you need is to install [docker](https://
 
 ## B. To Run
 1. Clone to code to your local env
-2. Run the following command, which will start all the instances.
+2. [Tentative for now] Please move the *docker-compose.yml* to the upper folder
+3. Run the following command, which will start all the instances.
 ```sh
 $ docker-compose up web
 ```
