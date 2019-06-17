@@ -12,12 +12,15 @@ from imagekit.models import ImageSpecField
 # from django import forms
 # from django.db import models
 from djongo import models
+from hanziconv import HanziConv
+
 from django import forms
 from django.conf import settings
 # from django.contrib.postgres.fields import ArrayField
 from django.contrib.auth import get_user_model
-from backend.shared.models import SimpleString, SimpleStringForm
-# from ..doc_type import ClinicProfileDoc
+# from backend.shared.models import SimpleString, SimpleStringForm
+
+from ..doc_type import ClinicProfileDoc
 
 
 # from django.utils.translation import ugettext_lazy as _
@@ -222,18 +225,24 @@ class ClinicProfile(models.Model):
 
     def __str__(self):
         return 'clinic_profile_' + self.display_name
-    #
-    # def indexing(self):
-    #     """
-    #     An indexing instance method that adds the object instance
-    #     to the Elasticsearch index via the DocType we just created.
-    #
-    #     :return:
-    #     """
-    #     doc = ClinicProfileDoc(
-    #         meta={'id': self.uuid},
-    #         display_name=self.display_name,
-    #         english_name=self.english_name
-    #     )
-    #     doc.save()
-    #     return doc.to_dict(include_meta=True)
+
+    def indexing(self):
+        """
+        An indexing instance method that adds the object instance
+        to the Elasticsearch index via the DocType we just created.
+
+        :return:
+        """
+        id = str(getattr(self, '_id', ''))
+
+        # Simplified CN's analyzer is much better.
+        # so all the cn fields will be stored in simplified chinese in ES.
+        doc = ClinicProfileDoc(
+            meta={'id': id},  # each document has metadata associated with it
+            display_name=HanziConv.toSimplified(self.display_name),
+            obsolete_name=HanziConv.toSimplified(self.obsolete_name),
+            english_name=self.english_name,
+            id=id  # we need this field to fetch the matched doc from mongo
+        )
+        doc.save()
+        return doc.to_dict(include_meta=True)

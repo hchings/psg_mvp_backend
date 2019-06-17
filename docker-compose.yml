@@ -1,0 +1,52 @@
+version: '3'
+
+services:
+  mongo:
+    image: mongo
+    environment:
+      MONGO_INITDB_DATABASE: core_db
+    volumes:
+      - ./dump:/dump
+      - ./psg_mvp_backend/mongo.conf:/etc/mongo.conf
+#    command:
+#      - "--auth"
+#      - "-f"
+#      - "/etc/mongo.conf"
+    ports:
+      - "27017:27017"
+  web:
+    build: ./psg_mvp_backend
+    command: python3 ./backend/manage.py runserver 0.0.0.0:8000
+    environment:
+      DJANGO_SETTINGS_MODULE: backend.settings
+    volumes:
+      - ./psg_mvp_backend:/code
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongo
+      - elasticsearch
+  elasticsearch: # Elasticsearch Instance
+    container_name: elasticsearch
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.1.0
+    volumes: # Persist ES data in seperate "esdata" volume
+      - ./esdata:/usr/share/elasticsearch/data
+    environment:
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - discovery.type=single-node
+      - http.port=9200
+      - http.cors.enabled=true
+      - http.cors.allow-origin=http://localhost:1358,http://127.0.0.1:1358
+      - http.cors.allow-headers=X-Requested-With,X-Auth-Token,Content-Type,Content-Length,Authorization
+      - http.cors.allow-credentials=true
+      - bootstrap.memory_lock=true
+    ports: # Expose Elasticsearch ports
+      - "9300:9300"
+      - "9200:9200"
+  dejavu:
+    image: appbaseio/dejavu:3.3.0
+    container_name: dejavu
+    ports:
+      - "1358:1358"
+    links:
+      - elasticsearch
