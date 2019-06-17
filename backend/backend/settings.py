@@ -34,7 +34,7 @@ ALLOWED_HOSTS = ['0.0.0.0', 'localhost']
 # HOST_SCHEME = "http://"
 # SECURE_PROXY_SSL_HEADER = None
 # SECURE_SSL_REDIRECT = False
-# SESSION_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
 # CSRF_COOKIE_SECURE = False
 # SECURE_HSTS_SECONDS = None
 # SECURE_HSTS_INCLUDE_SUBDOMAINS = False
@@ -117,12 +117,12 @@ DATABASES = {
         'ENGINE': 'djongo',
         'ENFORCE_SCHEMA': False,
         'NAME': 'core_db',
-        'USER': os.environ.get('MONGO_USER'),
-        'PASSWORD': os.environ.get('MONGO_PW'),
+        # 'USER': os.environ.get('MONGO_USER'),
+        # 'PASSWORD': os.environ.get('MONGO_PW'),
         'HOST': 'mongo',
         'PORT': 27017,
         'AUTH_SOURCE': 'core_db',
-        'AUTH_MECHANISM': 'SCRAM-SHA-1'
+        # 'AUTH_MECHANISM': 'SCRAM-SHA-1'
     }
 
     # 'default': {
@@ -233,5 +233,9 @@ LOGOUT_URL = reverse_lazy('rest_logout')
 ###################################
 #     Elastic Search Instance
 ###################################
-ES_HOST = os.environ.get('ES_HOST')
-ES_PORT = os.environ.get('ES_PORT')
+# ES_HOST = os.environ.get('ES_HOST')
+# ES_PORT = os.environ.get('ES_PORT')
+
+# TODO: remove this
+ES_HOST = 'elasticsearch'
+ES_PORT = 9200

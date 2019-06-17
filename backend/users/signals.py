@@ -116,14 +116,14 @@ def store_clinic(sender, instance, **kwargs):
             instance.clinic_uuid = str(getattr(clinic_profile_obj, 'uuid', ''))
 
 
-# @receiver(post_save, sender=ClinicProfile)
-# def clinic_profile_index_handler(sender, instance, **kwargs):
-#     """
-#     Index clinic profile into ElasticSearch on save.
-#
-#     :param sender:
-#     :param instance:
-#     :param kwargs:
-#     :return:
-#     """
-#     instance.indexing()
+@receiver(post_save, sender=ClinicProfile)
+def clinic_profile_index_handler(sender, instance, **kwargs):
+    """
+    Index clinic profile into ElasticSearch on save.
+
+    :param sender:
+    :param instance:
+    :param kwargs:
+    :return:
+    """
+    instance.indexing()
