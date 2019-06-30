@@ -53,6 +53,9 @@ class BackgroundItem(models.Model):
                                 null=True,
                                 help_text="Do not use it yet.")
 
+    def __str__(self):
+        return self.item
+
 
 class BackgroundItemForm(forms.ModelForm):
     """
