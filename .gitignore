@@ -54,3 +54,5 @@ psg_mvp_backend/backend/users/doctors/__pycache__/
 psg_mvp_backend/backend/users/management/commands/__pycache__/
 
 psg_mvp_backend/backend/users/migrations/
+
+mongo_data/

@@ -237,5 +237,5 @@ LOGOUT_URL = reverse_lazy('rest_logout')
 # ES_PORT = os.environ.get('ES_PORT')
 
 # TODO: remove this
-ES_HOST = 'elasticsearch_2'
+ES_HOST = 'elasticsearch'
 ES_PORT = 9200
