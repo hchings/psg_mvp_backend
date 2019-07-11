@@ -2,22 +2,31 @@
 This is the core RESTful web backend for the mvp consisted of multiple docker instances.
 Please refer to the documents (WIP) for details.
 
+1. web (django web service)
+2. mongo (core database)
+3. elasticsearch (a clone of the subset of searchable documents in mongo)
+
+
+
 
 ## A. Prerequisits
-Since we're developing with docker, all you need is to install [docker](https://docs.docker.com/) on your local environment. 
+Install [docker](https://docs.docker.com/) on your local environment. 
 
 ## B. To Run
 1. Clone to code to your local env
-2. [Tentative for now] Please move the *docker-compose.yml* to the upper folder
-3. Run the following command, which will start all the instances.
+2. Run the following command, which will start all the instances.
 ```sh
 $ docker-compose up web
 ```
 
-Make sure you've run the following commands for the initial run:
+When the container is first created, the following commands will be run:
 ```sh
 $ python manage.py makemigrations
 $ python manage.py migrate
+```
+
+3. Make sure to run the below command if you want to use the admin page:
+```sh
 $ python manage.py createsuperuser
 ```
 

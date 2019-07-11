@@ -65,9 +65,9 @@ class DoctorProfileAdmin(admin.ModelAdmin):
     list_display = ('display_name', 'clinic_name', 'position', 'uuid', 'clinic_uuid', 'is_primary', 'relevant', 'first_check')
     list_filter = ('first_check', 'relevant', 'clinic_name')
     search_fields = ['display_name', 'clinic_name']
-    readonly_fields = ('uuid', 'clinic_uuid')
+    readonly_fields = ('uuid', 'clinic_uuid', 'services_raw')
     # ListField in Djongo is formless so could not be edit through Django Admin
-    exclude = ('professions_raw',)
+    # exclude = ('services_raw',)
 
 
 admin.site.register(User, UserAdmin)

@@ -3,11 +3,14 @@ Database models for clinic
 
 """
 import os
+import coloredlogs, logging
 
 from phonenumber_field.modelfields import PhoneNumberField
 from imagekit.models import ProcessedImageField
 from imagekit.processors import ResizeToFill
 from imagekit.models import ImageSpecField
+from elasticsearch_dsl.exceptions import ValidationException
+
 # from taggit.managers import TaggableManager
 # from django import forms
 # from django.db import models
@@ -18,6 +21,8 @@ from django import forms
 from django.conf import settings
 # from django.contrib.postgres.fields import ArrayField
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
+
 # from backend.shared.models import SimpleString, SimpleStringForm
 
 from ..doc_type import ClinicProfileDoc
@@ -27,6 +32,9 @@ from ..doc_type import ClinicProfileDoc
 
 # from tags.models import ServiceTaggedItem
 
+# Create a logger
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG', logger=logger)
 
 # -------------------------------
 #            Utilities
@@ -215,7 +223,8 @@ class ClinicProfile(models.Model):
     #     default=[]
     # )
 
-    services_raw_input = models.TextField(blank=True, help_text="隆鼻, 雙眼皮, 抽脂, ...")
+    services_raw_input = models.TextField(blank=True, help_text="隆鼻, 雙眼皮, 抽脂, ... \
+                                                                 Type '-' to clear the service_raw field")
     services_raw = models.ListField(blank=True,
                                     default=[],
                                     help_text="the original service tags on official sites w/out any normalization")
@@ -244,5 +253,13 @@ class ClinicProfile(models.Model):
             english_name=self.english_name,
             id=id  # we need this field to fetch the matched doc from mongo
         )
-        doc.save()
+
+        try:
+            doc.save()
+        except ValidationException as e:
+            # trigger index_clinic_profiles command to create index and load all
+            # current records to ES.
+            logger.error("Error while saving ClinicProfile and update ES index: %s" % str(e))
+            call_command('index_clinic_profiles')
+
         return doc.to_dict(include_meta=True)

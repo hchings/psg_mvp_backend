@@ -32,3 +32,27 @@ backend/\.coverage
 backend/tmp/
 
 clinics\.csv
+
+esdata/
+
+psg_mvp_backend/backend/utils/__pycache__/
+
+psg_mvp_backend/backend/utils/drf/__pycache__/
+
+psg_mvp_backend/backend/tags/__pycache__/
+
+psg_mvp_backend/backend/users/__pycache__/
+
+psg_mvp_backend/backend/backend/__pycache__/
+
+psg_mvp_backend/backend/backend/shared/__pycache__/
+
+psg_mvp_backend/backend/users/clinics/__pycache__/
+
+psg_mvp_backend/backend/users/doctors/__pycache__/
+
+psg_mvp_backend/backend/users/management/commands/__pycache__/
+
+psg_mvp_backend/backend/users/migrations/
+
+mongo_data/
