@@ -184,11 +184,14 @@ class DoctorProfile(models.Model):
     # postgre version
     # certificates = ArrayField(models.CharField(max_length=80, default=list, blank=True), blank=True, null=True)
 
+
     # TODO: this is not and should not be used as taggings.
     # TODO: Just a tmp way to store down the info from official sites
-    professions_raw = models.ListField(blank=True,
-                                       default=[],
-                                       help_text="the original professions on official sites w/out any normalization")
+    services_raw_input = models.TextField(blank=True, help_text="隆鼻, 雙眼皮, 抽脂, ... \
+                                                                 Type '-' to clear the service_raw field")
+    services_raw = models.ListField(blank=True,
+                                    default=[],
+                                    help_text="the original professions on official sites w/out any normalization")
 
     youtube_url = models.URLField(blank=True, help_text="any intro video")
     blog_url = models.URLField(blank=True, help_text="personal blog")

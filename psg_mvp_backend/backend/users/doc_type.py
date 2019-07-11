@@ -17,6 +17,7 @@ analyzer_standard = analyzer(
 # TODO: validate this is working
 analyzer_cn = analyzer(
     'smartcn',
+    tokenizer=tokenizer('smartcn_tokenizer'),
     filter=['lowercase']  # TODO: should be useless
 )
 

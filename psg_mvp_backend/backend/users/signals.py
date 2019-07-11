@@ -60,6 +60,7 @@ def create_profile(sender, instance, created, **kwargs):
 
 
 @receiver(pre_save, sender=ClinicProfile)
+@receiver(pre_save, sender=DoctorProfile)
 def clinic_profile_store_service_tags_raw(sender, instance, **kwargs):
     """
     Turn services_raw_input field (TextField) of a ClinicProfile into services_raw field (ListField, plain array).
@@ -72,14 +73,17 @@ def clinic_profile_store_service_tags_raw(sender, instance, **kwargs):
     """
     services_raw_input = instance.services_raw_input
 
-    if services_raw_input:
+    if services_raw_input.strip() == '-':
+        instance.services_raw_input = ''
+        instance.services_raw = []
+    elif services_raw_input:
         services_raw_input = remove_newlines(services_raw_input)
         services_raw_input.replace("\n", ",")
         services_raw_input.replace("，", ",")
 
         instance.services_raw = [item.strip() for item in services_raw_input.split(',') if item.strip()]
-    else:
-        instance.services_raw = []
+    elif instance.services_raw:
+        instance.services_raw_input = ', '.join(instance.services_raw)
 
 
 @receiver(pre_save, sender=DoctorProfile)
@@ -100,7 +104,7 @@ def store_clinic(sender, instance, **kwargs):
     instance.certificates = instance.certificates or []
     instance.work_exps = instance.work_exps or []
     instance.other_exps = instance.other_exps or []
-    instance.professions_raw = instance.professions_raw or []
+    instance.services_raw = instance.services_raw or []
 
     clinic_name = str(getattr(instance, 'clinic_name', ''))
     if clinic_name:
