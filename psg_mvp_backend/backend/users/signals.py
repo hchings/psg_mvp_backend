@@ -73,7 +73,7 @@ def clinic_profile_store_service_tags_raw(sender, instance, **kwargs):
     """
     services_raw_input = instance.services_raw_input
 
-    if services_raw_input.strip() == '-':
+    if services_raw_input and services_raw_input.strip() == '-':
         instance.services_raw_input = ''
         instance.services_raw = []
     elif services_raw_input:
