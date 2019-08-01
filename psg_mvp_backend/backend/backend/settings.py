@@ -82,6 +82,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -195,7 +196,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS':
         'rest_framework.pagination.LimitOffsetPagination',
     # 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 5
+    'PAGE_SIZE': 20    # TODO: to-be-decided
 }
 
 # django-rest-auth configuration
@@ -239,3 +240,10 @@ LOGOUT_URL = reverse_lazy('rest_logout')
 # TODO: remove this
 ES_HOST = 'elasticsearch'
 ES_PORT = 9200
+
+
+# for cors
+CORS_ORIGIN_ALLOW_ALL = False
+CORS_ORIGIN_WHITELIST = [
+    "localhost:4200",
+]

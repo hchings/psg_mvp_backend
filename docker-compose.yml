@@ -8,7 +8,7 @@ services:
     volumes:
       - ./dump:/dump
       - ./psg_mvp_backend/mongo.conf:/etc/mongo.conf
-      - /data/db:/data/db
+      - ./data/db:/data/db
 #    command:
 #      - "--auth"
 #      - "-f"
