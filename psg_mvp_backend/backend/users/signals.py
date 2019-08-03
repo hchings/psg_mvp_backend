@@ -130,4 +130,5 @@ def clinic_profile_index_handler(sender, instance, **kwargs):
     :param kwargs:
     :return:
     """
-    instance.indexing()
+    pass
+    # instance.indexing()

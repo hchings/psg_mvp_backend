@@ -4,6 +4,7 @@ DRF Serializers for clinics / doctors.
 """
 
 import json
+import ast
 
 from rest_framework import serializers, exceptions
 # from rest_auth.registration.serializers import RegisterSerializer
@@ -63,6 +64,12 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
                     # https://github.com/stefanfoulis/django-phonenumber-field/issues/225
                     elif key == 'phone':
                         embedded_dict[key] = str(embedded_dict[key])
+                    elif key == 'opening_info':
+                        # restore the list structure
+                        # reason: Djongo abstract model couldn't use ListField..
+                        embedded_dict[key] = [] if not embedded_dict[key] \
+                            else ast.literal_eval(embedded_dict[key])
+
                 embedded_list.append(embedded_dict)
             return_data = embedded_list
         else:

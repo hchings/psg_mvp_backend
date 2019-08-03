@@ -247,3 +247,11 @@ CORS_ORIGIN_ALLOW_ALL = False
 CORS_ORIGIN_WHITELIST = [
     "localhost:4200",
 ]
+
+
+###################################
+#          3rd party api
+###################################
+# Google Map API key (project mvp1).
+# You can enable more API services under this key in Google's console.
+GOOGLE_MAP_API_KEY = 'AIzaSyDDbkqc3aU4LvKFU_78HgGoJMqY_5e-t1s' # TODO: remove this

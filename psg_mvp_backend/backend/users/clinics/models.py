@@ -24,7 +24,7 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 
 # from backend.shared.models import SimpleString, SimpleStringForm
-
+from backend.shared.fields import MongoDecimalField
 from ..doc_type import ClinicProfileDoc
 
 
@@ -39,6 +39,7 @@ coloredlogs.install(level='DEBUG', logger=logger)
 # -------------------------------
 #            Utilities
 # -------------------------------
+
 
 def get_logo_full_dir_name(instance, filename):
     extension = filename.split(".")[-1]
@@ -85,11 +86,13 @@ class ClinicBranch(models.Model):
     branch_name = models.CharField(max_length=50)
 
     # --- opening info ---
+    opening_info = models.CharField(max_length=200, default='', blank=True)
+
     # store a json object
     # {'11:00-20:00': [1,2,3,4,5,6]
     #  'close': [7]
     # }
-    opening_info = models.CharField(max_length=200, default='', blank=True)
+    opening_concise = models.CharField(max_length=200, default='', blank=True)
 
     # --- atmosphere info ---
     rating = models.FloatField(help_text="ratings from google map API",
@@ -103,6 +106,10 @@ class ClinicBranch(models.Model):
 
     # most starts with nationality code (+XXX) otherwise considered invalid.
     phone = PhoneNumberField(blank=True)
+
+    # geo info
+    longitude = MongoDecimalField(max_digits=9, decimal_places=6, blank=True)
+    latitude = MongoDecimalField(max_digits=9, decimal_places=6, blank=True)
 
     def __str__(self):
         return self.branch_name
