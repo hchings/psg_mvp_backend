@@ -458,6 +458,7 @@ def run():
 
             try:
                 if not test_mode:
+                    doctor_profile.services_raw_input = ', '.join(doctor_profile.services_raw)
                     doctor_profile.save()
                 logger.info("Doctor %s: Services info saved. Details: %s"
                             % (doctor_name, doctor_profile.services_raw))
