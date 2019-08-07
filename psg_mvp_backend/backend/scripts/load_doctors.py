@@ -262,9 +262,21 @@ def run():
         # -----------------------------------------------------
         # 4. add degrees
         # -----------------------------------------------------
-
         if pd.isna(row['degrees']):
             logger.info("Doctor %s: No degree entry exist for this doctor" % doctor_name)
+            if override_mode and doctor_profile.degrees:
+                logger.warning("Doctor %s: Override mode activated, override degree record to empty. "
+                               "Existing degrees %s" % (doctor_name, doctor_profile.degrees))
+                doctor_profile.degrees = []
+                try:
+                    if not test_mode:
+                        doctor_profile.save()
+                    logger.info("Doctor %s: Degree info overridden to empty. New degree info: %s"
+                                % (doctor_name, doctor_profile.degrees))
+
+                except Exception as e:
+                    logger.error("Doctor %s: Doctor profile degree failed to set to empty. Error: %s"
+                                 % (doctor_name, str(e)))
         else:
             degrees_raw = str(row['degrees'])
             if not no_parsing_mode:
@@ -306,6 +318,19 @@ def run():
 
         if pd.isna(row['experience']):
             logger.info("Doctor %s: No experience entry exist for this doctor" % doctor_name)
+            if override_mode and doctor_profile.work_exps:
+                logger.warning("Doctor %s: Override mode activated, override experience record to empty. "
+                               "Existing experiences %s" % (doctor_name, doctor_profile.work_exps))
+                doctor_profile.work_exps = []
+                try:
+                    if not test_mode:
+                        doctor_profile.save()
+                    logger.info("Doctor %s: Experience info overridden to empty. New experience info: %s"
+                                % (doctor_name, doctor_profile.work_exps))
+
+                except Exception as e:
+                    logger.error("Doctor %s: Doctor profile experience info failed to set to empty. Error: %s"
+                                 % (doctor_name, str(e)))
         else:
             experiences_raw = str(row['experience'])
             if not no_parsing_mode:
@@ -347,6 +372,19 @@ def run():
 
         if pd.isna(row['other experience']):
             logger.info("Doctor %s: No other experience entry exist for this doctor" % doctor_name)
+            if override_mode and doctor_profile.other_exps:
+                logger.warning("Doctor %s: Override mode activated, override other experience record to empty. "
+                               "Existing other experiences %s" % (doctor_name, doctor_profile.other_exps))
+                doctor_profile.other_exps = []
+                try:
+                    if not test_mode:
+                        doctor_profile.save()
+                    logger.info("Doctor %s: Other experience info overridden to empty. New experience info: %s"
+                                % (doctor_name, doctor_profile.other_exps))
+
+                except Exception as e:
+                    logger.error("Doctor %s: Doctor profile other experience info failed to set to empty. Error: %s"
+                                 % (doctor_name, str(e)))
         else:
             other_experiences_raw = str(row['other experience'])
             if not no_parsing_mode:
@@ -391,6 +429,19 @@ def run():
 
         if pd.isna(row['certificates']):
             logger.info("Doctor %s: No certificate entry exist for this doctor" % doctor_name)
+            if override_mode and doctor_profile.certificates:
+                logger.warning("Doctor %s: Override mode activated, override certificate record to empty. "
+                               "Existing certificates %s" % (doctor_name, doctor_profile.certificates))
+                doctor_profile.certificates = []
+                try:
+                    if not test_mode:
+                        doctor_profile.save()
+                    logger.info("Doctor %s: certificate info overridden to empty. New certificate info: %s"
+                                % (doctor_name, doctor_profile.certificates))
+
+                except Exception as e:
+                    logger.error("Doctor %s: Doctor profile certificate failed to set to empty. Error: %s"
+                                 % (doctor_name, str(e)))
         else:
             certificates_raw = str(row['certificates'])
             if not no_parsing_mode:
@@ -433,6 +484,20 @@ def run():
 
         if pd.isna(row['professionals']):
             logger.info("Doctor %s: No profession entry exist for this doctor" % doctor_name)
+            if override_mode and doctor_profile.services_raw:
+                logger.warning("Doctor %s: Override mode activated, override services record to empty. "
+                               "Existing services %s" % (doctor_name, doctor_profile.services_raw))
+                doctor_profile.services_raw = []
+                try:
+                    if not test_mode:
+                        doctor_profile.services_raw_input = ""
+                        doctor_profile.save()
+                    logger.info("Doctor %s: Degree info overridden to empty. New services info: %s"
+                                    % (doctor_name, doctor_profile.services_raw))
+
+                except Exception as e:
+                    logger.error("Doctor %s: Doctor profile services failed to set to empty. Error: %s"
+                                 % (doctor_name, str(e)))
         else:
             services_raw = str(row['professionals'])
             if not no_parsing_mode:
