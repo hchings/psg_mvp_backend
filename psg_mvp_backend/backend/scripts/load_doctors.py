@@ -69,8 +69,21 @@ def run():
         else:
             override_control_confirm = \
                 input("Confirm to run in override mode? Existing records WILL be overridden (y/n) ")
-
         if override_control_confirm == 'y':
+            break
+        else:
+            continue
+
+    # Control to run in no-parsing mode or not. No parsing mode will not parse the input records except splitting by \n
+
+    while True:
+        no_parsing_control = input("Run in no-parsing mode (not parse the input records except splitting)? (y/n) ")
+        if no_parsing_control == 'y':
+            no_parsing_control_confirm = input("Confirm to run in no-parsing mode? Records will NOT be parsed (y/n) ")
+        else:
+            no_parsing_control_confirm = input("Confirm to run in parsing mode? Records WILL be parsed (y/n) ")
+
+        if no_parsing_control_confirm == 'y':
             break
         else:
             continue
@@ -84,6 +97,11 @@ def run():
         test_mode = False
     else:
         test_mode = True
+
+    if no_parsing_control == 'y':
+        no_parsing_mode = True
+    else:
+        no_parsing_mode = False
 
     if test_mode:
         doctor_name = TEST_DOCTOR_ACCT_NAME
@@ -244,14 +262,29 @@ def run():
         # -----------------------------------------------------
         # 4. add degrees
         # -----------------------------------------------------
-
         if pd.isna(row['degrees']):
             logger.info("Doctor %s: No degree entry exist for this doctor" % doctor_name)
+            if override_mode and doctor_profile.degrees:
+                logger.warning("Doctor %s: Override mode activated, override degree record to empty. "
+                               "Existing degrees %s" % (doctor_name, doctor_profile.degrees))
+                doctor_profile.degrees = []
+                try:
+                    if not test_mode:
+                        doctor_profile.save()
+                    logger.info("Doctor %s: Degree info overridden to empty. New degree info: %s"
+                                % (doctor_name, doctor_profile.degrees))
+
+                except Exception as e:
+                    logger.error("Doctor %s: Doctor profile degree failed to set to empty. Error: %s"
+                                 % (doctor_name, str(e)))
         else:
             degrees_raw = str(row['degrees'])
-            degrees_clean = dataCleanUp(degrees_raw)
-
-            degree_name_list = [item.replace(',', '') for item in degrees_clean.split('\n') if item]
+            if not no_parsing_mode:
+                degrees_clean = dataCleanUp(degrees_raw)
+                degree_name_list = [item.replace(',', '') for item in degrees_clean.split('\n') if item]
+            else:
+                degrees_clean = degrees_raw.replace('\r', '\n')
+                degree_name_list = [item for item in degrees_clean.split('\n') if item]
 
             if not doctor_profile.degrees:
                 doctor_profile.degrees = []
@@ -285,11 +318,27 @@ def run():
 
         if pd.isna(row['experience']):
             logger.info("Doctor %s: No experience entry exist for this doctor" % doctor_name)
+            if override_mode and doctor_profile.work_exps:
+                logger.warning("Doctor %s: Override mode activated, override experience record to empty. "
+                               "Existing experiences %s" % (doctor_name, doctor_profile.work_exps))
+                doctor_profile.work_exps = []
+                try:
+                    if not test_mode:
+                        doctor_profile.save()
+                    logger.info("Doctor %s: Experience info overridden to empty. New experience info: %s"
+                                % (doctor_name, doctor_profile.work_exps))
+
+                except Exception as e:
+                    logger.error("Doctor %s: Doctor profile experience info failed to set to empty. Error: %s"
+                                 % (doctor_name, str(e)))
         else:
             experiences_raw = str(row['experience'])
-            experiences_clean = dataCleanUp(experiences_raw)
-
-            experiences_entry_list = [item.replace(',', '') for item in experiences_clean.split('\n') if item]
+            if not no_parsing_mode:
+                experiences_clean = dataCleanUp(experiences_raw)
+                experiences_entry_list = [item.replace(',', '') for item in experiences_clean.split('\n') if item]
+            else:
+                experiences_clean = experiences_raw.replace('\r', '\n')
+                experiences_entry_list = [item for item in experiences_clean.split('\n') if item]
 
             if not doctor_profile.work_exps:
                 doctor_profile.work_exps = []
@@ -323,11 +372,29 @@ def run():
 
         if pd.isna(row['other experience']):
             logger.info("Doctor %s: No other experience entry exist for this doctor" % doctor_name)
+            if override_mode and doctor_profile.other_exps:
+                logger.warning("Doctor %s: Override mode activated, override other experience record to empty. "
+                               "Existing other experiences %s" % (doctor_name, doctor_profile.other_exps))
+                doctor_profile.other_exps = []
+                try:
+                    if not test_mode:
+                        doctor_profile.save()
+                    logger.info("Doctor %s: Other experience info overridden to empty. New experience info: %s"
+                                % (doctor_name, doctor_profile.other_exps))
+
+                except Exception as e:
+                    logger.error("Doctor %s: Doctor profile other experience info failed to set to empty. Error: %s"
+                                 % (doctor_name, str(e)))
         else:
             other_experiences_raw = str(row['other experience'])
-            other_experiences_clean = dataCleanUp(other_experiences_raw)
-
-            other_experiences_entry_list = [item.replace(',', '') for item in other_experiences_clean.split('\n') if item]
+            if not no_parsing_mode:
+                other_experiences_clean = dataCleanUp(other_experiences_raw)
+                other_experiences_entry_list = [item.replace(',', '') for item in
+                                                other_experiences_clean.split('\n') if item]
+            else:
+                other_experiences_clean = other_experiences_raw.replace('\r', '\n')
+                other_experiences_entry_list = [item for item in
+                                                other_experiences_clean.split('\n') if item]
 
             if not doctor_profile.other_exps:
                 doctor_profile.other_exps = []
@@ -362,11 +429,27 @@ def run():
 
         if pd.isna(row['certificates']):
             logger.info("Doctor %s: No certificate entry exist for this doctor" % doctor_name)
+            if override_mode and doctor_profile.certificates:
+                logger.warning("Doctor %s: Override mode activated, override certificate record to empty. "
+                               "Existing certificates %s" % (doctor_name, doctor_profile.certificates))
+                doctor_profile.certificates = []
+                try:
+                    if not test_mode:
+                        doctor_profile.save()
+                    logger.info("Doctor %s: certificate info overridden to empty. New certificate info: %s"
+                                % (doctor_name, doctor_profile.certificates))
+
+                except Exception as e:
+                    logger.error("Doctor %s: Doctor profile certificate failed to set to empty. Error: %s"
+                                 % (doctor_name, str(e)))
         else:
             certificates_raw = str(row['certificates'])
-            certificates_clean = dataCleanUp(certificates_raw)
-
-            certificates_list = [item.replace(',', '') for item in certificates_clean.split('\n') if item]
+            if not no_parsing_mode:
+                certificates_clean = dataCleanUp(certificates_raw)
+                certificates_list = [item.replace(',', '') for item in certificates_clean.split('\n') if item]
+            else:
+                certificates_clean = certificates_raw.replace('\r', '\n')
+                certificates_list = [item for item in certificates_clean.split('\n') if item]
 
             if not doctor_profile.certificates:
                 doctor_profile.certificates = []
@@ -401,11 +484,28 @@ def run():
 
         if pd.isna(row['professionals']):
             logger.info("Doctor %s: No profession entry exist for this doctor" % doctor_name)
+            if override_mode and doctor_profile.services_raw:
+                logger.warning("Doctor %s: Override mode activated, override services record to empty. "
+                               "Existing services %s" % (doctor_name, doctor_profile.services_raw))
+                doctor_profile.services_raw = []
+                try:
+                    if not test_mode:
+                        doctor_profile.services_raw_input = ""
+                        doctor_profile.save()
+                    logger.info("Doctor %s: Degree info overridden to empty. New services info: %s"
+                                    % (doctor_name, doctor_profile.services_raw))
+
+                except Exception as e:
+                    logger.error("Doctor %s: Doctor profile services failed to set to empty. Error: %s"
+                                 % (doctor_name, str(e)))
         else:
             services_raw = str(row['professionals'])
-            services_clean = dataCleanUp(services_raw)
-
-            services_list = [item.replace(',', '') for item in services_clean.split('\n') if item]
+            if not no_parsing_mode:
+                services_clean = dataCleanUp(services_raw)
+                services_list = [item.replace(',', '') for item in services_clean.split('\n') if item]
+            else:
+                services_clean = services_raw.replace('\r', '\n')
+                services_list = [item for item in services_clean.split('\n') if item]
 
             if not doctor_profile.services_raw:
                 doctor_profile.services_raw = []
@@ -423,6 +523,7 @@ def run():
 
             try:
                 if not test_mode:
+                    doctor_profile.services_raw_input = ', '.join(doctor_profile.services_raw)
                     doctor_profile.save()
                 logger.info("Doctor %s: Services info saved. Details: %s"
                             % (doctor_name, doctor_profile.services_raw))
