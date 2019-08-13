@@ -144,7 +144,6 @@ class ClinicProfile(models.Model):
     Auto-created when a clinic user is created.
 
     """
-
     _id = models.ObjectIdField()
 
     # ---fields copy from the User colleciton ---
@@ -223,6 +222,19 @@ class ClinicProfile(models.Model):
         model_form_class=ClinicBranchForm,
         default=[]
     )
+
+    # average of the ratings of all branches
+    @property
+    def rating(self):
+        """
+        Simply average the ratings from all its branches.
+
+        :return (float): the averaged ratings
+        """
+        # TODO: add prevention on user type?
+        branch_ratings = [branch.rating for branch in self.branches if branch.rating]
+        # arithmetic average rounded to 1 decimal point
+        return 0.0 if not branch_ratings else round(sum(branch_ratings)/len(branch_ratings), 1)
 
     # services_raw = models.ArrayModelField(
     #     model_container=SimpleString,

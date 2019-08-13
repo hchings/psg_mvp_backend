@@ -1,5 +1,5 @@
 """
-DRF Views for clinics / doctors.
+DRF Views for clinics.
 
 """
 
