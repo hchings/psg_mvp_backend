@@ -35,6 +35,7 @@ urlpatterns = internal_apis + [
     path('admin/', admin.site.urls),
     url(r'auth/', include('users.urls')),
     url(r'^clinics/', include('users.clinics.urls')),
+    url(r'^doctors/', include('users.doctors.urls')),
 ]
 
 

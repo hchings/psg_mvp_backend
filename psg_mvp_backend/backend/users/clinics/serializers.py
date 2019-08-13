@@ -1,5 +1,5 @@
 """
-DRF Serializers for clinics / doctors.
+DRF Serializers for clinics.
 
 """
 
