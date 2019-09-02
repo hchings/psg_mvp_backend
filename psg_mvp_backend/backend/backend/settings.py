@@ -26,7 +26,7 @@ TOP_DIR = Path(__file__).resolve().parent.parent.parent
 SECRET_KEY = 'hck+)fy3p9x789tx(x^-j*^!8ylg*e-n=lkh5*3zs^k&f$)h_='
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 # ALLOWED_HOSTS = ['0.0.0.0', 'localhost']
 ALLOWED_HOSTS = ['0.0.0.0', '206.189.218.129', 'localhost']
