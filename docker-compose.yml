@@ -47,10 +47,10 @@ services:
 #    ports: # Expose Elasticsearch ports
 #      - "9300:9300"
 #      - "9200:9200"
-  dejavu:
-    image: appbaseio/dejavu:3.3.0
-    container_name: dejavu
-    ports:
-      - "1358:1358"
-    links:
-      - elasticsearch
+#  dejavu:
+#    image: appbaseio/dejavu:3.3.0
+#    container_name: dejavu
+#    ports:
+#      - "1358:1358"
+#    links:
+#      - elasticsearch
