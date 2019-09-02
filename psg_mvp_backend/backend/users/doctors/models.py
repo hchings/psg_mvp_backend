@@ -9,11 +9,13 @@ from imagekit.models import ProcessedImageField
 from imagekit.processors import ResizeToFill
 
 from django import forms
-from django.conf import settings
 
 
 def get_doctor_base_path(instance):
-    return os.path.join(settings.MEDIA_ROOT, '/'.join(['doctors', 'doctor_' + str(instance.uuid)]))
+    if not instance.uuid:
+        return '/'.join(['doctors', 'doctor_' + str(instance._id)])
+    else:
+        return '/'.join(['doctors', 'doctor_' + str(instance.uuid)])
 
 
 def get_doctor_dir_name(instance, filename):
@@ -97,7 +99,7 @@ class DoctorProfile(models.Model):
                                help_text="the _id field of the User collection. Do not fill in this manually.")
 
     uuid = models.CharField(max_length=30,
-                            unique=True,  # TODO: unsure
+                            unique=False,  # TODO: temp turn off for freelancer process
                             editable=False,
                             help_text="the uuid field in the corresponding user. Do not fill in this manually.")
 

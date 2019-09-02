@@ -62,12 +62,28 @@ class DoctorProfileAdmin(admin.ModelAdmin):
     Customizing Admin Page for ClinicProfile Model
 
     """
-    list_display = ('display_name', 'clinic_name', 'position', 'uuid', 'clinic_uuid', 'is_primary', 'relevant', 'first_check')
+    list_display = ('display_name', 'clinic_name', 'position', 'profile_photo_thumb', 'uuid',
+                    'clinic_uuid', 'is_primary', 'relevant', 'first_check')
     list_filter = ('first_check', 'relevant', 'clinic_name')
     search_fields = ['display_name', 'clinic_name']
     readonly_fields = ('uuid', 'clinic_uuid', 'services_raw')
+
     # ListField in Djongo is formless so could not be edit through Django Admin
     # exclude = ('services_raw',)
+
+    @mark_safe
+    def profile_photo_thumb(self, obj):
+        """
+        For diplaying pic in Django admin.
+        ref: https://books.agiliq.com/projects/django-admin-cookbook/en/latest/imagefield.html
+        :param obj:
+        :return:
+        """
+
+        if obj.profile_photo:
+            return '<img src="%s" height="70px" />' % obj.profile_photo.url
+        else:
+            return 'No_image'
 
 
 admin.site.register(User, UserAdmin)
