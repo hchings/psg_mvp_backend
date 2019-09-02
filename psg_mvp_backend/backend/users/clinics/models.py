@@ -261,6 +261,9 @@ class ClinicProfile(models.Model):
 
         :return:
         """
+        # tmp turn off elastic search
+        return
+
         id = str(getattr(self, '_id', ''))
 
         # Simplified CN's analyzer is much better.

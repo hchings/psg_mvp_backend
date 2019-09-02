@@ -31,7 +31,7 @@ internal_apis = [
 ]
 
 urlpatterns = internal_apis + [
-    url(r'^$', schema_view, name='swagger-root'),
+    # url(r'^$', schema_view, name='swagger-root'),
     path('admin/', admin.site.urls),
     url(r'auth/', include('users.urls')),
     url(r'^clinics/', include('users.clinics.urls')),
