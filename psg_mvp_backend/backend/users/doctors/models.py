@@ -202,8 +202,8 @@ class DoctorProfile(models.Model):
     # --- for internal user only ---
     first_check = models.BooleanField(default=False, blank=True, help_text="first manual data checking")
 
-    rating = models.FloatField(help_text="ratings",
-                               blank=True)
+    #rating = models.FloatField(help_text="ratings",
+    #                           blank=True)
 
     def __str__(self):
         """
