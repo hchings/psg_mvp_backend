@@ -2,30 +2,31 @@
 Database models for clinic
 
 """
-import os
+import os, json
 import coloredlogs, logging
+from itertools import groupby
 
 from phonenumber_field.modelfields import PhoneNumberField
 from imagekit.models import ProcessedImageField
 from imagekit.processors import ResizeToFill
 from imagekit.models import ImageSpecField
-from elasticsearch_dsl.exceptions import ValidationException
+# from elasticsearch_dsl.exceptions import ValidationException
 
 # from taggit.managers import TaggableManager
 # from django import forms
 # from django.db import models
 from djongo import models
-from hanziconv import HanziConv
+# from hanziconv import HanziConv
 
 from django import forms
 from django.conf import settings
 # from django.contrib.postgres.fields import ArrayField
 from django.contrib.auth import get_user_model
-from django.core.management import call_command
+# from django.core.management import call_command
 
 # from backend.shared.models import SimpleString, SimpleStringForm
 from backend.shared.fields import MongoDecimalField
-from ..doc_type import ClinicProfileDoc
+from ..doc_type import ClinicBranchDoc
 
 
 # from django.utils.translation import ugettext_lazy as _
@@ -35,6 +36,17 @@ from ..doc_type import ClinicProfileDoc
 # Create a logger
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
+
+
+num_to_zh_char = {
+    0: '日',
+    1: '一',
+    2: '二',
+    3: '三',
+    4: '四',
+    5: '五',
+    6: '六'
+}
 
 # -------------------------------
 #            Utilities
@@ -234,7 +246,7 @@ class ClinicProfile(models.Model):
         # TODO: add prevention on user type?
         branch_ratings = [branch.rating for branch in self.branches if branch.rating]
         # arithmetic average rounded to 1 decimal point
-        return 0.0 if not branch_ratings else round(sum(branch_ratings)/len(branch_ratings), 1)
+        return 0.0 if not branch_ratings else round(sum(branch_ratings) / len(branch_ratings), 1)
 
     # services_raw = models.ArrayModelField(
     #     model_container=SimpleString,
@@ -257,28 +269,99 @@ class ClinicProfile(models.Model):
     def indexing(self):
         """
         An indexing instance method that adds the object instance
-        to the Elasticsearch index via the DocType we just created.
+        to the Elasticsearch index via the DocType.
 
-        :return:
+        In DB, each document is in "clinic" level.
+        However, this method break the clinic document down
+        to "branch" level and store in ES.
+
+        Simplified CN's analyzer is much better.
+        But since the current purpose it's only for very short text,
+        we don't not bother to do HanziConv.toSimplified().
+
+        :return(list): a list of ClinicBranchDoc objects
         """
-        id = str(getattr(self, '_id', ''))
+        # id = str(getattr(self, '_id', ''))
 
-        # Simplified CN's analyzer is much better.
-        # so all the cn fields will be stored in simplified chinese in ES.
-        doc = ClinicProfileDoc(
-            meta={'id': id},  # each document has metadata associated with it
-            display_name=HanziConv.toSimplified(self.display_name),
-            obsolete_name=HanziConv.toSimplified(self.obsolete_name),
-            english_name=self.english_name,
-            id=id  # we need this field to fetch the matched doc from mongo
-        )
+        data = []
+        for branch in self.branches:
 
-        try:
-            doc.save()
-        except ValidationException as e:
-            # trigger index_clinic_profiles command to create index and load all
-            # current records to ES.
-            logger.error("Error while saving ClinicProfile and update ES index: %s" % str(e))
-            call_command('index_clinic_profiles')
+            # 1. turn opening info into boolean
+            open_sunday = True
+            try:
+                # 0 represents Sunday
+                if 0 in json.loads(branch.opening_concise).get('close', []):
+                    open_sunday = False
+            except json.decoder.JSONDecodeError:
+                open_sunday = False  # unknown
 
-        return doc.to_dict(include_meta=True)
+            # 2. turn the concise opening info in DB to a readable format
+            open_info = self._humanize_opening_str(branch.opening_concise)
+
+            # 3. create a new doc type.
+            #    note that we should avoid saving blob in search engine.
+            doc = ClinicBranchDoc(
+                # meta={'id': id},  # each document has metadata associated with it
+                display_name=self.display_name,
+                branch_name=branch.branch_name,
+                services=self.services_raw,
+                open_sunday=open_sunday,
+                open_info=str(open_info), # TODO: somehow will block if I use array
+                address=branch.address,
+                rating=branch.rating,
+                id=self.uuid  # uuid of the clinic
+            )
+
+            data.append(doc.to_dict(include_meta=True))
+
+            # try:
+            #     tmp.save()
+            # except ValidationException as e:
+            #     # trigger index_clinic_profiles command to create index and load all
+            #     # current records to ES.
+            #     logger.error("Error while saving ClinicProfile and update ES index: %s" % str(e))
+            #     call_command('index_clinic_profiles')
+
+        return data
+
+    @staticmethod
+    def _humanize_opening_str(opening_concise):
+        """
+        Turn the opening_concise field in ClinicProfile
+        into readable format with the close dates ignored.
+        For example:
+
+        週一, 二, 五 3:00-12:00
+        週一至週五 3:00-12:30
+
+        :param(str) opening_concise:
+        :return(str):
+        """
+        if not opening_concise:
+            return []
+
+        result = []
+        d = json.loads(opening_concise)
+        for time, days in d.items():
+            # skip empty
+            if not time or not days:
+                continue
+
+            # check whether the days are consecutive
+            is_consecutive = True if len(days) == 1 or \
+                len(list(groupby(enumerate(days), lambda ix: ix[0] - ix[1]))) == 1 else False
+
+            if is_consecutive:
+                if len(days) > 1:
+                    day_str = '週%s至%s' % (num_to_zh_char[days[0]], num_to_zh_char[days[-1]])
+                else:
+                    day_str = '週%s' % num_to_zh_char[days[0]]
+            else:
+                day_str = '週%s' % (''.join([num_to_zh_char[day] + '、' for day in days]))
+                day_str = day_str[:-1]
+
+            # skipped days that are closed.
+            if not str(time).startswith('c'):
+                result.append(' '.join([day_str, time]))
+
+        return ', '.join(result)
