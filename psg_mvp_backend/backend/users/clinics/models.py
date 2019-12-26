@@ -348,7 +348,7 @@ class ClinicProfile(models.Model):
                 continue
 
             # check whether the days are consecutive
-            is_consecutive = True if len(days) == 1 or \
+            is_consecutive = True if len(days) == 1 or len(set(days)) == 7 or \
                 len(list(groupby(enumerate(days), lambda ix: ix[0] - ix[1]))) == 1 else False
 
             if is_consecutive:
