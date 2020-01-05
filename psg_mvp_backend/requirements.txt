@@ -10,6 +10,7 @@ coverage==4.5.3
 dataclasses==0.6
 defusedxml==0.6.0
 Django==2.1.7
+django-activity-stream==0.8.0
 django-allauth==0.39.1
 django-annoying==0.10.4
 django-appconf==1.0.3
@@ -24,6 +25,7 @@ djangorestframework==3.9.2
 djongo==1.2.32
 elasticsearch==7.0.2
 elasticsearch-dsl==7.0.0
+googlemaps==3.0.2
 hanziconv==0.3.2
 humanfriendly==4.18
 idna==2.8

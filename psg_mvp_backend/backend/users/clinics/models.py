@@ -228,7 +228,7 @@ class ClinicProfile(models.Model):
     is_sm = models.BooleanField(default=False, blank=True, help_text="is small. for marking tiny clinics")
     is_oob = models.BooleanField(default=False, blank=True, help_text="might be out-of-business")
 
-    # branches = models.EmbeddedModelField(model_container=ClinicBranch)
+    # branches = modeClinicBranchFormls.EmbeddedModelField(model_container=ClinicBranch)
     branches = models.ArrayModelField(
         model_container=ClinicBranch,
         model_form_class=ClinicBranchForm,

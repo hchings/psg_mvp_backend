@@ -7,8 +7,12 @@ reason: Djongo's abstract model does not support DecimalField.
 """
 
 import decimal
+import coloredlogs, logging
 from bson.decimal128 import Decimal128
 from djongo.models import DecimalField
+
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG', logger=logger)
 
 
 class MongoDecimalField(DecimalField):
@@ -40,3 +44,40 @@ class MongoDecimalField(DecimalField):
             context.traps[decimal.Rounded] = 1
             value = context.create_decimal(value)
         return "{:f}".format(value)
+
+
+def embedded_model_method(obj, model, field_name):
+    """
+    Serializer field for EmbeddedModelField from djongo.
+
+
+    :param(model instance) obj:
+    :param(model class) model:
+    :param(str) field_name:
+    :return:
+    """
+
+    field_object = model._meta.get_field(field_name)
+    field_value = field_object.value_from_object(obj)
+
+    try:
+        if type(field_value) == list:
+            embedded_list = []
+            for item in field_value:
+                embedded_dict = item.__dict__
+                for key in list(embedded_dict.keys()):
+                    if key.startswith('_'):
+                        embedded_dict.pop(key)
+                embedded_list.append(embedded_dict)
+            return_data = embedded_list
+        else:
+            embedded_dict = field_value.__dict__
+            for key in list(embedded_dict.keys()):
+                if key.startswith('_'):
+                    embedded_dict.pop(key)
+            return_data = embedded_dict
+        return return_data
+    except AttributeError as e:
+        # field name non exist
+        logger.error("Error: " + str(e))
+        return []
