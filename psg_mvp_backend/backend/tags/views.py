@@ -23,7 +23,9 @@ class ClinicNameListView(APIView):
 
     def get(self, request):
         q = Q({"match_all": {}})
-        s = ClinicBranchDoc.search()
+        # [IMPORTANT] must set index param when ES has multiple indices.
+        # otherwise, it will search on all indices even you set the doc type.
+        s = ClinicBranchDoc.search(index='clinic_profile')
         s = s.query(q).source(["display_name", "branch_name"])
         cnt = s.count()
 

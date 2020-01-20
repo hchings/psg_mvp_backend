@@ -49,6 +49,7 @@ class MongoDecimalField(DecimalField):
 def embedded_model_method(obj, model, field_name):
     """
     Serializer field for EmbeddedModelField from djongo.
+    https://github.com/nesdis/djongo/issues/115.
 
 
     :param(model instance) obj:
