@@ -7,7 +7,7 @@ from rest_framework import serializers, exceptions
 from drf_extra_fields.fields import Base64ImageField
 
 from backend.shared.fields import embedded_model_method
-from .models import Case, UserInfo, ClinicInfo, SurgeryMeta, SurgeryTag
+from .models import Case, CaseImages, UserInfo, ClinicInfo, SurgeryMeta, SurgeryTag
 
 
 #########################################################
@@ -59,16 +59,27 @@ class SurgeryTagSerializer(serializers.Serializer):
 class CaseCardSerializer(serializers.ModelSerializer):
     # read-only, so using methodField is sufficient.
     clinic = serializers.SerializerMethodField()
+    uuid = serializers.ReadOnlyField()
+
+    # this will correctly return full url in endpoints
+    # but not when using it standalone in DRF views unless the context is set.
     bf_img_thumb = serializers.ImageField(max_length=None,
                                           use_url=True,
                                           required=False)
+
+    af_img_thumb = serializers.ImageField(max_length=None,
+                                          use_url=True,
+                                          required=False)
+
+    # bf_img_thumb = serializers.SerializerMethodField()
+
     author = serializers.SerializerMethodField()
     surgeries = serializers.SerializerMethodField()
     surgery_meta = serializers.SerializerMethodField()
 
     class Meta:
         model = Case
-        fields = ('uuid', 'is_official', 'pbm', 'title', 'bf_img_thumb', 'surgeries',
+        fields = ('uuid', 'is_official', 'pbm', 'title', 'bf_img_thumb', 'af_img_thumb', 'surgeries', 'posted',
                   'author', 'state', 'clinic', 'view_num', 'surgery_meta')
 
     def get_author(self, obj):
@@ -115,6 +126,18 @@ NESTED_FIELDS_MODELS = [('clinic', ClinicInfo), ('author', UserInfo),
 NESTED_FIELDS = ['clinic', 'author', 'surgery_meta', 'surgeries']
 
 
+class CaseImagesSerializer(serializers.ModelSerializer):
+    img = serializers.ImageField(max_length=None,
+                                 use_url=True,
+                                 required=False)
+
+    caption = serializers.CharField(required=False, allow_blank=True)
+
+    class Meta:
+        model = CaseImages
+        fields = ('img', 'caption')
+
+
 # TODO: WIP. list API should through ES
 class CaseDetailSerializer(serializers.ModelSerializer):
     uuid = serializers.ReadOnlyField()
@@ -138,11 +161,13 @@ class CaseDetailSerializer(serializers.ModelSerializer):
                                     required=False)
     af_img_cropped = Base64ImageField(required=False)
 
+    other_imgs = serializers.SerializerMethodField(required=False)
+
     class Meta:
         model = Case
         # fields = "__all__"
         fields = ('uuid', 'is_official', 'pbm', 'title', 'bf_img', 'bf_img_cropped', 'bf_cap',
-                  'af_img', 'af_img_cropped', 'af_cap', 'surgeries', 'author', 'state',
+                  'af_img', 'af_img_cropped', 'af_cap', 'other_imgs', 'surgeries', 'author', 'state',
                   'clinic', 'view_num', 'body', 'surgery_meta', 'rating', 'bf_img_cropped')
 
     def __init__(self, *args, **kwargs):
@@ -222,17 +247,15 @@ class CaseDetailSerializer(serializers.ModelSerializer):
             print('---', nested_field, Current_model)
             if nested_field in validated_data:
                 new_data = validated_data[nested_field]
-                ori_obj = instance.clinic or Current_model()
+                ori_obj = getattr(instance, nested_field) or Current_model()
                 # for all nested fields under this field
-                for field in Current_model._meta.get_fields():
-                    print("filed", field.name)
+                for field in Current_model._meta.get_fields():  # TODO: has bug
                     field_name = field.name
                     if field_name in new_data:
-                        print("update field", field_name)
                         setattr(ori_obj, field_name, new_data.get(field_name, ''))
                         # clinic_obj._meta.get_field(field_name) = new_data[field_name]
                 # print("obj", ori_obj, ori_obj.doctor_name)
-                setattr(instance, field_name, ori_obj)
+                setattr(instance, nested_field, ori_obj)
                 # instance.clinic = ori_obj
 
         # others
@@ -241,7 +264,6 @@ class CaseDetailSerializer(serializers.ModelSerializer):
             if field_name not in NESTED_FIELDS:
                 print("check field", field_name)
                 if field_name in validated_data:
-                    print("update field 2 ", field_name)
                     setattr(instance, field_name, validated_data[field_name])
                 # instance.bf_img = validated_data.get('clinic', instance.email)
         # instance.clinic = validated_data.get('clinic', instance.email)
@@ -281,3 +303,11 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         :return:
         """
         return embedded_model_method(obj, self.Meta.model, 'surgeries')
+
+    # TODO: tmp try
+    def get_other_imgs(self, obj):
+        objs = CaseImages.objects.filter(case_uuid=obj.uuid)
+        serializer = CaseImagesSerializer(objs, many=True, context={'request': self.context['request']})
+
+        # [item.get('img', '') for item in serializer.data]
+        return [] if not objs else serializer.data

@@ -32,7 +32,10 @@ def get_bg_img_dir_name(instance, filename):
     extension = filename.split(".")[-1]
     new_filename = 'before.' + extension
     # obj.log.url, Media root is by default loaded
-    return os.path.join(settings.MEDIA_ROOT, '/'.join(['cases', 'case_' + str(instance.uuid), new_filename]))
+    # adding MEDIA_ROOT is wrong! the below two will save the img to the same place,
+    # but the upper one will be wrong when serialized.
+    # return os.path.join(settings.MEDIA_ROOT, '/'.join(['cases', 'case_' + str(instance.uuid), new_filename]))
+    return '/'.join(['cases', 'case_' + str(instance.uuid), new_filename]) # TODO: tmp try
 
 
 def get_bg_img_cropped_dir_name(instance, filename):
@@ -43,7 +46,7 @@ def get_bg_img_cropped_dir_name(instance, filename):
     extension = filename.split(".")[-1]
     new_filename = 'before_cropped.' + extension
     # obj.log.url, Media root is by default loaded
-    return os.path.join(settings.MEDIA_ROOT, '/'.join(['cases', 'case_' + str(instance.uuid), new_filename]))
+    return '/'.join(['cases', 'case_' + str(instance.uuid), new_filename])
 
 
 def get_af_img_dir_name(instance, filename):
@@ -54,7 +57,7 @@ def get_af_img_dir_name(instance, filename):
     extension = filename.split(".")[-1]
     new_filename = 'after.' + extension
     # obj.log.url, Media root is by default loaded
-    return os.path.join(settings.MEDIA_ROOT, '/'.join(['cases', 'case_' + str(instance.uuid), new_filename]))
+    return '/'.join(['cases', 'case_' + str(instance.uuid), new_filename])
 
 
 def get_af_img_cropped_dir_name(instance, filename):
@@ -65,11 +68,11 @@ def get_af_img_cropped_dir_name(instance, filename):
     extension = filename.split(".")[-1]
     new_filename = 'after_cropped.' + extension
     # obj.log.url, Media root is by default loaded
-    return os.path.join(settings.MEDIA_ROOT, '/'.join(['cases', 'case_' + str(instance.uuid), new_filename]))
+    return '/'.join(['cases', 'case_' + str(instance.uuid), new_filename])
 
 
 def get_case_dir_name(instance, filename):
-    return os.path.join(settings.MEDIA_ROOT, '/'.join(['cases', 'case_' + str(instance.uuid), filename]))
+    return '/'.join(['cases', 'case_' + str(instance.case_uuid), filename])
 
 
 ############################################################
@@ -245,10 +248,10 @@ class CaseImages(models.Model):
                                default='',
                                blank=True)
 
+    # editable = False,
     case_uuid = models.CharField(max_length=30,
                                  blank=False,
                                  unique=False,
-                                 editable=False,
                                  help_text="the uuid field in the corresponding case. Do not fill in this manually.")
 
     # 798 X 350 4:3
@@ -280,7 +283,8 @@ class Case(models.Model):
                                   unique=False,
                                   editable=False)
 
-    posted = models.TimeField(auto_now=True, help_text="last modified")
+    # posted = models.TimeField(auto_now=True, help_text="last modified")
+    posted = models.DateTimeField(auto_now=True, help_text="last modified")
 
     state = models.CharField(
         max_length=20,
@@ -414,7 +418,7 @@ class Case(models.Model):
             # meta={'id': self.id},
             title=self.title or '',
             is_official=self.is_official,
-            id=self.uuid  # uuid of case
+            id=str(self.uuid)  # uuid of case
         )
         doc.save()  # TODO, not sure, seems not need this.
         return doc.to_dict(include_meta=True)

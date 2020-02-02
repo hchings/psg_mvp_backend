@@ -6,14 +6,16 @@ import shutil, os
 import coloredlogs, logging
 from annoying.functions import get_object_or_None
 from elasticsearch import Elasticsearch
-from elasticsearch.helpers import bulk
+from elasticsearch_dsl import Search
+# from elasticsearch.helpers import bulk
+# from elasticsearch_dsl import UpdateByQuery
 
 from django.conf import settings
 from django.db.models.signals import post_delete, pre_save
 from django.dispatch import receiver
 
 from users.clinics.models import ClinicProfile
-from .models import Case
+from .models import Case, CaseImages
 
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
@@ -73,8 +75,9 @@ def fill_in_data(sender, instance, **kwargs):
                           instance.uuid))
         # if clinic name exist, fill in uuid, else notify and nullify uuid
 
-    # [IMPORTANT !!] Update ES
-    # TODO: how to update ES?
+    # ------ [IMPORTANT !!] Create/Update ES --------
+    # ubq = UpdateByQuery(index="cases").using(es).query("match", title="old title").script(
+    #     source="ctx._source.title='new title'")
     # result = bulk(
     #     client=es,
     #     actions=(instance.indexing())
@@ -90,10 +93,23 @@ def delete_media(sender, instance, **kwargs):
 
     :return: None.
     """
+    # 1. delte images in other model
+    # delete any photos in other model -- CaseImages
+    # Note the difference of calling delete() in bulk and on each obj
+    # Doc: https://docs.djangoproject.com/en/3.0/topics/db/queries/
+    objs = CaseImages.objects.filter(case_uuid=instance.uuid)
+    for obj in objs:
+        obj.delete()
+
+    # 2. delete its whole directory
     dir_path = 'cases/case_' + str(instance.uuid) + '/'
     try:
         shutil.rmtree(os.path.join(settings.MEDIA_ROOT, dir_path))
         logging.info('Deleted: ' + os.path.join(settings.MEDIA_ROOT, dir_path))
     except FileNotFoundError:
         logging.error('Post %s\'s media no need cleaning.' % str(instance.uuid))
-    # instance.file.delete(False)
+
+    # 3. delete reference in ES
+    s = Search(index="cases").using(es).query("match", id=str(instance.uuid))
+    res = s.delete()
+    logger.info("Removed %s ES record of case %s" % (res['deleted'], instance.uuid))

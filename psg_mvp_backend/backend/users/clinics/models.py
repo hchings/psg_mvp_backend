@@ -28,7 +28,6 @@ from django.contrib.auth import get_user_model
 from backend.shared.fields import MongoDecimalField
 from ..doc_type import ClinicBranchDoc
 
-
 # from django.utils.translation import ugettext_lazy as _
 
 # from tags.models import ServiceTaggedItem
@@ -36,7 +35,6 @@ from ..doc_type import ClinicBranchDoc
 # Create a logger
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
-
 
 num_to_zh_char = {
     0: '日',
@@ -47,6 +45,7 @@ num_to_zh_char = {
     5: '五',
     6: '六'
 }
+
 
 # -------------------------------
 #            Utilities
@@ -200,6 +199,11 @@ class ClinicProfile(models.Model):
                                     format='JPEG',
                                     options={'quality': 100})
 
+    logo_thumbnail_small = ImageSpecField(source='logo',
+                                          processors=[ResizeToFill(40, 40)],
+                                          format='JPEG',
+                                          options={'quality': 100})
+
     # main service if the website does specify
     slogan = models.CharField(max_length=30,
                               default='',
@@ -306,7 +310,7 @@ class ClinicProfile(models.Model):
                 branch_name=branch.branch_name,
                 services=self.services_raw,
                 open_sunday=open_sunday,
-                open_info=str(open_info), # TODO: somehow will block if I use array
+                open_info=str(open_info),  # TODO: somehow will block if I use array
                 address=branch.address,
                 rating=branch.rating,
                 id=self.uuid  # uuid of the clinic
@@ -349,7 +353,7 @@ class ClinicProfile(models.Model):
 
             # check whether the days are consecutive
             is_consecutive = True if len(days) == 1 or len(set(days)) == 7 or \
-                len(list(groupby(enumerate(days), lambda ix: ix[0] - ix[1]))) == 1 else False
+                                     len(list(groupby(enumerate(days), lambda ix: ix[0] - ix[1]))) == 1 else False
 
             if is_consecutive:
                 if len(days) > 1:

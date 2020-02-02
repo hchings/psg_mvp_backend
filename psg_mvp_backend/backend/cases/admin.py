@@ -2,10 +2,10 @@
 Model registration for admin site for Case.
 
 """
-
+from annoying.functions import get_object_or_None
 from django.contrib import admin
 
-from .models import Case
+from .models import Case, CaseImages
 
 
 class CaseAdmin(admin.ModelAdmin):
@@ -64,4 +64,21 @@ class CaseAdmin(admin.ModelAdmin):
             return obj.state
 
 
+class CaseImagesAdmin(admin.ModelAdmin):
+    """
+    Customizing Admin Page for CaseImages Model
+    """
+    list_display = ('case_title', 'case_uuid', 'caption')
+
+    def case_title(self, obj):
+        """
+        Display case title in admin page for convenience.
+        :param obj:
+        :return:
+        """
+        case_obj = get_object_or_None(Case, uuid=obj.case_uuid)
+        return '' if not case_obj else case_obj.title
+
+
 admin.site.register(Case, CaseAdmin)
+admin.site.register(CaseImages, CaseImagesAdmin)

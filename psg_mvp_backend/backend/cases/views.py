@@ -14,6 +14,8 @@ from elasticsearch_dsl import Q
 import coloredlogs, logging
 
 from backend.settings import ES_PAGE_SIZE
+from users.clinics.models import ClinicProfile
+from utils.drf.custom_fields import Base64ImageField
 from .models import Case
 from .mixins import UpdateConciseResponseMixin
 from .serializers import CaseDetailSerializer, CaseCardSerializer
@@ -130,6 +132,7 @@ class CaseSearchView(APIView):
         """
         Return the search result.
         Search query should be specified in request body.
+        Tiny clinic logos will be returned in a deticated field 'logos'.
         An example of search query from frontend:
         # TODO: add docstring. WIP
 
@@ -176,7 +179,7 @@ class CaseSearchView(APIView):
                 doc = hit['_source']
                 # doc.pop('open_sunday')
                 data.append(doc)
-                ids.append(hit['_source']['id'])
+                ids.append(int(hit['_source']['id']))
                 data_dict[hit['_source']['id']] = data[-1]
 
             # get the corresponding objects from mongo.
@@ -188,14 +191,28 @@ class CaseSearchView(APIView):
             # queryset = Skill.objects.filter(id__in=ids)
             case_list = list(queryset)
             case_list.sort(key=lambda case: ids.index(case.uuid))
-            serializer = CaseCardSerializer(case_list, many=True)
+            # [Important!] Must pass in the context to get the full media path.
+            serializer = CaseCardSerializer(case_list, many=True, context={'request': request})
+
+            # get clinic tiny logos
+            clinic_ids = []
+            for case in case_list:
+                try:
+                    c_id = case.clinic.uuid
+                    clinic_ids.append(c_id)
+                except AttributeError as e:
+                    logger.error("CaseSearchView error: %s" % e)
+
+
+            # TODO: WIP
+            queryset = ClinicProfile.objects.filter(uuid__in=clinic_ids)
 
             # add back info that are not stored in ES engine.
             # since there are only a few fields. It's faster to skip serializer.
-            # logo_dict = {}
-            # for clinic in queryset:
-            #     if clinic.uuid not in logo_dict:
-            #         logo_dict[clinic.uuid] = Base64ImageField().to_representation(clinic.logo_thumbnail)
+            logo_dict = {}
+            for clinic in queryset:
+                if clinic.uuid not in logo_dict:
+                    logo_dict[clinic.uuid] = Base64ImageField().to_representation(clinic.logo_thumbnail_small)
 
             # ----- format response ------
             response['count'] = cnt
@@ -207,7 +224,7 @@ class CaseSearchView(APIView):
             response['next'] = None if page == total_page - 1 else page + 1
 
             response['results'] = serializer.data
-            # response['logos'] = logo_dict
+            response['logos'] = logo_dict
 
         except Exception as e:
             # if ES failed. Use django's default way to search obj, which is very slow.
