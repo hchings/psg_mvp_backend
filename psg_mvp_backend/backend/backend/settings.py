@@ -28,7 +28,7 @@ SECRET_KEY = 'hck+)fy3p9x789tx(x^-j*^!8ylg*e-n=lkh5*3zs^k&f$)h_='
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['0.0.0.0', 'localhost']
+ALLOWED_HOSTS = ['*', '0.0.0.0', 'localhost'] # TODO: remove star
 
 # CORS_REPLACE_HTTPS_REFERER = False
 # HOST_SCHEME = "http://"
@@ -63,6 +63,8 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'rest_auth',
     'django.contrib.sites',
+    # --- act stream ---
+    'actstream',
     'allauth',
     'allauth.account',
     'rest_auth.registration',
@@ -77,12 +79,16 @@ INSTALLED_APPS = [
     'tags',
     # --- users app ---
     'users',
+    # --- cases app ---
+    'cases',
+    # --- comments app ---
+    'comments'
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -155,7 +161,9 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+# TIME_ZONE = 'UTC'
+
+TIME_ZONE = 'Asia/Taipei'
 
 USE_I18N = True
 
@@ -245,7 +253,7 @@ ES_PORT = 9200
 
 
 # for cors
-CORS_ORIGIN_ALLOW_ALL = False
+CORS_ORIGIN_ALLOW_ALL = True
 CORS_ORIGIN_WHITELIST = [
     "localhost:4200",
 ]

@@ -131,7 +131,9 @@ class ClinicSearchView(APIView):
             # page number starts from 0.
             page = int(request.query_params.get('page', 0))
 
-            s = ClinicBranchDoc.search()  # specify search DocType
+            # [IMPORTANT] must set index param when ES has multiple indices.
+            # otherwise, it will search on all indices even you set the doc type.
+            s = ClinicBranchDoc.search(index='clinic_profile')  # specify search DocType
             s = s.query(q_combined)  # add ES query
             cnt = s.count()  # get number of hits
             total_page = cnt // ES_PAGE_SIZE + 1
