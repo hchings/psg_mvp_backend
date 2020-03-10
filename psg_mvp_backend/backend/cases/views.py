@@ -135,8 +135,8 @@ class CaseDetailView(UpdateConciseResponseMixin,
         # request.data['title'] = 'wer'
         # request.data = {'other_imgs': [OrderedDict([('caption', '123')])]}
 
-        print("patch data", request.data, type(request.data), type(request.data['other_imgs']),
-              request.data['other_imgs'][0], type(request.data['other_imgs'][0]))
+        # print("patch data", request.data, type(request.data), type(request.data['other_imgs']),
+        #       request.data['other_imgs'][0], type(request.data['other_imgs'][0]))
 
         # this will call UpdateConciseResponseMixin's method
         return self.partial_update(request, *args, **kwargs)
