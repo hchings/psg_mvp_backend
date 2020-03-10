@@ -8,7 +8,7 @@ class CommentAdmin(admin.ModelAdmin):
     Customizing Admin Page for Case Model
 
     """
-    list_display = ('case_id', 'author_name', 'posted', 'text')
+    list_display = ('uuid', 'case_id', 'author_name', 'posted', 'text')
     # list_filter = ('is_staff', 'user_type')
     # search_fields = ('username', 'email')
     # # raw_id_fields = ('username',)

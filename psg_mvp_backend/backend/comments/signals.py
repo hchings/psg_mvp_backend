@@ -25,12 +25,12 @@ def ensure_author_name(sender, instance, **kwargs):
     :param kwargs:
     :return:
     """
+    # TODO: need fix
     try:
         author_uuid = instance.author.uuid
+        user_obj = get_object_or_None(user_model, uuid=author_uuid)
+
+        if user_obj and user_obj.username:
+            instance.author.name = user_obj.username
     except AttributeError:
-        author_uuid = ''
-
-    user_obj = get_object_or_None(user_model, uuid=author_uuid)
-
-    if user_obj and user_obj.username:
-        instance.author.name = user_obj.username
+        pass

@@ -11,3 +11,6 @@ class CasesConfig(AppConfig):
         """
         # Configuration for the signals module.
         import cases.signals
+        # Register tag model Service as "Action Object" for django-activity-stream
+        from actstream import registry
+        registry.register(self.get_model('Case'))

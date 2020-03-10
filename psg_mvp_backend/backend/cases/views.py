@@ -21,7 +21,6 @@ from .mixins import UpdateConciseResponseMixin
 from .serializers import CaseDetailSerializer, CaseCardSerializer
 from .doc_type import CaseDoc
 
-
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
 
@@ -108,6 +107,36 @@ class CaseDetailView(UpdateConciseResponseMixin,
         # 2) Empty (else)
 
         """
+
+        # print("patch data 0", request.data)
+        # request.data = dict(request.data)
+
+        # TODO: tmp, WIP
+        other_imgs_list = []
+        # TODO: WIP
+        for i in range(0, 6):
+            key = 'other_imgs' + str(i)
+            if key not in request.data:
+                break
+            other_imgs_list.append({'img': request.data[key],
+                                    'caption': ''})
+
+        print("other_imgs_list", other_imgs_list)
+        if other_imgs_list:
+            request.data['other_imgs'] = other_imgs_list
+
+        # request.data['other_imgs'] = [{'caption': '1'},
+        # {'caption': '2'}]
+        # request.data['other_imgs'] = [request.data['other_imgs0']]
+
+        # 'img': request.data['other_imgs0'],
+        # request.data['other_imgs'] = ['1', ' 2', '3']
+
+        # request.data['title'] = 'wer'
+        # request.data = {'other_imgs': [OrderedDict([('caption', '123')])]}
+
+        print("patch data", request.data, type(request.data), type(request.data['other_imgs']),
+              request.data['other_imgs'][0], type(request.data['other_imgs'][0]))
 
         # this will call UpdateConciseResponseMixin's method
         return self.partial_update(request, *args, **kwargs)
@@ -202,7 +231,6 @@ class CaseSearchView(APIView):
                     clinic_ids.append(c_id)
                 except AttributeError as e:
                     logger.error("CaseSearchView error: %s" % e)
-
 
             # TODO: WIP
             queryset = ClinicProfile.objects.filter(uuid__in=clinic_ids)

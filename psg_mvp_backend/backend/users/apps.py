@@ -28,3 +28,7 @@ class UsersConfig(AppConfig):
                                                 hosts=[{'host': settings.ES_HOST, 'port': settings.ES_PORT}])
         except Exception as e:
             print(e)
+
+        # Register tag model Service as "Action Object" for django-activity-stream
+        from actstream import registry
+        registry.register(self.get_model('User'))

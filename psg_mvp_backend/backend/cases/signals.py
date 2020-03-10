@@ -15,6 +15,7 @@ from django.db.models.signals import post_delete, pre_save
 from django.dispatch import receiver
 
 from users.clinics.models import ClinicProfile
+from comments.models import Comment
 from .models import Case, CaseImages
 
 logger = logging.getLogger(__name__)
@@ -88,8 +89,10 @@ def fill_in_data(sender, instance, **kwargs):
 @receiver(post_delete, sender=Case)
 def delete_media(sender, instance, **kwargs):
     """
-    Clean up the media of a Case after it is deleted.
+    1. Clean up the media of a Case after it is deleted.
     This assume files are NOT readonly.
+
+    2. Clean up all comments
 
     :return: None.
     """
@@ -113,3 +116,7 @@ def delete_media(sender, instance, **kwargs):
     s = Search(index="cases").using(es).query("match", id=str(instance.uuid))
     res = s.delete()
     logger.info("Removed %s ES record of case %s" % (res['deleted'], instance.uuid))
+
+    # 4. delete comments
+    comment_objs = Comment.objects.filter(case_id=instance.uuid)
+    comment_objs.delete()  # instantly delete
