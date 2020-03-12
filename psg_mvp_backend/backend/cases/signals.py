@@ -6,23 +6,42 @@ import shutil, os
 import coloredlogs, logging
 from annoying.functions import get_object_or_None
 from elasticsearch import Elasticsearch
-from elasticsearch_dsl import Search
+from elasticsearch_dsl import Search, Q
 # from elasticsearch.helpers import bulk
 # from elasticsearch_dsl import UpdateByQuery
 
 from django.conf import settings
-from django.db.models.signals import post_delete, pre_save
+from django.db.models.signals import post_delete, pre_save, post_init
 from django.dispatch import receiver
 
 from users.clinics.models import ClinicProfile
 from comments.models import Comment
 from .models import Case, CaseImages
+from .doc_type import CaseDoc
 
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
 
 es = Elasticsearch([{'host': settings.ES_HOST, 'port': settings.ES_PORT}],
                    index="cases")
+
+
+@receiver(post_init, sender=Case)
+def create_es_record(sender, instance, **kwargs):
+    pass
+    # cases_index = Index('cases', using='default')
+    # cases_index.document(CaseDoc)  # doc_type has been deprecated
+    # if cases_index.exists():
+    #     cases_index.delete()
+    #     logger.warning("Deleted Cases Index.")
+    # CaseDoc.init()
+    #
+    # result = bulk(
+    #     client=es,
+    #     actions=(case.indexing() for case in Case.objects.all().iterator())
+    # )
+    #
+    # logger.info("Indexed cases: %s" % str(result))
 
 
 # TODO: WIP. need more test.
@@ -77,6 +96,21 @@ def fill_in_data(sender, instance, **kwargs):
         # if clinic name exist, fill in uuid, else notify and nullify uuid
 
     # ------ [IMPORTANT !!] Create/Update ES --------
+    # check ES record, only if it's a published case
+    query = Q({"match": {"id": str(instance.uuid)}})
+    s = CaseDoc.search(index='cases').query(query)
+    if instance.state == 'published' or instance.state == 2:
+        if s.count() == 0:
+            logger.info('Indexed case %s into ES.' % instance.uuid)
+            instance.indexing()
+    else:
+        # remove the ES record is state change
+        if s.count() > 0:
+            response = s.delete()
+            logger.info("Deleted document of case %s in ES: %s" % (instance.uuid,
+                                                                   response))
+
+    # TODO: update searchable fields
     # ubq = UpdateByQuery(index="cases").using(es).query("match", title="old title").script(
     #     source="ctx._source.title='new title'")
     # result = bulk(

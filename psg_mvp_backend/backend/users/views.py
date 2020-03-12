@@ -7,17 +7,17 @@ DRF Views for users and auth.
 from rest_auth.registration.views import RegisterView
 from rest_auth.views import LoginView
 from rest_auth.serializers import LoginSerializer
-
+from annoying.functions import get_object_or_None
 
 from django.conf import settings
 from rest_framework.response import Response
+from rest_framework.decorators import api_view
 from rest_framework import status
 
 from .serializers import RegisterSerializerEx, TokenSerializerEx
-    # , \
-    # UserSerializer, ClinicPublicSerializer, \
-    # DoctorPublicSerializer, TokenSerializerEx
 from .models import User
+
+
 # from .permissions import OnlyAdminCanDelete
 
 
@@ -73,6 +73,25 @@ class LoginViewEx(LoginView):
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
+@api_view(['POST'])
+def verify_username_view(request):
+    """
+    A simple view to verity whether a username is too short
+    or already exist.
+
+    """
+    username = request.query_params.get('username', '').strip()
+
+    if len(username) < 3:
+        return Response({'error': "username too short."}, status.HTTP_200_OK)
+
+    user = get_object_or_None(User, username=username, user_type='user')
+
+    if not user:
+        return Response({'succeed': "valid username."}, status.HTTP_200_OK)
+    else:
+        return Response({'error': "username exists."}, status.HTTP_200_OK)
 
 # # --- User ---
 # class UserList(generics.ListAPIView):
