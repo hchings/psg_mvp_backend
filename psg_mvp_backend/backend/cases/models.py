@@ -420,5 +420,6 @@ class Case(models.Model):
             is_official=self.is_official,
             id=str(self.uuid)  # uuid of case
         )
-        doc.save()  # TODO, not sure, seems not need this.
+        # must add index, otherwise will get No Index error.
+        doc.save(index="cases")  # TODO, not sure, seems not need this.
         return doc.to_dict(include_meta=True)

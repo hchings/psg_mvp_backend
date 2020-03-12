@@ -49,7 +49,7 @@ class CaseDoc(DocType):
     is_official = Boolean()
 
     # not query this, so no need analyzer
-    id = Text()
+    id = Text()  # TODO: maybe a number or a more suitable field?
 
     class Meta:
         index = 'cases'
