@@ -11,7 +11,7 @@ from elasticsearch_dsl import Search, Q
 # from elasticsearch_dsl import UpdateByQuery
 
 from django.conf import settings
-from django.db.models.signals import post_delete, pre_save, post_init
+from django.db.models.signals import post_delete, pre_save
 from django.dispatch import receiver
 
 from users.clinics.models import ClinicProfile
@@ -24,24 +24,6 @@ coloredlogs.install(level='DEBUG', logger=logger)
 
 es = Elasticsearch([{'host': settings.ES_HOST, 'port': settings.ES_PORT}],
                    index="cases")
-
-
-@receiver(post_init, sender=Case)
-def create_es_record(sender, instance, **kwargs):
-    pass
-    # cases_index = Index('cases', using='default')
-    # cases_index.document(CaseDoc)  # doc_type has been deprecated
-    # if cases_index.exists():
-    #     cases_index.delete()
-    #     logger.warning("Deleted Cases Index.")
-    # CaseDoc.init()
-    #
-    # result = bulk(
-    #     client=es,
-    #     actions=(case.indexing() for case in Case.objects.all().iterator())
-    # )
-    #
-    # logger.info("Indexed cases: %s" % str(result))
 
 
 # TODO: WIP. need more test.
