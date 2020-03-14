@@ -96,7 +96,7 @@ class CommentSerializer(serializers.ModelSerializer):
                 # from each user. This is to reduce the unnecessary space used in db.
                 # Put the more recent activity on the type with order_by.
                 action_objs = obj.action_object_actions.filter(actor_object_id=user._id).order_by('-timestamp')
-                logger.info("action_objs in serializer", action_objs)
+                logger.info("action_objs in serializer %s" % action_objs)
 
                 if not action_objs:
                     return False
