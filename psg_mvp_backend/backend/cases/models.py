@@ -11,6 +11,7 @@ from djongo import models
 
 from django.conf import settings
 from django import forms
+from django.utils import timezone
 from backend.shared.utils import make_id
 from .doc_type import CaseDoc
 
@@ -285,6 +286,7 @@ class Case(models.Model):
 
     # posted = models.TimeField(auto_now=True, help_text="last modified")
     posted = models.DateTimeField(auto_now=True, help_text="last modified")
+    created = models.DateTimeField(auto_now_add=True, help_text="created")  # default=timezone.now
 
     state = models.CharField(
         max_length=20,

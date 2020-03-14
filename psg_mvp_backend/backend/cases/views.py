@@ -95,8 +95,6 @@ class CaseDetailView(UpdateConciseResponseMixin,
         """
         instance = self.get_object()
         serializer = self.get_serializer(instance)
-        # instance.view_num += 1
-        instance.save()
         return Response(serializer.data)
 
     def patch(self, request, *args, **kwargs):

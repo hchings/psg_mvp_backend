@@ -29,7 +29,7 @@ coloredlogs.install(level='DEBUG', logger=logger)
 class Command(BaseCommand):
     """
     Delete the exisiting cases index in ES instance
-    and bulk insert all cases from main DB.
+    and bulk insert all "published" cases from main DB.
     """
 
     help = 'Indexes Cases in Elastic Search'
@@ -48,7 +48,7 @@ class Command(BaseCommand):
 
         result = bulk(
             client=es,
-            actions=(case.indexing() for case in Case.objects.all().iterator())
+            actions=(case.indexing() for case in Case.objects.all().iterator() if case.state == 'published')
         )
 
         logger.info("Indexed cases: %s" % str(result))
