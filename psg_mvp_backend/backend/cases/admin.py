@@ -13,7 +13,7 @@ class CaseAdmin(admin.ModelAdmin):
     Customizing Admin Page for Case Model
 
     """
-    list_display = ('uuid', 'posted', 'status', 'title', 'is_official', 'gender','rating',
+    list_display = ('uuid', 'created', 'posted', 'status', 'title', 'is_official', 'gender','rating',
                     'author', 'author_uuid', 'clinic_branch', 'clinic_uuid', 'doctor')
     # list_filter = ('is_staff', 'user_type')
     # search_fields = ('username', 'email')
