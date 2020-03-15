@@ -214,6 +214,8 @@ class CaseDetailSerializer(serializers.ModelSerializer):
     other_imgs = CaseImagesSerializer(many=True, required=False)
     # other_imgs = serializers.ListField(child=serializers.CharField(), required=False)
     # other_imgs = serializers.ListField(child=serializers.ImageField(), required=False)
+
+    comment_num = serializers.SerializerMethodField(required=False)
     comments = serializers.SerializerMethodField(required=False)
 
     class Meta:
@@ -221,7 +223,7 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         # fields = "__all__"
         fields = ('uuid', 'is_official', 'pbm', 'title', 'bf_img', 'bf_img_cropped', 'bf_cap',
                   'af_img', 'af_img_cropped', 'af_cap', 'surgeries', 'author', 'state', 'other_imgs',
-                  'clinic', 'view_num', 'body', 'surgery_meta', 'rating', 'bf_img_cropped', 'comments')
+                  'clinic', 'view_num', 'body', 'surgery_meta', 'rating', 'bf_img_cropped', 'comment_num','comments')
 
     # def _force_get_value(self, dictionary):
     #     print("!!!!!!!!! set value")
@@ -509,3 +511,13 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         serializer = CommentSerializer(objs, many=True, context={'request': self.context['request']})
 
         return [] if not objs else serializer.data
+
+    def get_comment_num(self, obj):
+        """
+        Number of comments
+
+        :param obj:
+        :return:
+        """
+        objs = Comment.objects.filter(case_id=obj.uuid)
+        return len(objs)
