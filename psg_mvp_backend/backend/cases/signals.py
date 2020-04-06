@@ -11,10 +11,12 @@ from elasticsearch_dsl import Search, Q
 # from elasticsearch_dsl import UpdateByQuery
 
 from django.conf import settings
-from django.db.models.signals import post_delete, pre_save
+from django.db.models.signals import post_delete, pre_save, post_init
 from django.dispatch import receiver
+from django.contrib.auth import get_user_model
 
 from users.clinics.models import ClinicProfile
+from users.doctors.models import DoctorProfile
 from comments.models import Comment
 from .models import Case, CaseImages
 from .doc_type import CaseDoc
@@ -25,19 +27,51 @@ coloredlogs.install(level='DEBUG', logger=logger)
 es = Elasticsearch([{'host': settings.ES_HOST, 'port': settings.ES_PORT}],
                    index="cases")
 
+User = get_user_model()
+
+
+@receiver(post_init, sender=Case)
+def fill_in_on_create(sender, instance, **kwargs):
+    """
+    Fill case.author.scp = True to indicate the case
+    is scraped if the case is created by users with is_staff == true.
+
+    :param sender:
+    :param instance:
+    :param kwargs:
+    :return:
+    """
+
+    # Check whether author is staff (i.e., have access to admin site)
+    # if yes, mark the case as scraped
+    author_name = instance.author.name
+
+    if author_name:
+        user = get_object_or_None(User, username=author_name)
+        if user.is_staff:
+            instance.author.scp = True
+
 
 # TODO: WIP. need more test.
 @receiver(pre_save, sender=Case)
 def fill_in_data(sender, instance, **kwargs):
-    # status
-    # if not instance.state:
-    #     instance.state = 'draft'
+    """
+
+    :param sender:
+    :param instance:
+    :param kwargs:
+    :return:
+    """
+    # sanity check on status
+    if not instance.state:
+        instance.state = 'draft'
 
     # author
 
     # clinic
     if instance.clinic.display_name:
         clinic = get_object_or_None(ClinicProfile, display_name=instance.clinic.display_name)
+        # has corresponding clinic
         if clinic:
             instance.clinic.uuid = clinic.uuid
             # fill in branch place id
@@ -45,7 +79,7 @@ def fill_in_data(sender, instance, **kwargs):
             matched_branch = None
             if clinic.branches:
                 for branch in clinic.branches:
-                    print(branch, branch.branch_name, branch.is_head_quarter, instance.clinic.branch_name)
+                    # print(branch, branch.branch_name, branch.is_head_quarter, instance.clinic.branch_name)
                     if branch.is_head_quarter:
                         head_quarter = branch
                         if not instance.clinic.branch_name:
@@ -69,6 +103,20 @@ def fill_in_data(sender, instance, **kwargs):
                                    (instance.clinic.branch_name,
                                     instance.clinic.display_name,
                                     instance.uuid))
+            # Link to DoctorProfile if any. TODO: double check
+            if instance.clinic.doctor_name:
+                doctor_profile = get_object_or_None(DoctorProfile,
+                                                    clinic_uuid=clinic.uuid,
+                                                    display_name=instance.clinic.doctor_name)
+                if doctor_profile:
+                    logger.info("[Fill in case data] Found matched doctor profile for doctor %s for case %s" %
+                                (doctor_profile.display_name,
+                                 instance.uuid))
+                    instance.clinic.doctor_profile_id = doctor_profile._id or ''
+                else:
+                    # clear obsolete doctor_profile_id
+                    instance.clinic.doctor_profile_id = ''
+
         else:
             instance.clinic.uuid = ''
             instance.clinic.place_id = ''
@@ -91,6 +139,12 @@ def fill_in_data(sender, instance, **kwargs):
             response = s.delete()
             logger.info("Deleted document of case %s in ES: %s" % (instance.uuid,
                                                                    response))
+
+    # check for migration
+    # This is a patch for djongo's Listfield.
+    # it sucks at providing the right default for old records.
+    if instance.pain_points is None:
+        instance.pain_points = []  # provide a default
 
     # TODO: update searchable fields
     # ubq = UpdateByQuery(index="cases").using(es).query("match", title="old title").script(
@@ -120,13 +174,22 @@ def delete_media(sender, instance, **kwargs):
     for obj in objs:
         obj.delete()
 
-    # 2. delete its whole directory
+    # 2.1 delete its whole directory
     dir_path = 'cases/case_' + str(instance.uuid) + '/'
     try:
         shutil.rmtree(os.path.join(settings.MEDIA_ROOT, dir_path))
         logging.info('Deleted: ' + os.path.join(settings.MEDIA_ROOT, dir_path))
     except FileNotFoundError:
         logging.error('Post %s\'s media no need cleaning.' % str(instance.uuid))
+
+    # 2.2 delete folder in CACHE/ TODO: check
+    dir_path = 'CACHE/images/cases/case_' + str(instance.uuid) + '/'
+    try:
+        shutil.rmtree(os.path.join(settings.MEDIA_ROOT, dir_path))
+        logging.info('Deleted: ' + os.path.join(settings.MEDIA_ROOT, dir_path))
+    except FileNotFoundError:
+        logging.error('Post %s\'s cache media no need cleaning. %s'
+                      % (str(instance.uuid), os.path.join(settings.MEDIA_ROOT, dir_path)))
 
     # 3. delete reference in ES
     s = Search(index="cases").using(es).query("match", id=str(instance.uuid))

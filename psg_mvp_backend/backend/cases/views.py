@@ -283,4 +283,5 @@ class CaseManageListView(generics.ListAPIView):
         #       self.request.user.username)
 
         # if not user, the response will just be empty.
-        return Case.objects.all().filter(author={'uuid': str(self.request.user.uuid)})
+        # Put the recent one on the top.
+        return Case.objects.all().filter(author={'uuid': str(self.request.user.uuid)}).order_by('-posted')

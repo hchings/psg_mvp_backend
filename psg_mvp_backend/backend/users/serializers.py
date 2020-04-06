@@ -21,6 +21,7 @@ from django.utils.translation import ugettext_lazy as _
 
 # from backend.shared.drf.custom_fields import Base64ImageField
 from .models import User
+
 # from .profile_models import ClinicBranch
 
 # pylint: disable=too-few-public-methods
@@ -53,7 +54,6 @@ class RegisterSerializerEx(RegisterSerializer):
         return user
 
 
-
 # TODO: WIP
 class TokenSerializerEx(serializers.ModelSerializer):
     """
@@ -70,10 +70,15 @@ class TokenSerializerEx(serializers.ModelSerializer):
                                             read_only=True,
                                             slug_field='username')
 
+    # is staff
+    stf = serializers.SlugRelatedField(source='user',
+                                       many=False,
+                                       read_only=True,
+                                       slug_field='is_staff')
+
     class Meta:
         model = TokenModel
-        fields = ('key', 'uuid', 'username')
-
+        fields = ('key', 'uuid', 'username', 'stf')
 
 # class UserSerializer(serializers.HyperlinkedModelSerializer):
 #     """

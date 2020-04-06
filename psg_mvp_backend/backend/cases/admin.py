@@ -13,16 +13,16 @@ class CaseAdmin(admin.ModelAdmin):
     Customizing Admin Page for Case Model
 
     """
-    list_display = ('uuid', 'created', 'posted', 'status', 'title', 'is_official', 'gender','rating',
-                    'author', 'author_uuid', 'clinic_branch', 'clinic_uuid', 'doctor')
+    list_display = ('uuid', 'created', 'posted', 'status', 'is_scrapped', 'title', 'is_official', 'gender', 'rating',
+                    'author', 'author_uuid', 'clinic_branch', 'clinic_uuid', 'doctor', 'doctor_profile_id')
     # list_filter = ('is_staff', 'user_type')
     # search_fields = ('username', 'email')
     # raw_id_fields = ('username',)
     # ordering = ['user_type', 'uuid']
 
-    readonly_fields = ('uuid', 'side_effects')
+    readonly_fields = ('uuid', 'side_effects', 'pain_points')
 
-    # exclude = ('side_effects',)
+    # exclude = ('clinic_exp',)
 
     def author(self, obj):
         try:
@@ -54,6 +54,12 @@ class CaseAdmin(admin.ModelAdmin):
         except Exception:
             return ''
 
+    def doctor_profile_id(self, obj):
+        try:
+            return obj.clinic.doctor_profile_id
+        except Exception:
+            return ''
+
     def status(self, obj):
         # TODO: double check this
         try:
@@ -62,6 +68,9 @@ class CaseAdmin(admin.ModelAdmin):
         except ValueError as e:
             # is string
             return obj.state
+
+    def is_scrapped(self, obj):
+        return obj.author.scp or False
 
 
 class CaseImagesAdmin(admin.ModelAdmin):
