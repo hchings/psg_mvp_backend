@@ -8,13 +8,13 @@ import os
 from imagekit.models import ProcessedImageField, ImageSpecField
 from imagekit.processors import ResizeToFill
 from djongo import models
+from multiselectfield import MultiSelectField
 
 from django.conf import settings
 from django import forms
 from django.utils import timezone
 from backend.shared.utils import make_id
 from .doc_type import CaseDoc
-
 
 YEAR_CHOICES = [(y, y) for y in range(2000, date.today().year + 1)]
 MONTH_CHOICE = [(m, m) for m in range(1, 13)]
@@ -36,7 +36,7 @@ def get_bg_img_dir_name(instance, filename):
     # adding MEDIA_ROOT is wrong! the below two will save the img to the same place,
     # but the upper one will be wrong when serialized.
     # return os.path.join(settings.MEDIA_ROOT, '/'.join(['cases', 'case_' + str(instance.uuid), new_filename]))
-    return '/'.join(['cases', 'case_' + str(instance.uuid), new_filename]) # TODO: tmp try
+    return '/'.join(['cases', 'case_' + str(instance.uuid), new_filename])  # TODO: tmp try
 
 
 def get_bg_img_cropped_dir_name(instance, filename):
@@ -74,6 +74,17 @@ def get_af_img_cropped_dir_name(instance, filename):
 
 def get_case_dir_name(instance, filename):
     return '/'.join(['cases', 'case_' + str(instance.case_uuid), filename])
+
+
+def get_scp_user_pic_dir_name(instance, filename):
+    """
+    Normalize the dir and file name of the scraped user img.
+    :return(str): the relative dir path
+    """
+    extension = filename.split(".")[-1]
+    new_filename = 'scp_user_pic.' + extension
+    # obj.log.url, Media root is by default loaded
+    return '/'.join(['cases', 'case_' + str(instance.uuid), new_filename])
 
 
 ############################################################
@@ -131,6 +142,14 @@ class UserInfo(models.Model):
                             blank=False,
                             help_text="the uuid field in the corresponding user. Do not fill in this manually.")
 
+    scp = models.BooleanField(default=False,
+                              blank=True,
+                              help_text='true if this case is scrapped.')
+
+    scp_username = models.CharField(max_length=30,
+                                    blank=True,
+                                    help_text="scrapped username. Blank if the post is not scraped.")
+
     def __str__(self):
         return self.name
 
@@ -173,7 +192,14 @@ class ClinicInfo(models.Model):
                             blank=False,
                             help_text="the uuid field in the corresponding clinic. Do not fill in this manually.")
 
+    # doctor info
+    # If doctor_profile_id is blank it means that the corresponding
+    # DoctorProfile does not exist yet.
     doctor_name = models.CharField(max_length=30, blank=True)
+
+    doctor_profile_id = models.CharField(max_length=40,
+                                         blank=True,
+                                         help_text="the _id field of DoctorProfile.")
 
     # must add this otherwise can't print
     def __str__(self):
@@ -194,7 +220,6 @@ class SurgeryMeta(models.Model):
 
     year = models.IntegerField(choices=YEAR_CHOICES, null=True)
     month = models.IntegerField(choices=MONTH_CHOICE, null=True)
-    dateString = models.CharField(max_length=60, blank=True, null=True)
     min_price = models.PositiveIntegerField(blank=True, null=True)
     max_price = models.PositiveIntegerField(blank=True, null=True)
 
@@ -216,9 +241,8 @@ class SurgeryMetaForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(SurgeryMetaForm, self).__init__(*args, **kwargs)
-        # all fields are not required except for branch_name
+        # all fields are not required
         for key, _ in self.fields.items():
-            # if key not in ['branch_name']:
             self.fields[key].required = False
 
 
@@ -275,7 +299,31 @@ class Case(models.Model):
         ('female', 'female'),
         ('male', 'male'),
         ('neutral', 'neutral'),
-        ('undefined', 'undefined')
+        ('', '')  # undefined
+    )
+
+    ANESTHESIA = (
+        ('surface', '表面麻醉'),
+        ('partial', '局部麻醉'),
+        ('sleep', '睡眠麻醉'),
+        ('tube', '插管全麻'),
+        ('', '')  # undefined
+    )
+
+    POSITIVE_EXP_CHOICES = (('0', 'pre-surgery commu'),
+                            ('1', 'risk commu'),
+                            ('2', 'service'),
+                            ('3', 'env'),
+                            ('4', 'surgery effect'),
+                            ('5', 'post-surgery tracking'))
+
+    RECOVERY_CHOICES = (
+        ('3d', '3 天'),
+        ('1w', '1 week'),
+        ('2w', '2 weeks'),
+        ('1m', '1 month'),
+        ('more', 'more'),
+        ('', '')  # undefined
     )
 
     _id = models.ObjectIdField()
@@ -297,6 +345,10 @@ class Case(models.Model):
     gender = models.CharField(max_length=15,
                               choices=GENDERS,
                               default='undefined')
+
+    recovery_time = models.CharField(max_length=20,
+                                     choices=RECOVERY_CHOICES,
+                                     default='undefined')
 
     # ----- photos: before -----
     bf_img = ProcessedImageField(upload_to=get_bg_img_dir_name,
@@ -359,15 +411,11 @@ class Case(models.Model):
                                       blank=False,
                                       help_text='')
 
-    pbm = models.BooleanField(default=False,
-                              blank=True,
-                              help_text='')
-
     title = models.CharField(max_length=30,
                              blank=True)
 
-    pain_point = models.CharField(max_length=50,
-                                  blank=True)
+    # pain_point = models.CharField(max_length=50,
+    #                               blank=True)
 
     rating = models.FloatField(help_text="ratings from google map API",
                                blank=True)
@@ -376,7 +424,13 @@ class Case(models.Model):
 
     body = models.TextField(blank=True)
 
-    # view_num = models.PositiveIntegerField(blank=True)
+    scp_user_pic = ProcessedImageField(upload_to=get_scp_user_pic_dir_name,
+                                       processors=[ResizeToFill(100, 100)],
+                                       format='JPEG',
+                                       options={'quality': 100},
+                                       blank=True,
+                                       null=True,
+                                       help_text='scrapped user profile pic')
 
     # model_form_class = UserInfoForm
     author = models.EmbeddedModelField(
@@ -401,6 +455,19 @@ class Case(models.Model):
     side_effects = models.ListField(blank=True,
                                     default=[],
                                     help_text="")
+
+    pain_points = models.ListField(blank=True,
+                                   default=[],
+                                   help_text="")
+
+    anesthesia = models.CharField(
+        max_length=20,
+        choices=ANESTHESIA,
+        default='undefined'
+    )
+
+    positive_exp = MultiSelectField(choices=POSITIVE_EXP_CHOICES,
+                                    null=True, blank=True)
 
     view_num = models.PositiveIntegerField(default=0, help_text='number of views')
 

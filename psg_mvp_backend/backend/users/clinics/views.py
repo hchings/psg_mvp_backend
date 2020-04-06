@@ -5,11 +5,13 @@ DRF Views for clinics.
 
 from collections import OrderedDict
 
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.decorators import api_view
 from elasticsearch_dsl import Q
 import coloredlogs, logging
+from annoying.functions import get_object_or_None
 # from hanziconv import HanziConv
 
 # from rest_framework import serializers
@@ -30,6 +32,7 @@ from utils.drf.custom_fields import Base64ImageField
 # from elasticsearch_dsl import connections
 # import django_filters.rest_framework
 from users.doc_type import ClinicProfileDoc, ClinicBranchDoc
+from users.doctors.models import DoctorProfile
 
 # pylint: disable=no-member
 # pylint: disable=too-many-ancestors
@@ -237,3 +240,40 @@ class ClinicSearchView(APIView):
 #                 clinic_profiles = ClinicProfile.objects.filter(display_name__icontains=query)
 #                 serializer = ClinicPublicSerializer(clinic_profiles, many=True)
 #             return Response(serializer.data)
+
+@api_view(['GET'])
+def doctor_name_view(request, uuid='', clinic_name=''):
+    """
+    API view for returning a list of doctor names of
+    a given clinic. Could specify the clinic by its
+    uuid or by its name.
+
+    uuid: clinic uuid
+    clinic_name: clinic name
+    :param request:
+    :return: {'doctor': [list of doctor names]}
+    """
+    # print("uuid %s, clinic_name %s" % (uuid, clinic_name))
+
+    # get clinic profile
+    if uuid:
+        clinic = get_object_or_None(ClinicProfile,
+                                    uuid=uuid)
+    elif clinic_name:
+        clinic = get_object_or_None(ClinicProfile,
+                                    display_name=clinic_name.strip())
+    else:
+        clinic = None
+
+    if not clinic:
+        return Response({'error': "clinic not found"},
+                        status.HTTP_400_BAD_REQUEST)
+
+    doctors = DoctorProfile.objects.filter(clinic_uuid=clinic.uuid)
+
+    # TODO: can add doctor profile pic
+    res = [doctor.display_name.strip() for doctor in doctors]
+
+    # clinic_uuid = request.query_params.get('uuid', '').strip()
+    return Response({'doctors': res},
+                    status.HTTP_200_OK)

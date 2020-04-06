@@ -50,7 +50,8 @@ class SurgeryMetaSerializer(serializers.Serializer):
     """
     year = serializers.IntegerField(required=False, min_value=0)
     month = serializers.IntegerField(required=False, min_value=1)
-    dateString = serializers.CharField(required=False, allow_blank=True)
+    min_price = serializers.IntegerField(required=False, min_value=0)
+    max_price = serializers.IntegerField(required=False, min_value=0)
 
 
 class SurgeryTagSerializer(serializers.Serializer):
@@ -87,10 +88,12 @@ class CaseCardSerializer(serializers.ModelSerializer):
     surgeries = serializers.SerializerMethodField()
     surgery_meta = serializers.SerializerMethodField()
 
+    photo_num = serializers.SerializerMethodField()
+
     class Meta:
         model = Case
-        fields = ('uuid', 'is_official', 'pbm', 'title', 'bf_img_thumb', 'af_img_thumb', 'surgeries', 'posted',
-                  'author', 'state', 'clinic', 'view_num', 'surgery_meta')
+        fields = ('uuid', 'is_official', 'title', 'bf_img_thumb', 'af_img_thumb', 'surgeries', 'posted',
+                  'author', 'state', 'clinic', 'view_num', 'surgery_meta', 'photo_num')
 
     def get_author(self, obj):
         """
@@ -125,6 +128,31 @@ class CaseCardSerializer(serializers.ModelSerializer):
         :return:
         """
         return embedded_model_method(obj, self.Meta.model, 'surgeries')
+
+    def get_photo_num(self, obj):
+        """
+        Optional field. If 'show_photo_num' is specified and set to true
+        in the request url, it will return the # of photos in the case.
+
+        :param obj:
+        :return:
+        """
+        show_photo_num = self.context.get('request').query_params.get('show_photo_num')
+        if show_photo_num and show_photo_num.lower() in ("yes", "true", "t", "1"):
+            # get case object
+            other_imgs = CaseImages.objects.filter(case_uuid=obj.uuid)
+            photo_num = 0
+            if obj.bf_img_thumb:
+                photo_num += 1
+
+            if obj.af_img_thumb:
+                photo_num += 1
+
+            photo_num += len(other_imgs)
+
+            return photo_num
+        else:
+            return ''
 
 
 ######################################
@@ -215,15 +243,29 @@ class CaseDetailSerializer(serializers.ModelSerializer):
     # other_imgs = serializers.ListField(child=serializers.CharField(), required=False)
     # other_imgs = serializers.ListField(child=serializers.ImageField(), required=False)
 
+    # anesthesia = serializers.CharField(source='get_anesthesia_display', required=False)
+
+    scp_user_pic = serializers.ImageField(max_length=None,
+                                          use_url=True,
+                                          required=False)
+
+    side_effects = serializers.ListField(required=False)
+
+    pain_points = serializers.ListField(required=False)
+
+    positive_exp = serializers.ListField(required=False)
+
     comment_num = serializers.SerializerMethodField(required=False)
     comments = serializers.SerializerMethodField(required=False)
 
     class Meta:
         model = Case
         # fields = "__all__"
-        fields = ('uuid', 'is_official', 'pbm', 'title', 'bf_img', 'bf_img_cropped', 'bf_cap',
+        fields = ('uuid', 'is_official', 'title', 'bf_img', 'bf_img_cropped', 'bf_cap',
                   'af_img', 'af_img_cropped', 'af_cap', 'surgeries', 'author', 'state', 'other_imgs',
-                  'clinic', 'view_num', 'body', 'surgery_meta', 'rating', 'bf_img_cropped', 'comment_num','comments')
+                  'clinic', 'view_num', 'body', 'surgery_meta', 'rating', 'bf_img_cropped',
+                  'recovery_time', 'anesthesia', 'scp_user_pic', 'positive_exp', 'side_effects', 'pain_points',
+                  'ori_url', 'comment_num', 'comments')
 
     # def _force_get_value(self, dictionary):
     #     print("!!!!!!!!! set value")
@@ -375,20 +417,28 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         clinic = {} if 'clinic' not in validated_data else validated_data.pop('clinic')
         surgery_meta = {} if 'surgery_meta' not in validated_data else validated_data.pop('surgery_meta')
         surgeries = [] if 'surgeries' not in validated_data else validated_data.pop('surgeries')
+        # positive_exp = [] if 'positive_exp' not in validated_data else validated_data.pop('positive_exp')
+
+        # print("positive_exp", positive_exp)
 
         surgeries_objs = []
         for surgery in surgeries:
             surgery_tag = SurgeryTag(name=surgery.get('name', ''), mat=surgery.get('mat', ''))
             surgeries_objs.append(surgery_tag)
 
-        # validated_data['author'] = UserInfo.objects.create({'name': 'gth', 'uuid': 'wtf'})
         case_obj = Case.objects.create(**validated_data,
                                        author=UserInfo(name=author.get('name', ''),
-                                                       uuid=author.get('uuid', '')),
+                                                       uuid=author.get('uuid', ''),
+                                                       scp_username=author.get('scp_username', '')),
                                        clinic=ClinicInfo(display_name=clinic.get('display_name', ''),
                                                          branch_name=clinic.get('branch_name', ''),
                                                          doctor_name=clinic.get('doctor_name', '')),
-                                       surgery_meta=SurgeryMeta(dateString=surgery_meta.get('dateString', '')),
+                                       surgery_meta=SurgeryMeta(year=int(surgery_meta.get('year', 0)) or None,
+                                                                # None not ''
+                                                                month=int(surgery_meta.get('month', 0)) or None,
+                                                                min_price=int(surgery_meta.get('min_price', 0)) or None,
+                                                                max_price=int(
+                                                                    surgery_meta.get('max_price', 0)) or None),
                                        surgeries=surgeries_objs)
         # if author:
         #     UserInfo.objects.create(**author)
@@ -406,9 +456,9 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         # TODO: remove prints and change them to loggings.
 
         # TODO: WIP
-        print("validate, update", validated_data, instance.uuid)
+        # print("validate, update", validated_data, instance.uuid)
         if 'other_imgs' in validated_data:
-            print("oooo", validated_data['other_imgs'])
+            # print("oooo", validated_data['other_imgs'])
             for item in validated_data['other_imgs']:
                 new_instance = CaseImages(img=item.get('img', ''),
                                           caption=item.get('caption', ''),
