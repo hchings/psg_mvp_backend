@@ -279,9 +279,11 @@ class CaseManageListView(generics.ListAPIView):
     # TODO: check better way for this.
     # TODO: as this is called while code is ini and while user request, which is duplicated.
     def get_queryset(self, *args, **kwargs):
-        # logger.info("auth:", self.request.user.is_authenticated, self.request.user.uuid, type(self.request.user.uuid),
-        #       self.request.user.username)
+        # get query parameter
+        req = self.request
+        state = req.query_params.get('state') or ''
 
         # if not user, the response will just be empty.
         # Put the recent one on the top.
-        return Case.objects.all().filter(author={'uuid': str(self.request.user.uuid)}).order_by('-posted')
+        return Case.objects.all().filter(author={'uuid': str(self.request.user.uuid)},
+                                         state=state).order_by('-posted')

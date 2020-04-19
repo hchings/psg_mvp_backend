@@ -48,7 +48,7 @@ def fill_in_on_create(sender, instance, **kwargs):
 
     if author_name:
         user = get_object_or_None(User, username=author_name)
-        if user.is_staff:
+        if user and user.is_staff:
             instance.author.scp = True
 
 
