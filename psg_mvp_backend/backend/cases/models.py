@@ -254,6 +254,7 @@ class CaseImages(models.Model):
     # post = models.ForeignKey(Post, default=None)
     # image = models.ImageField(upload_to=get_image_filename,
     #                           verbose_name='Image')
+    _id = models.ObjectIdField()
 
     # Image is resized to 120X120 pixels with django-imagekit
     # when you don't want to save the ori image

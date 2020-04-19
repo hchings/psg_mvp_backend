@@ -5,6 +5,8 @@ REST Framework Serializers for Case app.
 
 from rest_framework import serializers, exceptions
 from drf_extra_fields.fields import Base64ImageField
+from bson import ObjectId
+from annoying.functions import get_object_or_None
 
 from backend.shared.fields import embedded_model_method
 from backend.shared.serializers import AuthorSerializer
@@ -17,6 +19,7 @@ from rest_framework.fields import (  # NOQA # isort:skip
 from comments.models import Comment
 from comments.serializers import CommentSerializer
 from comments.views import COMMENT_PAGE_SIZE
+
 # COMMENT_PAGE_SIZE
 
 # from rest_framework.exceptions import ErrorDetail, ValidationError
@@ -176,12 +179,17 @@ class CaseImagesSerializer(serializers.ModelSerializer):
         fields = ('img', 'caption')
 
 
-class CaseImagesSerializer2(serializers.Serializer):
+class CaseImagesEditSerializer(serializers.Serializer):
+    id = serializers.SerializerMethodField(read_only=True)
+
     img = serializers.ImageField(max_length=None,
                                  use_url=True,
                                  required=False)
 
     caption = serializers.CharField(required=False, allow_blank=True)
+
+    def get_id(self, obj):
+        return str(obj._id)
 
     # this won't be called
     # def get_value(self, dictionary):
@@ -215,6 +223,7 @@ class CaseImagesSerializer2(serializers.Serializer):
 
 
 # TODO: WIP. list API should through ES
+# TODO: don't know why all the Base64ImageField here don't work
 class CaseDetailSerializer(serializers.ModelSerializer):
     uuid = serializers.ReadOnlyField()
     clinic = ClinicInfoSerializer(required=False)
@@ -276,6 +285,7 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         def get_value(dictionary):
             # print("!!!!!!!!! set value", field_name, dictionary)
             return dictionary.get(field_name, empty)
+
         return get_value
 
     def __init__(self, *args, **kwargs):
@@ -301,7 +311,9 @@ class CaseDetailSerializer(serializers.ModelSerializer):
                 # if self.context['request'].method != 'POST':
                 # self.fields['other_imgs'] = CaseImagesSerializer(many=True, required=False)  # many=True
                 # self.fields['other_imgs'] = serializers.ListField(required=False)
-
+                if self.context['request'].method != 'POST':
+                    # PUT or PATCH
+                    self.fields['img_to_delete'] = serializers.ListField(required=False)
             else:
                 self.fields['surgeries'] = serializers.SerializerMethodField()
                 self.fields['other_imgs'] = serializers.SerializerMethodField()
@@ -468,6 +480,17 @@ class CaseDetailSerializer(serializers.ModelSerializer):
             # serializer = CaseImagesSerializer(validated_data['other_imgs'], many=True)
             # print("???", serializer.data)
 
+        # for deleting CaseImg
+        if 'img_to_delete' in validated_data:
+            print("img to delete", validated_data['img_to_delete'])
+            for item in validated_data['img_to_delete']:
+                img_instance = get_object_or_None(CaseImages,
+                                                  _id=ObjectId(item),
+                                                  case_uuid=instance.uuid)
+                if img_instance:
+                    # print("delete CaseImg", img_instance) # TODO: need further check
+                    img_instance.delete()
+
         # ArrayModelField
         if 'surgeries' in validated_data:
             surgeries_objs = []
@@ -540,10 +563,17 @@ class CaseDetailSerializer(serializers.ModelSerializer):
 
     # TODO: tmp try
     def get_other_imgs(self, obj):
+        edit_mode = self.context.get('request').query_params.get('edit')
+
         objs = CaseImages.objects.filter(case_uuid=obj.uuid)
-        serializer = CaseImagesSerializer(objs,
-                                          many=True,
-                                          context={'request': self.context['request']})
+        if edit_mode and edit_mode.lower() in ("yes", "true", "t", "1"):
+            serializer = CaseImagesEditSerializer(objs,
+                                                  many=True,
+                                                  context={'request': self.context['request']})
+        else:
+            serializer = CaseImagesSerializer(objs,
+                                              many=True,
+                                              context={'request': self.context['request']})
 
         # [item.get('img', '') for item in serializer.data]
         return [] if not objs else serializer.data
