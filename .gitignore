@@ -62,3 +62,19 @@ data/
 dump/core_db/
 
 psg_mvp_backend/backend/scripts/__pycache__/
+
+psg_mvp_backend/backend/cases/__pycache__/
+
+psg_mvp_backend/backend/comments/__pycache__/
+
+psg_mvp_backend/backend/comments/migrations/
+
+psg_mvp_backend/backend/cases/migrations/
+
+tmp
+
+psg_mvp_backend/backend/cases/management/commands/__pycache__/
+
+psg_mvp_backend/backend/issue1.txt
+
+psg_mvp_backend/backend/urls.txt

@@ -32,7 +32,7 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
 
     """
     uuid = serializers.ReadOnlyField()
-    logo = Base64ImageField()
+    logo_thumbnail = Base64ImageField()
     # concise_regions = serializers.SerializerMethodField()
     # services = NestedTagListSerializerField(source='clinic_profile.services')
 
@@ -153,7 +153,7 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
         # fields = ('url', 'uuid', 'username', 'logo', 'opening_info',
         #           'concise_regions', 'services', 'rating',
         #           'branches', 'case_num')
-        fields = ('website_url', 'uuid', 'user_id', 'display_name', 'logo', 'services_raw',
+        fields = ('website_url', 'uuid', 'user_id', 'display_name',  'logo_thumbnail', 'services_raw',
                   'branches')
 
 

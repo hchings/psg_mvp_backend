@@ -6,7 +6,8 @@ which is a way to define how your data should be indexed and how the search shou
 Ref: https://www.freshconsulting.com/how-to-create-a-fuzzy-search-as-you-type-feature-with-elasticsearch-and-django/
 
 """
-from elasticsearch_dsl import DocType, Text, Integer, Completion, analyzer, tokenizer
+from elasticsearch_dsl import DocType, Text, Integer, \
+        analyzer, tokenizer, HalfFloat, Boolean
 
 analyzer_standard = analyzer(
     'standard',
@@ -22,6 +23,7 @@ analyzer_cn = analyzer(
 )
 
 
+# unused for now as we change to branch level search
 class ClinicProfileDoc(DocType):
     """
     Elastic Search Document.
@@ -40,6 +42,28 @@ class ClinicProfileDoc(DocType):
 
     # not query this, so no need analyzer
     id = Text()
+
+    class Meta:
+        index = 'clinic_profile'
+        using = 'default'
+
+
+class ClinicBranchDoc(DocType):
+    """
+    Elastic Search Document.
+    """
+
+    display_name = Text(analyzer=analyzer_cn)  # zh fields
+    rating = HalfFloat()
+    services = Text(analyzer=analyzer_cn)
+    open_sunday = Boolean()
+
+    # not query these, so no need analyzer
+    # TODO: make sure these fields won't be search
+    id = Text()
+    branch_name = Text()
+    address = Text()
+    open_info = Text()
 
     class Meta:
         index = 'clinic_profile'
