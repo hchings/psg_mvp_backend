@@ -369,3 +369,4 @@ class ClinicProfile(models.Model):
                 result.append(' '.join([day_str, time]))
 
         return ', '.join(result)
+
