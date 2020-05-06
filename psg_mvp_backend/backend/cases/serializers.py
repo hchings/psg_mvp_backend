@@ -2,11 +2,13 @@
 REST Framework Serializers for Case app.
 
 """
-
+import ast
 from rest_framework import serializers, exceptions
 from drf_extra_fields.fields import Base64ImageField
 from bson import ObjectId
 from annoying.functions import get_object_or_None
+import coloredlogs, logging
+
 
 from backend.shared.fields import embedded_model_method
 from backend.shared.serializers import AuthorSerializer
@@ -29,6 +31,10 @@ from comments.views import COMMENT_PAGE_SIZE
 # from collections import OrderedDict
 # from collections.abc import Mapping
 # from rest_framework.utils import html, humanize_datetime, json, representation
+
+# Create a logger
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG', logger=logger)
 
 #########################################################
 #    Field Serializers for djongo's EmbeddedModelField
@@ -178,6 +184,13 @@ class CaseImagesSerializer(serializers.ModelSerializer):
         model = CaseImages
         fields = ('img', 'caption')
 
+class CaseImagesCaptionEdit(serializers.Serializer):
+    """
+    Serializer for editing caption field in CaseImages
+    """
+    id = serializers.CharField(required=False)
+    caption = serializers.CharField(required=False, allow_blank=True)
+
 
 class CaseImagesEditSerializer(serializers.Serializer):
     id = serializers.SerializerMethodField(read_only=True)
@@ -314,6 +327,12 @@ class CaseDetailSerializer(serializers.ModelSerializer):
                 if self.context['request'].method != 'POST':
                     # PUT or PATCH
                     self.fields['img_to_delete'] = serializers.ListField(required=False)
+                    # for editing caption
+                    self.fields['captions_edit'] = CaseImagesCaptionEdit(many=True, required=False)
+
+                # can happen in both POST and PUT/PATCH.
+                # this is for newly created CaseImages
+                self.fields['captions'] = serializers.CharField(required=False)
             else:
                 self.fields['surgeries'] = serializers.SerializerMethodField()
                 self.fields['other_imgs'] = serializers.SerializerMethodField()
@@ -469,11 +488,41 @@ class CaseDetailSerializer(serializers.ModelSerializer):
 
         # TODO: WIP
         # print("validate, update", validated_data, instance.uuid)
+
+        # when creating new other imgs
+        if 'captions' in validated_data:
+            try:
+                captions = ast.literal_eval(validated_data['captions'])
+                logger.info("get captions: %s" % captions)
+            except SyntaxError as e:
+                logger.error('update case captions error %s' % str(e))
+                captions = []
+
+        # when editing captions of existing other imgs
+        if validated_data.get('captions_edit', []):
+            for item in validated_data.get('captions_edit', []):
+                if item.get('id', ''):
+                    img_instance = get_object_or_None(CaseImages,
+                                                      _id=ObjectId(item['id']),
+                                                      case_uuid=instance.uuid)
+                    if img_instance:
+                        img_instance.caption = item.get('caption', '')
+                        img_instance.save()
+                    else:
+                        logger.error('No case img with id %s' % item['id'])
+
         if 'other_imgs' in validated_data:
             # print("oooo", validated_data['other_imgs'])
-            for item in validated_data['other_imgs']:
+            other_imgs = validated_data['other_imgs']
+            if len(captions) != len(other_imgs):
+                # since we match caption and other_imgs based on the sequence,
+                # they must have the same lengths. If not, we'll drop them.
+                logger.warning("caption len not matched. Got %s captions but %s other imgs"
+                               % (len(captions), len(other_imgs)))
+                captions = [''] * len(other_imgs)
+            for i, item in enumerate(other_imgs):
                 new_instance = CaseImages(img=item.get('img', ''),
-                                          caption=item.get('caption', ''),
+                                          caption=captions[i],
                                           case_uuid=instance.uuid)
                 new_instance.save()
 
@@ -482,14 +531,28 @@ class CaseDetailSerializer(serializers.ModelSerializer):
 
         # for deleting CaseImg
         if 'img_to_delete' in validated_data:
-            print("img to delete", validated_data['img_to_delete'])
+            # print("img to delete", validated_data['img_to_delete'])
+
+            # TODO: add some try, except. right now is pretty fragile.
             for item in validated_data['img_to_delete']:
-                img_instance = get_object_or_None(CaseImages,
-                                                  _id=ObjectId(item),
-                                                  case_uuid=instance.uuid)
-                if img_instance:
-                    # print("delete CaseImg", img_instance) # TODO: need further check
-                    img_instance.delete()
+                if item == 'af_img':
+                    instance.af_img.delete()
+                    # instance.af_img_cropped.delete()
+                    instance.af_cap = ''
+                elif item == 'bf_img':
+                    instance.bf_img.delete()
+                    # instance.bf_img_cropped.delete()
+                    instance.bf_cap = ''
+                else:
+                    try:
+                        img_instance = get_object_or_None(CaseImages,
+                                                          _id=ObjectId(item),
+                                                          case_uuid=instance.uuid)
+                        if img_instance:
+                            # print("delete CaseImg", img_instance) # TODO: need further check
+                            img_instance.delete()
+                    except Exception as e:
+                        logger.error('Cannot delete CaseImages with id %s' % item)
 
         # ArrayModelField
         if 'surgeries' in validated_data:

@@ -9,11 +9,12 @@ from rest_framework import generics, permissions, status
 from rest_framework.parsers import FileUploadParser, MultiPartParser, FormParser, JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from elasticsearch_dsl import Q
 import coloredlogs, logging
 
 from backend.settings import ES_PAGE_SIZE
+from backend.shared.permissions import AdminCanGetAuthCanPost
 from users.clinics.models import ClinicProfile
 from utils.drf.custom_fields import Base64ImageField
 from .models import Case
@@ -43,6 +44,7 @@ class CaseList(generics.ListCreateAPIView):
     queryset = Case.objects.all()
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     serializer_class = CaseDetailSerializer
+    permission_classes = [AdminCanGetAuthCanPost]
 
     def create(self, request, *args, **kwargs):
         """
@@ -83,8 +85,7 @@ class CaseDetailView(UpdateConciseResponseMixin,
     queryset = Case.objects.all()
     serializer_class = CaseDetailSerializer
     lookup_field = 'uuid'
-
-    # permission_classes = (OwnerCanCreateOrReadOnly, )
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def retrieve(self, request, *args, **kwargs):
         """
@@ -106,12 +107,9 @@ class CaseDetailView(UpdateConciseResponseMixin,
 
         """
 
-        # print("patch data 0", request.data)
-        # request.data = dict(request.data)
-
         # TODO: tmp, WIP
         other_imgs_list = []
-        # TODO: WIP
+        # TODO: WIP. very bad hard coded number.
         for i in range(0, 6):
             key = 'other_imgs' + str(i)
             if key not in request.data:
@@ -122,19 +120,6 @@ class CaseDetailView(UpdateConciseResponseMixin,
         print("other_imgs_list", other_imgs_list)
         if other_imgs_list:
             request.data['other_imgs'] = other_imgs_list
-
-        # request.data['other_imgs'] = [{'caption': '1'},
-        # {'caption': '2'}]
-        # request.data['other_imgs'] = [request.data['other_imgs0']]
-
-        # 'img': request.data['other_imgs0'],
-        # request.data['other_imgs'] = ['1', ' 2', '3']
-
-        # request.data['title'] = 'wer'
-        # request.data = {'other_imgs': [OrderedDict([('caption', '123')])]}
-
-        # print("patch data", request.data, type(request.data), type(request.data['other_imgs']),
-        #       request.data['other_imgs'][0], type(request.data['other_imgs'][0]))
 
         # this will call UpdateConciseResponseMixin's method
         return self.partial_update(request, *args, **kwargs)
@@ -283,7 +268,14 @@ class CaseManageListView(generics.ListAPIView):
         req = self.request
         state = req.query_params.get('state') or ''
 
-        # if not user, the response will just be empty.
-        # Put the recent one on the top.
-        return Case.objects.all().filter(author={'uuid': str(self.request.user.uuid)},
-                                         state=state).order_by('-posted')
+        # check whether is superuser
+        is_superuser = self.request.user.is_superuser
+
+        if is_superuser:
+            # superuser can see all posts.
+            return Case.objects.all().filter(state=state).order_by('-posted')
+        else:
+            # if not user, the response will just be empty.
+            # Put the recent one on the top.
+            return Case.objects.all().filter(author={'uuid': str(self.request.user.uuid)},
+                                             state=state).order_by('-posted')
