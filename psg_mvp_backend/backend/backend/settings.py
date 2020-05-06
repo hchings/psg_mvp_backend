@@ -26,9 +26,10 @@ TOP_DIR = Path(__file__).resolve().parent.parent.parent
 SECRET_KEY = 'hck+)fy3p9x789tx(x^-j*^!8ylg*e-n=lkh5*3zs^k&f$)h_='
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['*', '0.0.0.0', 'localhost'] # TODO: remove star
+# TODO: remove hard-coded front/backend IPs
+ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '206.189.218.129', '157.245.3.246']
 
 # CORS_REPLACE_HTTPS_REFERER = False
 # HOST_SCHEME = "http://"
@@ -126,6 +127,8 @@ DATABASES = {
         'NAME': 'core_db',
         # 'USER': os.environ.get('MONGO_USER'),
         # 'PASSWORD': os.environ.get('MONGO_PW'),
+        'USER': 'fxehty2019',
+        'PASSWORD': 'psgmvp2019',
         'HOST': 'mongo',
         'PORT': 27017,
         'AUTH_SOURCE': 'core_db',

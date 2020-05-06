@@ -31,7 +31,8 @@ internal_apis = [
 ]
 
 urlpatterns = internal_apis + [
-    url(r'^$', schema_view, name='swagger-root'),
+    # TODO properly set swagger auth instead of commenting it out
+    # url(r'^$', schema_view, name='swagger-root'),
     path('admin/', admin.site.urls),
     url(r'activity/', include('actstream.urls')),
     url(r'auth/', include('users.urls')),

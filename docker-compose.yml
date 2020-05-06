@@ -45,7 +45,7 @@ services:
       - http.cors.allow-origin=http://localhost:1358,http://127.0.0.1:1358
       - http.cors.allow-headers=X-Requested-With,X-Auth-Token,Content-Type,Content-Length,Authorization
       - http.cors.allow-credentials=true
-      - bootstrap.memory_lock=true
+      - bootstrap.memory_lock=false
     ports: # Expose Elasticsearch ports
       - "9300:9300"
       - "9200:9200"
