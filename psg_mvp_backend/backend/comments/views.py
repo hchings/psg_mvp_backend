@@ -9,6 +9,7 @@ from rest_framework.decorators import api_view
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 
 from django.contrib.auth import get_user_model
 from cases.models import Case
@@ -35,6 +36,7 @@ class CommentListView(generics.ListCreateAPIView):
     # this will give "http://localhost:8000/comments/?case_id=1656029043902246&page=2"
     pagination_class = PageNumberPagination
     pagination_class.page_size = COMMENT_PAGE_SIZE
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
         case_id = self.request.query_params.get('case_id', '')
@@ -102,6 +104,7 @@ class CommentDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
     lookup_field = 'id'
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     # not working
     # def get_serializer_context(self):

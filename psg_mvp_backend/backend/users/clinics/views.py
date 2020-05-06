@@ -23,6 +23,7 @@ from annoying.functions import get_object_or_None
 # from rest_framework import status
 
 from backend.settings import ES_PAGE_SIZE
+from backend.shared.permissions import IsAdminOrReadOnly
 from .serializers import ClinicPublicSerializer
 from .models import ClinicProfile
 # from .permissions import OnlyAdminCanDelete
@@ -62,6 +63,7 @@ class ClinicPublicDetail(generics.RetrieveUpdateAPIView):
     queryset = ClinicProfile.objects.all()
     serializer_class = ClinicPublicSerializer
     lookup_field = 'uuid'
+    permission_classes = [IsAdminOrReadOnly]
 
 
 class ClinicSearchView(APIView):
