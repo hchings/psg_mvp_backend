@@ -8,11 +8,11 @@ services:
     volumes:
       - ./dump:/dump
       - ./psg_mvp_backend/mongo.conf:/etc/mongo.conf
-      - ./data/db:/data/db
-#    command:
-#      - "--auth"
-#      - "-f"
-#      - "/etc/mongo.conf"
+      - /data/db:/data/db
+    command:
+      - "--auth"
+      - "-f"
+      - "/etc/mongo.conf"
     ports:
       - "27017:27017"
   web:
