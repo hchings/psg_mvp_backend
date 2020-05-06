@@ -531,14 +531,28 @@ class CaseDetailSerializer(serializers.ModelSerializer):
 
         # for deleting CaseImg
         if 'img_to_delete' in validated_data:
-            print("img to delete", validated_data['img_to_delete'])
+            # print("img to delete", validated_data['img_to_delete'])
+
+            # TODO: add some try, except. right now is pretty fragile.
             for item in validated_data['img_to_delete']:
-                img_instance = get_object_or_None(CaseImages,
-                                                  _id=ObjectId(item),
-                                                  case_uuid=instance.uuid)
-                if img_instance:
-                    # print("delete CaseImg", img_instance) # TODO: need further check
-                    img_instance.delete()
+                if item == 'af_img':
+                    instance.af_img.delete()
+                    # instance.af_img_cropped.delete()
+                    instance.af_cap = ''
+                elif item == 'bf_img':
+                    instance.bf_img.delete()
+                    # instance.bf_img_cropped.delete()
+                    instance.bf_cap = ''
+                else:
+                    try:
+                        img_instance = get_object_or_None(CaseImages,
+                                                          _id=ObjectId(item),
+                                                          case_uuid=instance.uuid)
+                        if img_instance:
+                            # print("delete CaseImg", img_instance) # TODO: need further check
+                            img_instance.delete()
+                    except Exception as e:
+                        logger.error('Cannot delete CaseImages with id %s' % item)
 
         # ArrayModelField
         if 'surgeries' in validated_data:

@@ -4,6 +4,7 @@ DRF Views for doctors.
 """
 
 from rest_framework import generics, permissions
+from rest_framework.permissions import IsAuthenticated
 import coloredlogs, logging
 
 from .serializers import DoctorPublicSerializer
@@ -26,3 +27,5 @@ class DoctorPublicList(generics.ListAPIView):
     name = 'doctorpublic-list'
     queryset = DoctorProfile.objects.all()
     serializer_class = DoctorPublicSerializer
+    # TODO: need change
+    permission_classes = [IsAuthenticated]
