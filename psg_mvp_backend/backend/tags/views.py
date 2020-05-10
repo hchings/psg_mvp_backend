@@ -13,33 +13,7 @@ from users.doc_type import ClinicBranchDoc
 
 # note that this is relevant to the top app folder
 CATALOG_FILE = './fixtures/catalog.json'
-
-
-def prep_catalog():
-    """
-    Prep for surgery stuff
-
-    :return:
-    """
-    # read in json catalog only once
-    catalog_dict = {}
-    with open(CATALOG_FILE) as json_file:
-        catalog_dict = json.load(json_file)
-
-    res = []
-
-    for item in catalog_dict.get('catalog_items', []):
-        for subcat in item.get('subcategory', []):
-            name = subcat.get('name', '')
-            if name:
-                # pop key if exist
-                subcat.pop('syn', None)
-                res.append(subcat)
-
-    return res
-
-
-surgery_mat_list = prep_catalog()
+surgery_mat_list = []
 
 
 # no need pagination as it's for auto-complete
@@ -81,5 +55,37 @@ class SurgeryListView(APIView):
     """
     name = 'surgery-list'
 
+    @staticmethod
+    def _prep_catalog():
+        """
+        Prep for surgery stuff.
+        Only read file for once on initial call.
+        Values will be cached.
+
+        :return:
+        """
+        # read in json catalog only once
+        if not surgery_mat_list:
+            catalog_dict = {}
+            with open(CATALOG_FILE) as json_file:
+                catalog_dict = json.load(json_file)
+
+            for item in catalog_dict.get('catalog_items', []):
+                for subcat in item.get('subcategory', []):
+                    name = subcat.get('name', '')
+                    if name:
+                        # pop key if exist
+                        subcat.pop('syn', None)
+                        surgery_mat_list.append(subcat)
+
+        return surgery_mat_list
+
     def get(self, request):
-        return Response(surgery_mat_list)
+        """
+        
+        :param request:
+        :return:
+        """
+        res = self._prep_catalog()
+
+        return Response(res)
