@@ -2,6 +2,7 @@
 DRF Views for tags.
 
 """
+import json
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -10,8 +11,40 @@ from elasticsearch_dsl import Q
 from users.doc_type import ClinicBranchDoc
 
 
+# note that this is relevant to the top app folder
+CATALOG_FILE = './fixtures/catalog.json'
+
+
+def prep_catalog():
+    """
+    Prep for surgery stuff
+
+    :return:
+    """
+    # read in json catalog only once
+    catalog_dict = {}
+    with open(CATALOG_FILE) as json_file:
+        catalog_dict = json.load(json_file)
+
+    res = []
+
+    for item in catalog_dict.get('catalog_items', []):
+        for subcat in item.get('subcategory', []):
+            name = subcat.get('name', '')
+            if name:
+                # pop key if exist
+                subcat.pop('syn', None)
+                res.append(subcat)
+
+    return res
+
+
+surgery_mat_list = prep_catalog()
+
+
 # no need pagination as it's for auto-complete
 # leverage the branch level data in ES
+
 
 class ClinicNameListView(APIView):
     """
@@ -38,3 +71,15 @@ class ClinicNameListView(APIView):
         # print(response_dict)
 
         return Response(res)
+
+
+class SurgeryListView(APIView):
+    """
+    An un-paginated view that return a list of
+    catalog with materials from local json.
+
+    """
+    name = 'surgery-list'
+
+    def get(self, request):
+        return Response(surgery_mat_list)

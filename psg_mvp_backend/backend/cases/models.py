@@ -6,7 +6,7 @@ from datetime import date
 import os
 
 from imagekit.models import ProcessedImageField, ImageSpecField
-from imagekit.processors import ResizeToFill
+from imagekit.processors import ResizeToFill, ResizeToFit
 from djongo import models
 from multiselectfield import MultiSelectField
 
@@ -259,14 +259,14 @@ class CaseImages(models.Model):
     # Image is resized to 120X120 pixels with django-imagekit
     # when you don't want to save the ori image
     img = ProcessedImageField(upload_to=get_case_dir_name,
-                              processors=[ResizeToFill(1000, 750)],
+                              processors=[ResizeToFit(height=970, upscale=False)],
                               format='JPEG',
                               options={'quality': 100},
                               blank=True,
                               null=True)
 
     img_thumb = ImageSpecField(source='img',
-                               processors=[ResizeToFill(520, 390)],
+                               processors=[ResizeToFit(height=390, upscale=False)],
                                format='JPEG',
                                options={'quality': 100})
 
@@ -432,6 +432,11 @@ class Case(models.Model):
                                        blank=True,
                                        null=True,
                                        help_text='scrapped user profile pic')
+    scp_user_pic_thumb = ImageSpecField(source='scp_user_pic',
+                                        processors=[ResizeToFill(50, 50)],
+                                        format='JPEG',
+                                        options={'quality': 100})
+
 
     # model_form_class = UserInfoForm
     author = models.EmbeddedModelField(

@@ -9,9 +9,9 @@ from bson import ObjectId
 from annoying.functions import get_object_or_None
 import coloredlogs, logging
 
-
 from backend.shared.fields import embedded_model_method
 from backend.shared.serializers import AuthorSerializer
+from backend.shared.utils import image_as_base64
 from .models import Case, CaseImages, UserInfo, ClinicInfo, SurgeryMeta, SurgeryTag
 from rest_framework.fields import (  # NOQA # isort:skip
     CreateOnlyDefault, CurrentUserDefault, SkipField, empty
@@ -35,6 +35,7 @@ from comments.views import COMMENT_PAGE_SIZE
 # Create a logger
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
+
 
 #########################################################
 #    Field Serializers for djongo's EmbeddedModelField
@@ -184,6 +185,7 @@ class CaseImagesSerializer(serializers.ModelSerializer):
         model = CaseImages
         fields = ('img', 'caption')
 
+
 class CaseImagesCaptionEdit(serializers.Serializer):
     """
     Serializer for editing caption field in CaseImages
@@ -312,6 +314,9 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         """
         super(CaseDetailSerializer, self).__init__(*args, **kwargs)
 
+        edit_param = self.context.get('request').query_params.get('edit')
+        self.edit_mode = True if (edit_param and edit_param.lower() in ("yes", "true", "t", "1")) else False
+
         # self.fields['other_imgs'].get_value = self._force_get_value
         self.fields['other_imgs'].get_value = self._force_get_value_factory(self.fields['other_imgs'].field_name)
 
@@ -321,6 +326,9 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         try:
             if self.context['request'].method in ['POST', 'PUT', 'PATCH']:
                 self.fields['surgeries'] = SurgeryTagSerializer(many=True)
+                self.fields['scp_user_pic'] = serializers.ImageField(max_length=None,
+                                                                     use_url=True,
+                                                                     required=False)
                 # if self.context['request'].method != 'POST':
                 # self.fields['other_imgs'] = CaseImagesSerializer(many=True, required=False)  # many=True
                 # self.fields['other_imgs'] = serializers.ListField(required=False)
@@ -336,6 +344,14 @@ class CaseDetailSerializer(serializers.ModelSerializer):
             else:
                 self.fields['surgeries'] = serializers.SerializerMethodField()
                 self.fields['other_imgs'] = serializers.SerializerMethodField()
+                if self.edit_mode:
+                    # return img url if it's edit mode
+                    self.fields['scp_user_pic'] = serializers.ImageField(max_length=None,
+                                                                         use_url=True,
+                                                                         required=False)
+                else:
+                    # return thumbnail base64 if it's read-only GET
+                    self.fields['scp_user_pic'] = serializers.SerializerMethodField(required=False)
         except KeyError:
             pass
 
@@ -490,13 +506,13 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         # print("validate, update", validated_data, instance.uuid)
 
         # when creating new other imgs
+        captions = []
         if 'captions' in validated_data:
             try:
                 captions = ast.literal_eval(validated_data['captions'])
                 logger.info("get captions: %s" % captions)
             except SyntaxError as e:
                 logger.error('update case captions error %s' % str(e))
-                captions = []
 
         # when editing captions of existing other imgs
         if validated_data.get('captions_edit', []):
@@ -626,10 +642,8 @@ class CaseDetailSerializer(serializers.ModelSerializer):
 
     # TODO: tmp try
     def get_other_imgs(self, obj):
-        edit_mode = self.context.get('request').query_params.get('edit')
-
         objs = CaseImages.objects.filter(case_uuid=obj.uuid)
-        if edit_mode and edit_mode.lower() in ("yes", "true", "t", "1"):
+        if self.edit_mode:
             serializer = CaseImagesEditSerializer(objs,
                                                   many=True,
                                                   context={'request': self.context['request']})
@@ -640,6 +654,12 @@ class CaseDetailSerializer(serializers.ModelSerializer):
 
         # [item.get('img', '') for item in serializer.data]
         return [] if not objs else serializer.data
+
+    def get_scp_user_pic(self, obj):
+        # TODO: add in user profile pic
+        if obj.scp_user_pic_thumb:
+            return image_as_base64(obj.scp_user_pic_thumb.url)
+        return ''
 
     def get_comments(self, obj):
         """
