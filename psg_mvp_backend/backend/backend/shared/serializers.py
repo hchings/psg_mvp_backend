@@ -7,7 +7,7 @@ class AuthorSerializer(serializers.Serializer):
     """
     uuid = serializers.CharField()
     name = serializers.CharField()
-    scp = serializers.BooleanField()
+    scp = serializers.BooleanField(required=False)
     scp_username = serializers.CharField(required=False, allow_blank=True)
 
 
