@@ -3,16 +3,13 @@ Database models for cases
 
 """
 from datetime import date
-import os
 
 from imagekit.models import ProcessedImageField, ImageSpecField
 from imagekit.processors import ResizeToFill, ResizeToFit
 from djongo import models
 from multiselectfield import MultiSelectField
 
-from django.conf import settings
 from django import forms
-from django.utils import timezone
 from backend.shared.utils import make_id
 from .doc_type import CaseDoc
 
@@ -477,6 +474,9 @@ class Case(models.Model):
 
     view_num = models.PositiveIntegerField(default=0, help_text='number of views')
 
+    # weird you can't set max value here
+    interest = models.FloatField(default=0, blank=True)
+
     def __str__(self):
         sig = ' '.join(['case', str(self.uuid)])
         sig = ' '.join([sig, self.title]) if self.title else sig
@@ -492,9 +492,14 @@ class Case(models.Model):
         doc = CaseDoc(
             # meta={'id': self.id},
             title=self.title or '',
+            clinic_name=self.clinic.display_name or '',
+            gender=self.gender,
             is_official=self.is_official,
+            interest=self.interest,
+            surgeries=[item.name for item in self.surgeries] if self.surgeries else [],
             id=str(self.uuid)  # uuid of case
         )
+
         # must add index, otherwise will get No Index error.
         doc.save(index="cases")  # TODO, not sure, seems not need this.
         return doc.to_dict(include_meta=True)
