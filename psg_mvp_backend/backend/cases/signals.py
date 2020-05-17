@@ -88,6 +88,13 @@ def fill_in_data(sender, instance, **kwargs):
                     if branch.branch_name == instance.clinic.branch_name:
                         matched_branch = branch
                         break
+
+                # fix error data
+                # TODO: clean up data here is kinda bad
+                if not head_quarter and len(clinic.branches) == 1:
+                    clinic.branches[0].is_head_quarter = True
+                    clinic.save()
+
                 if matched_branch:
                     instance.clinic.place_id = matched_branch.place_id or ''
                     instance.clinic.branch_name = matched_branch.branch_name
@@ -95,7 +102,7 @@ def fill_in_data(sender, instance, **kwargs):
                                 (instance.clinic.branch_name,
                                  instance.clinic.display_name,
                                  instance.uuid))
-                else:
+                elif head_quarter:
                     # if branch unexist, notify, change to head quarter
                     instance.clinic.place_id = head_quarter.place_id or ''
                     logger.warning("[Fill in case data] Branch %s of clinic %s for case %s is not found,"
