@@ -133,13 +133,19 @@ class CaseSearchView(APIView):
     """
     Elasticsearch end point for Cases.
     ---
-    parameters:
-        # TODO: add docstring
+    An example of search query from frontend:
+
+        {
+            'keywords': [str1, str2, ...],  # can be keywords or clinic names, search in title too
+            'gender': str
+            'is_official': boolean
+        }
+
 
     """
     name = 'case-search'
 
-    # TODO: WIP
+    # TODO: WIP, sort
     def post(self, request):
         """
         Return the search result.
@@ -163,16 +169,40 @@ class CaseSearchView(APIView):
 
         # ----- parse request body -----
         req_body = request.data
+        # print("request body for case search", req_body)
 
-        # TODO: return all for now.
-        q_combined = Q({"match_all": {}})
+        q_combined = None
+        if req_body:
+            surgeries = req_body.get('surgeries', [])
+            q_surgeries = None
+            # OR on all surgery
+            if surgeries:
+                for item in surgeries:
+                    # give more weight on 'surgeries' field
+                    q_new = Q("multi_match",
+                              query=item,
+                              fields=["surgeries^2", "title", "clinic_name"])
+                    q_combined = q_new if not q_surgeries else q_surgeries | q_new
+
+        if not q_combined:
+            q_combined = Q({"match_all": {}})
 
         try:
             # get page num from url para.
             # page number starts from 0.
             page = int(request.query_params.get('page', 0))
             s = CaseDoc.search(index='cases')  # specify search DocType
-            s = s.query(q_combined)  # add ES query
+
+            # add ES query, and only return the id field
+            s = s.query(q_combined).source(includes=['id'])
+
+            # add filters, note to use "term" instead of "match"
+            if 'is_official' in req_body:
+                s = s.filter('term', is_official=req_body['is_official'] or False)
+
+            if req_body.get('gender', ''):
+                s = s.filter('term', gender=req_body['gender'])
+
             cnt = s.count()  # get number of hits
             total_page = cnt // ES_PAGE_SIZE + 1
 
@@ -182,6 +212,9 @@ class CaseSearchView(APIView):
             # Only take minimum number of records that you need for this page from ES by slicing
             res = s[page * ES_PAGE_SIZE: min((page + 1) * ES_PAGE_SIZE, cnt)].execute()
             response_dict = res.to_dict()
+
+            # print("get result", response_dict)
+
             hits = response_dict['hits']['hits']
 
             data, ids = [], []

@@ -118,6 +118,7 @@ class ClinicSearchView(APIView):
                 # logger.info("add keyword %s" % keyword)
                 q_combined = q_new if not q_combined else q_combined & q_new  # Q: or | ?
 
+            # TODO: should change to filter query
             if 'open_sunday' in req_body:
                 # logger.info("add open_sunday")
                 q_new = Q({"match": {"open_sunday": req_body['open_sunday']}})
