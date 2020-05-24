@@ -320,8 +320,8 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         # self.fields['other_imgs'].get_value = self._force_get_value
         self.fields['other_imgs'].get_value = self._force_get_value_factory(self.fields['other_imgs'].field_name)
 
-        if 'request' in self.context:
-            print("======data", self.context['request'].data)
+        # if 'request' in self.context:
+        #    print("======data", self.context['request'].data)
 
         try:
             if self.context['request'].method in ['POST', 'PUT', 'PATCH']:

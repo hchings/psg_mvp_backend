@@ -117,7 +117,7 @@ class CaseDetailView(UpdateConciseResponseMixin,
             other_imgs_list.append({'img': request.data[key],
                                     'caption': ''})
 
-        print("other_imgs_list", other_imgs_list)
+        # print("other_imgs_list", other_imgs_list)
         if other_imgs_list:
             request.data['other_imgs'] = other_imgs_list
 
