@@ -184,6 +184,9 @@ STATIC_URL = '/static/'
 MEDIA_ROOT = os.path.join(TOP_DIR, 'media')
 MEDIA_URL = '/media/'
 
+# for catalog
+FIXTURE_ROOT = os.path.join(TOP_DIR, 'fixtures')
+
 # Extended User Auth Model
 AUTH_USER_MODEL = 'users.User'
 
