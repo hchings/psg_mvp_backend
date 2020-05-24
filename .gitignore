@@ -78,3 +78,7 @@ psg_mvp_backend/backend/cases/management/commands/__pycache__/
 psg_mvp_backend/backend/issue1.txt
 
 psg_mvp_backend/backend/urls.txt
+
+psg_mvp_backend/backend/__pycache__/
+
+psg_mvp_backend/static/

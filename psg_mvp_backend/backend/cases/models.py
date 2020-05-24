@@ -350,7 +350,7 @@ class Case(models.Model):
 
     # ----- photos: before -----
     bf_img = ProcessedImageField(upload_to=get_bg_img_dir_name,
-                                 processors=[ResizeToFill(1000, 750)],
+                                 processors=[ResizeToFit(height=1000, upscale=False)],
                                  format='JPEG',
                                  options={'quality': 100},
                                  blank=True,
@@ -378,7 +378,7 @@ class Case(models.Model):
 
     # ----- photos: after -----
     af_img = ProcessedImageField(upload_to=get_af_img_dir_name,
-                                 processors=[ResizeToFill(1000, 750)],
+                                 processors=[ResizeToFit(height=1000, upscale=False)],
                                  format='JPEG',
                                  options={'quality': 100},
                                  blank=True,
