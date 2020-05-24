@@ -61,7 +61,7 @@ def image_as_base64(image_file):
         return ''
 
     encoded_string = ''
-    with open(image_file, 'rb') as img_f:
+    with open(img_full_path, 'rb') as img_f:
         # need to encode, otherwise will return bytes
         encoded_string = base64.b64encode(img_f.read()).decode("utf-8")
     return 'data:image/%s;base64,%s' % (img_format, encoded_string)
