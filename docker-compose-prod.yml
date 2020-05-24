@@ -19,8 +19,7 @@ services:
     build: ./psg_mvp_backend
     command: [sh, -c, "python3 ./backend/manage.py index_cases && \
                        python3 ./backend/manage.py index_clinic_profiles && \
-                       cd ./backend && \
-                       gunicorn --bind 0.0.0.0:8000 backend.wsgi"]
+                       gunicorn --bind 0.0.0.0:8000 --chdir ./backend backend.wsgi"]
     environment:
       DJANGO_SETTINGS_MODULE: backend.settings
     volumes:

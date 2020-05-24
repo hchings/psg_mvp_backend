@@ -2,17 +2,18 @@
 DRF Views for tags.
 
 """
-import json
+import json, os
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from elasticsearch_dsl import Q
 
 from users.doc_type import ClinicBranchDoc
+from backend.settings import FIXTURE_ROOT
 
 
 # note that this is relevant to the top app folder
-CATALOG_FILE = './fixtures/catalog.json'
+CATALOG_FILE = os.path.join(FIXTURE_ROOT, 'catalog.json')
 surgery_mat_list = []
 
 
