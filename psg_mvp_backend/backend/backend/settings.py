@@ -81,6 +81,8 @@ INSTALLED_APPS = [
     'users',
     # --- cases app ---
     'cases',
+    # --- reviews app ---
+    'reviews',
     # --- comments app ---
     'comments'
 ]

@@ -37,6 +37,7 @@ urlpatterns = internal_apis + [
     url(r'auth/', include('users.urls')),
     url(r'^clinics/', include('users.clinics.urls')),
     url(r'^cases/', include('cases.urls')),
+    url(r'^reviews/', include('reviews.urls')),
     url(r'^comments/', include('comments.urls')),
     url(r'^doctors/', include('users.doctors.urls')),
     url(r'^tags/', include('tags.urls')),
