@@ -91,6 +91,13 @@ class ClinicBranch(models.Model):
     place_id = models.CharField(max_length=50,
                                 blank=True,
                                 help_text="unique google place_id")
+
+    branch_id = models.CharField(max_length=36,
+                                 default='',
+                                 blank=True,
+                                 editable=False,
+                                 help_text="A md5 hash (32 chars) from the place_id")
+
     is_exact_place_id = models.BooleanField(default=True,
                                             help_text="whether the clinic has Google Business ID")
     is_head_quarter = models.BooleanField(default=False, blank=True)
@@ -313,7 +320,8 @@ class ClinicProfile(models.Model):
                 open_info=str(open_info),  # TODO: somehow will block if I use array
                 address=branch.address,
                 rating=branch.rating,
-                id=self.uuid  # uuid of the clinic
+                id=self.uuid,  # uuid of the clinic
+                branch_id=branch.branch_id  # unique id of branch.
             )
 
             data.append(doc.to_dict(include_meta=True))

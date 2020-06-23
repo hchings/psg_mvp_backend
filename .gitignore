@@ -82,3 +82,7 @@ psg_mvp_backend/backend/urls.txt
 psg_mvp_backend/backend/__pycache__/
 
 psg_mvp_backend/static/
+
+psg_mvp_backend/backend/reviews/__pycache__/
+
+psg_mvp_backend/backend/reviews/management/commands/__pycache__/

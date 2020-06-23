@@ -2,6 +2,9 @@
 Signals for Users app.
 
 """
+import hashlib
+import coloredlogs, logging
+
 from annoying.functions import get_object_or_None
 
 from django.db.models.signals import post_save, pre_save
@@ -12,6 +15,9 @@ from .models import User
 from .clinics.models import ClinicProfile
 from .doctors.models import DoctorProfile
 # from .doc_type import ClinicProfileDoc
+
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG', logger=logger)
 
 
 def remove_newlines(text):
@@ -84,6 +90,17 @@ def clinic_profile_store_service_tags_raw(sender, instance, **kwargs):
         instance.services_raw = [item.strip() for item in services_raw_input.split(',') if item.strip()]
     elif instance.services_raw:
         instance.services_raw_input = ', '.join(instance.services_raw)
+
+    # fill in branch id (md5 hash of place id)
+    for branch in instance.branches:
+        if branch.place_id and not branch.branch_id:
+            # print(branch.place_id, type(branch.place_id))
+            try:
+                hash_obj = hashlib.md5(branch.place_id.encode('utf-8'))
+                branch.branch_id = hash_obj.hexdigest()
+                # print(hash_obj.hexdigest())
+            except Exception as e:
+                logger.error(e)
 
 
 @receiver(pre_save, sender=DoctorProfile)
