@@ -43,6 +43,8 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
     branches = serializers.SerializerMethodField()
     services_raw = serializers.ListField() # TODO: use this to make list
 
+    saved_by_user = serializers.SerializerMethodField(required=False)
+
     # read_only = True
     # source = 'clinic_profile.branches',
     # case_num = serializers.SerializerMethodField()
@@ -83,6 +85,34 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
 
             return_data = embedded_dict
         return return_data
+
+    # TODO: WIP
+    def get_saved_by_user(self, obj):
+        """
+        Return a boolean flag indicating whether the user
+        in the request saved the current clinic.
+
+        For unauthorized users, it will always be false.
+
+        :param obj: the comment object
+        :return (boolean):
+        """
+        request = self.context.get('request', None)
+
+        # print("reauest", request)
+
+        # for unlogin user
+        if not request or request.user.is_anonymous:
+            return False
+
+        # it should only have one obj if it's saved
+        action_objs = obj.action_object_actions.filter(actor_object_id=request.user._id, verb='save')
+        # for item in action_objs:
+        #     print("branch_id", item.data['branch_id'])
+
+        # logger.info("action_objs in serializer %s" % action_objs)
+
+        return False if not action_objs else True
 
     # def get_concise_regions(self, obj):
     #     """
@@ -150,12 +180,71 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = ClinicProfile
-        # fields = ('url', 'uuid', 'username', 'logo', 'opening_info',
-        #           'concise_regions', 'services', 'rating',
-        #           'branches', 'case_num')
         fields = ('website_url', 'uuid', 'user_id', 'display_name',  'logo_thumbnail', 'services_raw',
-                  'branches')
+                  'branches', 'saved_by_user')
 
+
+class ClinicEsSerializer(serializers.HyperlinkedModelSerializer):
+    """
+    Read only Serializer for showing Clinic information.
+    Most of the information are from ClinicProfile.
+
+    """
+    uuid = serializers.ReadOnlyField()
+    logo_thumbnail = Base64ImageField()
+    saved_by_user = serializers.SerializerMethodField(required=False)
+
+    # read_only = True
+    # source = 'clinic_profile.branches',
+    # case_num = serializers.SerializerMethodField()
+
+    # TODO: WIP
+    def get_saved_by_user(self, obj):
+        """
+        Return a boolean flag indicating whether the user
+        in the request saved the current clinic.
+
+        For unauthorized users, it will always be false.
+
+        :param obj: the comment object
+        :return (boolean):
+        """
+        request = self.context.get('request', None)
+
+        # for unlogin user
+        if not request or request.user.is_anonymous:
+            return False
+
+        # it should only have one obj if it's saved
+        action_objs = obj.action_object_actions.filter(actor_object_id=request.user._id, verb='save')
+        # for item in action_objs:
+        #     print("branch_id", item.data['branch_id'])
+
+        # logger.info("action_objs in serializer %s" % action_objs)
+
+        return False if not action_objs else True
+
+    class Meta:
+        model = ClinicProfile
+        fields = ('uuid', 'logo_thumbnail', 'saved_by_user')
+
+
+# TODO: WIP
+class ClinicSavedSerializer(serializers.HyperlinkedModelSerializer):
+    """
+    Read only Serializer for showing Clinic information.
+    Most of the information are from ClinicProfile.
+
+    """
+
+    branch_name = serializers.SerializerMethodField(required=False)
+
+    class Meta:
+        model = ClinicProfile
+        fields = ('website_url', 'uuid', 'user_id', 'display_name',  'logo_thumbnail')
+
+    def get_branch_name(self, obj):
+        return ''
 
 # --- Doctor ---
 

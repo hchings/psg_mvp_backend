@@ -6,12 +6,18 @@ DRF Views for clinics.
 from collections import OrderedDict
 
 from rest_framework import generics, permissions, status
-from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
+from rest_framework.pagination import PageNumberPagination
 from elasticsearch_dsl import Q
 import coloredlogs, logging
 from annoying.functions import get_object_or_None
+from actstream import actions, action
+# from actstream.models import Action
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+
+from django.contrib.contenttypes.models import ContentType
+
 # from hanziconv import HanziConv
 
 # from rest_framework import serializers
@@ -24,7 +30,7 @@ from annoying.functions import get_object_or_None
 
 from backend.settings import ES_PAGE_SIZE
 from backend.shared.permissions import IsAdminOrReadOnly
-from .serializers import ClinicPublicSerializer
+from .serializers import ClinicPublicSerializer, ClinicSavedSerializer, ClinicEsSerializer
 from .models import ClinicProfile
 # from .permissions import OnlyAdminCanDelete
 
@@ -41,6 +47,9 @@ from users.doctors.models import DoctorProfile
 # Create a logger
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
+
+# for getting actions
+clinic_content_type = ContentType.objects.get(model='clinicprofile')
 
 
 class ClinicPublicList(generics.ListAPIView):
@@ -66,7 +75,7 @@ class ClinicPublicDetail(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAdminOrReadOnly]
 
 
-class ClinicSearchView(APIView):
+class ClinicSearchView(generics.RetrieveAPIView):
     """
     Elasticsearch end point for ClinicProfile
     on branch level.
@@ -149,7 +158,7 @@ class ClinicSearchView(APIView):
 
             # logger.info("range: %s-%s" % (page*ES_PAGE_SIZE, min((page+1)*ES_PAGE_SIZE, cnt)))
             # Only take minimum number of records that you need for this page from ES by slicing
-            res = s[page*ES_PAGE_SIZE: min((page+1)*ES_PAGE_SIZE, cnt)].execute()
+            res = s[page * ES_PAGE_SIZE: min((page + 1) * ES_PAGE_SIZE, cnt)].execute()
             response_dict = res.to_dict()
             hits = response_dict['hits']['hits']
 
@@ -167,13 +176,22 @@ class ClinicSearchView(APIView):
             # however, Django ORM returns the results in a different order,
             # but it doesn't matter as I only need to get the logos.
             queryset = ClinicProfile.objects.filter(uuid__in=ids)
+            serializer = ClinicEsSerializer(list(queryset), many=True)
 
             # add back info that are not stored in ES engine.
             # since there are only a few fields. It's faster to skip serializer.
             logo_dict = {}
-            for clinic in queryset:
-                if clinic.uuid not in logo_dict:
-                    logo_dict[clinic.uuid] = Base64ImageField().to_representation(clinic.logo_thumbnail)
+            # for clinic in queryset:
+            #     if clinic.uuid not in logo_dict:
+            #         logo_dict[clinic.uuid] = Base64ImageField().to_representation(clinic.logo_thumbnail)
+
+            # TODO: incorrect behavior: branch
+            # TODO: WIP
+            for clinic in serializer.data:
+                clinic_uuid = clinic['uuid']
+                data_dict[clinic_uuid]['saved_by_user'] = clinic['saved_by_user']
+                if clinic_uuid not in logo_dict:
+                    logo_dict[clinic_uuid] = clinic['logo_thumbnail']  # TODO: base64?
 
             # ----- format response ------
             response['count'] = cnt
@@ -244,6 +262,111 @@ class ClinicSearchView(APIView):
 #                 serializer = ClinicPublicSerializer(clinic_profiles, many=True)
 #             return Response(serializer.data)
 
+# TODO: WIP
+class ClinicSavedList(generics.ListAPIView):
+    name = 'clinic-saved-list'
+    serializer_class = ClinicPublicSerializer
+    pagination_class = PageNumberPagination
+    lookup_field = 'uuid'
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        #  TODO: not working
+        user = self.request.user
+
+        if not user:
+            return []
+
+        saved_clinics = user.actor_actions.filter(action_object_content_type=clinic_content_type,
+                                                  verb='save')
+        unsaved_clinics = user.actor_actions.filter(action_object_content_type=clinic_content_type,
+                                                    verb='unsave')
+
+        saved_clinics = [item.action_object for item in saved_clinics]
+        unsaved_clinics = [item.action_object for item in unsaved_clinics]
+
+        # final saved clinics
+        queryset = list(set(saved_clinics) - set(unsaved_clinics))
+
+        # print("saved", saved_clinics)
+        # print("unsaved", unsaved_clinics)
+        # print("final queryset", queryset)
+
+        return queryset
+
+
+# TODO: WIP
+class ClinicActionList(generics.ListAPIView):
+    """
+    get: get a list of saved cases of a user.
+
+    """
+    name = 'case-action-list'
+    serializer_class = ClinicSavedSerializer
+    pagination_class = PageNumberPagination
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """
+        Overwrite. To get a list of case object that's saved by the request user.
+        Note that we use action items instead of the built-in follow/unfollow,
+        hence some extra handling here.
+
+        :return:
+        """
+        user = self.request.user
+
+        if not user:
+            return []
+
+        # get list of saved actions, shouldn't have duplicate
+        saved_cases = user.actor_actions.filter(action_object_content_type=clinic_content_type,
+                                                verb='save')
+
+        # get the action object
+        queryset = []
+        case_set = set()
+        for item in saved_cases:
+            if item not in case_set:
+                queryset.append(item.action_object)
+
+        return queryset
+
+    def list(self, request):
+        """
+        Overwrite.
+        # TODO: check page
+
+        :param request:
+        :return:
+        """
+        queryset = self.filter_queryset(self.get_queryset())
+
+        page = self.paginate_queryset(queryset)
+        # print("page", page)
+        serializer = self.get_serializer(page, many=True)
+
+        # get clinic logos
+        clinic_ids = set()
+        for case in queryset:
+            # corrupted data from
+            if case is None:
+                continue
+            clinic_ids.add(case.clinic.uuid)
+
+        clinic_objs = ClinicProfile.objects.filter(uuid__in=clinic_ids)
+        logo_dict = {}
+
+        for clinic in clinic_objs:
+            logo_dict[clinic.uuid] = Base64ImageField().to_representation(clinic.logo_thumbnail_small)
+
+        final_response = self.get_paginated_response(serializer.data)
+        final_response.data['logos'] = logo_dict
+
+        # TODO: else part
+        return final_response
+
+
 @api_view(['GET'])
 def doctor_name_view(request, uuid='', clinic_name=''):
     """
@@ -280,3 +403,58 @@ def doctor_name_view(request, uuid='', clinic_name=''):
     # clinic_uuid = request.query_params.get('uuid', '').strip()
     return Response({'doctors': res},
                     status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def like_unlike_clinic(request, clinic_uuid, flag='', do_like=True, actor_only=False, save_unsave=False):
+    """
+    DRF Funcional-based view to like/unlike or save/unsave a clinic (ClinicProfile, on branch level).
+    Note that for each comment, we'll at most have 2 activity stream objects (like and unlike).
+    Making a like API call when like is already the latest object will do no action.
+    Making an unlike API call in the same situation will wipe out the previous unlike records
+    and stack a new one.
+
+
+    :param request: RESTful request.
+    :param clinic_uuid: the target to be followed. (The model is ClinicProfile.)
+    :param flag: -
+    :param do_like: a flag so that both the follow and unfollow urls can
+                      share this same view.
+    :param actor_only: -
+    :param save_unsave: boolean, determine like/unlike mode or save/unsave
+    :return:
+    """
+
+    if not request.user.is_authenticated:
+        logger.error('Unauthenticated user using like/unlike API.')
+        # TODO: find default msg, think how to handle at client is more convenient
+        return Response({'error': 'unauthenticated user'}, status.HTTP_401_UNAUTHORIZED)
+
+    branch_id = request.query_params.get('branchId', '')
+    # print("branch id", branch_id)
+
+    # get action object
+    clinic_obj = get_object_or_None(ClinicProfile, uuid=clinic_uuid)
+
+    if not clinic_obj:
+        return Response({'error': 'invalid clinic id'}, status.HTTP_400_BAD_REQUEST)
+
+    verb = 'save'
+
+    res = clinic_obj.action_object_actions.filter(actor_object_id=request.user._id, verb=verb).order_by('-timestamp')
+
+    if do_like:
+        if res:
+            return Response({'succeed': 'duplicated %s action is ignored.' % verb}, status.HTTP_201_CREATED)
+
+        # else
+        if len(res) >= 2:
+            # negative index not supported
+            res[1:].delete()
+
+        action.send(request.user, verb=verb, action_object=clinic_obj, branch_id=branch_id)
+        return Response({'succeed': ""}, status.HTTP_201_CREATED)
+    else:
+        if res:
+            res.delete()
+        return Response({'succeed': "redo %s" % verb}, status.HTTP_201_CREATED)

@@ -145,7 +145,7 @@ def like_unlike_comment(request, comment_uuid, flag='', do_like=True, actor_only
         return Response({'error': 'invalid comment id'}, status.HTTP_400_BAD_REQUEST)
 
     verb = 'like'
-    res = comment_obj.action_object_actions.filter(actor_object_id=request.user._id, verb='like').order_by('-timestamp')
+    res = comment_obj.action_object_actions.filter(actor_object_id=request.user._id, verb=verb).order_by('-timestamp')
 
     if do_like:
         if res:
