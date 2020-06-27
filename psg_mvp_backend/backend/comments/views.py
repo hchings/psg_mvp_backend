@@ -116,10 +116,9 @@ class CommentDetailView(generics.RetrieveUpdateDestroyAPIView):
 def like_unlike_comment(request, comment_uuid, flag='', do_like=True, actor_only=False):
     """
     DRF Funcional-based view to like or unlike a user.
-    Note that for each comment, we'll at most have 2 activity stream objects (like and unlike).
+    Note that for each comment, we'll at most have 1 activity object (like).
     Making a like API call when like is already the latest object will do no action.
-    Making an unlike API call in the same situation will wipe out the previous unlike records
-    and stack a new one.
+    Making an unlike API call in the same situation will wipe out the previous like record.
 
 
     :param request: RESTful request.
@@ -130,7 +129,6 @@ def like_unlike_comment(request, comment_uuid, flag='', do_like=True, actor_only
     :param actor_only: -
     :return:
     """
-    # print("like unlike comment", comment_uuid)
 
     if not request.user.is_authenticated:
         logger.error('Unauthenticated user using like/unlike API.')
@@ -146,70 +144,21 @@ def like_unlike_comment(request, comment_uuid, flag='', do_like=True, actor_only
     if not comment_uuid:
         return Response({'error': 'invalid comment id'}, status.HTTP_400_BAD_REQUEST)
 
-    verb = 'like' if do_like else 'unlike'
+    verb = 'like'
+    res = comment_obj.action_object_actions.filter(actor_object_id=request.user._id, verb='like').order_by('-timestamp')
 
-    res = comment_obj.action_object_actions.filter(actor_object_id=request.user._id).order_by('-timestamp')
+    if do_like:
+        if res:
+            return Response({'succeed': 'duplicated %s action is ignored.' % verb}, status.HTTP_201_CREATED)
 
-    # print("res of ac stream", res, verb)
+        # else
+        if len(res) >= 2:
+            # negative index not supported
+            res[1:].delete()
 
-    if res and res[0].verb == verb:
-        return Response({'succeed': 'duplicated %s action is ignored.' % verb}, status.HTTP_201_CREATED)
-
-    # else
-    if len(res) >= 2:
-        # negative index not supported
-        res[len(res)-1].delete()
-
-    action.send(request.user, verb=verb, action_object=comment_obj)
-    return Response({'succeed': ""}, status.HTTP_201_CREATED)
-
-    # if do_like:
-    #     # TODO: diff btwn actions and action??
-    #     # note that this built-in follow function
-    #     # will automatically generate an action
-    #
-    #     # check like
-    #     # actor_object_id is the mongo document id
-    #     res = comment_obj.action_object_actions.filter(verb='like', actor_object_id=request.user._id)
-    #     if res:
-    #         return Response({'succeed': 'duplicated action is ignored.'}, status.HTTP_204_NO_CONTENT)
-    #
-    #     action.send(request.user, verb='like', action_object=comment_obj) # TODO: WIP
-    #     # action.send(request.user, verb='created comment', action_object=comment, target=group)
-    #
-    #     # actions.follow(request.user,
-    #     #                instance,
-    #     #                actor_only=actor_only,
-    #     #                flag=flag)
-    #     # TODO: a try on django-notification
-    #     # notify.send(request.user, recipient=instance, verb='is following you.')
-    #
-    #     # publish notification msg through websocket if the target user
-    #     # is online
-    #
-    #     # TODO: WIP: change to async
-    #     # channel_layer = get_channel_layer()
-    #     # group_name = 'notif_%s' % instance.uuid
-    #
-    #     # await channel_layer.group_send(
-    #     #     chat_name,
-    #     #     {"type": "chat.system_message", "text": announcement_text},
-    #     # )
-    #
-    #     # print("Get channel layer", channel_layer, group_name)
-    #     # async_to_sync(channel_layer.group_send)(group_name,
-    #     #                                         {"type": "followed_by_notif",
-    #     #                                          "actor": request.user.username})
-    #     # TODO: WIP
-    #     return Response({"succeed": ""},
-    #                     status=status.HTTP_201_CREATED)
-    #
-    # else:
-    #     # check unlike
-    #     # actor_object_id is the mongo document id
-    #     res = comment_obj.action_object_actions.filter(verb='unlike', actor_object_id=request.user._id)
-    #     if res:
-    #         return Response({'succeed': 'duplicated action is ignored.'}, status.HTTP_204_NO_CONTENT)
-    #
-    #     action.send(request.user, verb='unlike', action_object=comment_obj)
-    #     return Response({'succeed': ""}, status.HTTP_204_NO_CONTENT)
+        action.send(request.user, verb=verb, action_object=comment_obj)
+        return Response({'succeed': ""}, status.HTTP_201_CREATED)
+    else:
+        if res:
+            res.delete()
+        return Response({'succeed': "redo %s" % verb}, status.HTTP_201_CREATED)
