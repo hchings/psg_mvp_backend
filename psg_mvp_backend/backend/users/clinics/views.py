@@ -9,6 +9,7 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.views import APIView
 from elasticsearch_dsl import Q
 import coloredlogs, logging
 from annoying.functions import get_object_or_None
@@ -75,7 +76,7 @@ class ClinicPublicDetail(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAdminOrReadOnly]
 
 
-class ClinicSearchView(generics.RetrieveAPIView):
+class ClinicSearchView(APIView):
     """
     Elasticsearch end point for ClinicProfile
     on branch level.
