@@ -186,43 +186,47 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
 
 class ClinicEsSerializer(serializers.HyperlinkedModelSerializer):
     """
-    Read only Serializer for showing Clinic information.
-    Most of the information are from ClinicProfile.
+    Read only Serializer for enriching ES record.
 
     """
     uuid = serializers.ReadOnlyField()
     logo_thumbnail = Base64ImageField()
+
+    # return a list of branch_id of branches saved by users
     saved_by_user = serializers.SerializerMethodField(required=False)
 
     # read_only = True
     # source = 'clinic_profile.branches',
     # case_num = serializers.SerializerMethodField()
 
-    # TODO: WIP
     def get_saved_by_user(self, obj):
         """
-        Return a boolean flag indicating whether the user
-        in the request saved the current clinic.
+        Return a list of branch ids of branch that are saved
+        by the user.
 
-        For unauthorized users, it will always be false.
+        For unauthorized users, it will always be an empty array.
 
         :param obj: the comment object
-        :return (boolean):
+        :return (list of str):
         """
         request = self.context.get('request', None)
 
         # for unlogin user
         if not request or request.user.is_anonymous:
-            return False
+            return []
 
         # it should only have one obj if it's saved
         action_objs = obj.action_object_actions.filter(actor_object_id=request.user._id, verb='save')
-        # for item in action_objs:
-        #     print("branch_id", item.data['branch_id'])
+
+        branch_ids = []
+        for item in action_objs:
+            branch_id = item.data.get('branch_id', '')
+            if branch_id:
+                branch_ids.append(branch_id)
 
         # logger.info("action_objs in serializer %s" % action_objs)
-
-        return False if not action_objs else True
+        # return False if not action_objs else True
+        return branch_ids
 
     class Meta:
         model = ClinicProfile

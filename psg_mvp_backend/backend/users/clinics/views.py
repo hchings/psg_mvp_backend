@@ -163,34 +163,36 @@ class ClinicSearchView(APIView):
             response_dict = res.to_dict()
             hits = response_dict['hits']['hits']
 
-            data, ids = [], []
-            data_dict = {}  # for storing an Q(1) mapping from id to source document
+            data, ids = [], set()
+            data_dict = {}  # for storing an Q(1) mapping from branch id to source document
             for hit in hits:
                 hit['_source']['score'] = hit.get('_score', '')
                 doc = hit['_source']
                 doc.pop('open_sunday')
+                doc['saved_by_user'] = False  # pre-fill
                 data.append(doc)
-                ids.append(hit['_source']['id'])
-                data_dict[hit['_source']['id']] = data[-1]
+                ids.add(hit['_source']['id'])
+                data_dict['_'.join([hit['_source']['id'],
+                                    hit['_source']['branch_id']])] = data[-1]
 
             # get the corresponding objects from mongo.
             # however, Django ORM returns the results in a different order,
             # but it doesn't matter as I only need to get the logos.
             queryset = ClinicProfile.objects.filter(uuid__in=ids)
-            serializer = ClinicEsSerializer(list(queryset), many=True)
+            serializer = ClinicEsSerializer(list(queryset),
+                                            many=True,
+                                            context={'request': request})
 
-            # add back info that are not stored in ES engine.
-            # since there are only a few fields. It's faster to skip serializer.
+            # add back info that are not stored in ES engine. (e.g., 'saved_by_user')
             logo_dict = {}
-            # for clinic in queryset:
-            #     if clinic.uuid not in logo_dict:
-            #         logo_dict[clinic.uuid] = Base64ImageField().to_representation(clinic.logo_thumbnail)
 
-            # TODO: incorrect behavior: branch
-            # TODO: WIP
             for clinic in serializer.data:
                 clinic_uuid = clinic['uuid']
-                data_dict[clinic_uuid]['saved_by_user'] = clinic['saved_by_user']
+                # print("clinic %s, %s" % (clinic['uuid'], clinic['saved_by_user']))
+                for branch_id in clinic['saved_by_user']:
+                    identifier = '_'.join([clinic_uuid, branch_id])
+                    if identifier in data_dict:
+                        data_dict[identifier]['saved_by_user'] = True
                 if clinic_uuid not in logo_dict:
                     logo_dict[clinic_uuid] = clinic['logo_thumbnail']  # TODO: base64?
 
@@ -296,10 +298,10 @@ class ClinicSavedList(generics.ListAPIView):
         return queryset
 
 
-# TODO: WIP
+# TODO: WIP. NOT WORKING YET
 class ClinicActionList(generics.ListAPIView):
     """
-    get: get a list of saved cases of a user.
+    get: get a list of saved clinic (on branch level) of a user.
 
     """
     name = 'case-action-list'
@@ -309,7 +311,7 @@ class ClinicActionList(generics.ListAPIView):
 
     def get_queryset(self):
         """
-        Overwrite. To get a list of case object that's saved by the request user.
+        Overwrite. To get a list of clinic object that's saved by the request user.
         Note that we use action items instead of the built-in follow/unfollow,
         hence some extra handling here.
 
@@ -410,10 +412,9 @@ def doctor_name_view(request, uuid='', clinic_name=''):
 def like_unlike_clinic(request, clinic_uuid, flag='', do_like=True, actor_only=False, save_unsave=False):
     """
     DRF Funcional-based view to like/unlike or save/unsave a clinic (ClinicProfile, on branch level).
-    Note that for each comment, we'll at most have 2 activity stream objects (like and unlike).
+    Note that for each clinic, we'll at most have 1 activity object (like).
     Making a like API call when like is already the latest object will do no action.
-    Making an unlike API call in the same situation will wipe out the previous unlike records
-    and stack a new one.
+    Making an unlike API call in the same situation will wipe out the previous like record.
 
 
     :param request: RESTful request.
@@ -442,16 +443,18 @@ def like_unlike_clinic(request, clinic_uuid, flag='', do_like=True, actor_only=F
 
     verb = 'save'
 
-    res = clinic_obj.action_object_actions.filter(actor_object_id=request.user._id, verb=verb).order_by('-timestamp')
+    # filter res to branch level. GKF queryset object
+    res = clinic_obj.action_object_actions.filter(actor_object_id=request.user._id,
+                                                  verb=verb,
+                                                  data={'branch_id': branch_id}).order_by('-timestamp')
 
     if do_like:
         if res:
-            return Response({'succeed': 'duplicated %s action is ignored.' % verb}, status.HTTP_201_CREATED)
+            if len(res) >= 2:
+                # negative index not supported
+                res[1:].delete()
 
-        # else
-        if len(res) >= 2:
-            # negative index not supported
-            res[1:].delete()
+            return Response({'succeed': 'duplicated %s action is ignored.' % verb}, status.HTTP_201_CREATED)
 
         action.send(request.user, verb=verb, action_object=clinic_obj, branch_id=branch_id)
         return Response({'succeed': ""}, status.HTTP_201_CREATED)
