@@ -59,19 +59,11 @@ class CommentSerializer(serializers.ModelSerializer):
 
     def get_like_num(self, obj):
         """
-
+        # TODO: this is wrong
         :param obj:
         :return:
         """
-        like_num = len(obj.action_object_actions.filter(verb='like'))
-        unlike_num = len(obj.action_object_actions.filter(verb='unlike'))
-
-        if unlike_num > like_num:
-            logger.error("unlike %s > like %s for comment %s"
-                         % (unlike_num, like_num, obj.uuid))
-            return 0
-
-        return like_num - unlike_num
+        return len(obj.action_object_actions.filter(verb='like'))
 
     def get_liked_by_user(self, obj):
         """
@@ -92,16 +84,9 @@ class CommentSerializer(serializers.ModelSerializer):
             # logger.info("got user", user)
 
             if not user.is_anonymous:
-                # each comment at most have two two activity stream objects (one like and one unlike)
-                # from each user. This is to reduce the unnecessary space used in db.
-                # Put the more recent activity on the type with order_by.
-                action_objs = obj.action_object_actions.filter(actor_object_id=user._id).order_by('-timestamp')
-                logger.info("action_objs in serializer %s" % action_objs)
-
-                if not action_objs:
-                    return False
-
-                return False if not action_objs or action_objs[0].verb == 'unlike' else True
+                action_objs = obj.action_object_actions.filter(actor_object_id=user._id, verb="like")
+                # logger.info("action_objs in serializer %s" % action_objs)
+                return False if not action_objs else True
 
         # for unlogin user
         return False

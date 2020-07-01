@@ -32,3 +32,5 @@ class UsersConfig(AppConfig):
         # Register tag model Service as "Action Object" for django-activity-stream
         from actstream import registry
         registry.register(self.get_model('User'))
+        registry.register(self.get_model('ClinicProfile'))
+

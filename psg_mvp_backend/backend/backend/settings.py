@@ -266,6 +266,14 @@ CORS_ORIGIN_WHITELIST = [
 
 
 ###################################
+#         activity stream
+###################################
+# set this to true to pass extra metadata in actions.
+ACTSTREAM_SETTINGS = {
+    'USE_JSONFIELD': True
+}
+
+###################################
 #          3rd party api
 ###################################
 # Google Map API key (project mvp1).
