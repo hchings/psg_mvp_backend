@@ -150,6 +150,78 @@ class ClinicBranchForm(forms.ModelForm):
             if key not in ['branch_name']:
                 self.fields[key].required = False
 
+#####################################
+#     Price Point Abstract Model
+#####################################
+
+
+class PricePoint(models.Model):
+    """
+    Abstract model representing the price point of a service.
+
+    """
+    class Meta:
+        abstract = True
+
+    min_price = models.PositiveIntegerField(blank=True, null=True)
+    max_price = models.PositiveIntegerField(blank=True, null=True)
+    modified = models.DateField(auto_now=True, help_text="last modified")
+    source = models.CharField(max_length=20, blank=True)
+    source_url = models.URLField(blank=True, help_text="source link")
+
+    def __str__(self):
+        # TODO: WIP
+        return ''
+
+#####################################
+#     Service Tag Abstract Model
+#####################################
+
+
+class ServiceTag(models.Model):
+    """
+    Abstract model representing the info of service tag.
+    Many-to-one relationship to ClinicProfile.
+
+    """
+    class Meta:
+        abstract = True
+
+    # link to service model
+    service_id = models.CharField(max_length=30,
+                                  blank=False,
+                                  editable=False,
+                                  help_text="primary key to Service model")
+
+    name = models.CharField(max_length=30,
+                            blank=False,
+                            help_text="service name")
+
+    prices = models.ArrayModelField(
+        model_container=PricePoint,
+        default=[]
+    )
+
+    def __str__(self):
+        return self.name
+
+
+class ServiceTagForm(forms.ModelForm):
+    """
+    Customize form for ArrayModelField from djongo bcz
+    the self-generated Form has all fields set to required.
+    """
+
+    class Meta:
+        model = ServiceTag
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super(ServiceTagForm, self).__init__(*args, **kwargs)
+        # all fields are not required except for branch_name
+        for key, _ in self.fields.items():
+            self.fields[key].required = False
+
 
 class ClinicProfile(models.Model):
     """
@@ -264,6 +336,13 @@ class ClinicProfile(models.Model):
     #     model_form_class=SimpleStringForm,
     #     default=[]
     # )
+
+    services = models.ArrayModelField(
+        model_container=ServiceTag,
+        model_form_class=ServiceTagForm,
+        default=[],
+        help_text="normalized services"
+    )
 
     services_raw_input = models.TextField(blank=True, help_text="隆鼻, 雙眼皮, 抽脂, ... \
                                                                  Type '-' to clear the service_raw field")

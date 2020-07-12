@@ -7,6 +7,8 @@ from rest_framework import serializers, exceptions
 from annoying.functions import get_object_or_None
 
 from utils.drf.custom_fields import Base64ImageField
+
+from backend.shared.fields import embedded_model_method
 from users.clinics.models import ClinicProfile
 from .models import DoctorProfile
 
@@ -63,3 +65,67 @@ class DoctorPublicSerializer(serializers.HyperlinkedModelSerializer):
         fields = ('uuid', 'display_name', 'profile_photo', 'rating', 'position',
                   'services_raw',  'review_num', 'case_num', 'featured_review', 'is_primary',
                   'clinic_uuid', 'clinic_name', 'clinic_rating', 'clinic_logo')
+
+
+class DoctorDetailSerializer(serializers.HyperlinkedModelSerializer):
+    """
+    Read only Serializer for showing detailed doctor information.
+
+    """
+
+    reviews = serializers.SerializerMethodField(required=False)
+    cases = serializers.SerializerMethodField(required=False)
+    degrees = serializers.SerializerMethodField(required=False)
+    certificates = serializers.SerializerMethodField(required=False)
+    work_exps = serializers.SerializerMethodField(required=False)
+
+    # TODO: I don't think we'll normalize this
+    services_raw = serializers.ListField()  # use this to make list
+
+    class Meta:
+        model = DoctorProfile
+        fields = ('display_name', 'profile_photo', 'is_primary', 'position',
+                  'degrees', 'certificates', 'work_exps',
+                  'services_raw', 'youtube_url', 'blog_url', 'fb_url',
+                  'reviews', 'cases')
+
+    def get_degrees(self, obj):
+        """
+        To serialize ArrayModelField from djongo.
+        :param obj:
+        :return:
+        """
+        return embedded_model_method(obj,
+                                     self.Meta.model,
+                                     'degrees',
+                                     included_fields=['item'])
+
+    def get_certificates(self, obj):
+        """
+        To serialize ArrayModelField from djongo.
+        :param obj:
+        :return:
+        """
+        return embedded_model_method(obj,
+                                     self.Meta.model,
+                                     'certificates',
+                                     included_fields=['item'])
+
+    def get_work_exps(self, obj):
+        """
+        To serialize ArrayModelField from djongo.
+        :param obj:
+        :return:
+        """
+        return embedded_model_method(obj,
+                                     self.Meta.model,
+                                     'work_exps',
+                                     included_fields=['item'])
+
+    def get_reviews(self, obj):
+        # TODO: WIP
+        return {}
+
+    def get_cases(self, obj):
+        # TODO: WIP
+        return {}
