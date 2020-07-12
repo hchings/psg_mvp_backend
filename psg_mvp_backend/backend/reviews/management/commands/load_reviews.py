@@ -1,8 +1,6 @@
 """
-Command to create the index of Cases
-and bulk insert all the current documents in the Cases collections.
+Command to bulk insert all the reviews into DB from excel sheet.
 
-Note that you need to specify index='cases' on any search.
 
 To run:
     python manage.py load_reviews
@@ -109,7 +107,6 @@ class Command(BaseCommand):
             doctors_objs = []
 
             surnames = []
-
 
             # build name regex if none
             if doctors and clinic_profile.uuid not in name_regex:
@@ -227,7 +224,6 @@ class Command(BaseCommand):
             # TODO: how to link to branch
             # TODO: scarpe data to 6 dimensions --> this is the only part that might need NLP
 
-
             # for checking hash
             if hash in collide:
                 logger.error("Hash collide, ", clinic_profile.display_name)
@@ -238,13 +234,13 @@ class Command(BaseCommand):
                             scp_time=created,
                             author=user_info,
                             clinic=clinic_info,
-                            text=text,
+                            body=text,
                             doctors=doctors_objs,
                             rating=rating,
                             source=SOURCE)
             review.save()
 
-            if index > 1000:
-                break
+            # if index > 1000:
+            #     break
 
-            print("has doctor", self.has_doctor_cnt)
+            # print("has doctor", self.has_doctor_cnt)

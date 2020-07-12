@@ -1,5 +1,5 @@
 """
-Database models for reviews.
+Database models for reviews (short case).
 
 """
 

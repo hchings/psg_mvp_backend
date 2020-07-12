@@ -19,19 +19,10 @@ from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnl
 
 from django.contrib.contenttypes.models import ContentType
 
-# from hanziconv import HanziConv
-
-# from rest_framework import serializers
-# from rest_auth.registration.views import RegisterView
-# from rest_auth.views import LoginView
-
-# from django.conf import settings
-# from rest_framework.response import Response
-# from rest_framework import status
-
 from backend.settings import ES_PAGE_SIZE
 from backend.shared.permissions import IsAdminOrReadOnly
-from .serializers import ClinicPublicSerializer, ClinicSavedSerializer, ClinicEsSerializer
+from .serializers import ClinicPublicSerializer, ClinicSavedSerializer, \
+    ClinicEsSerializer, ClinicHomeSerializer, ClinicDoctorsSerializer
 from .models import ClinicProfile
 # from .permissions import OnlyAdminCanDelete
 
@@ -87,6 +78,7 @@ class ClinicSearchView(APIView):
 
     """
     name = 'clinicpublic-search'
+
     # serializer_class = HighScoreSerializer   # don't need this.
 
     # TODO: should change the serializer to brief serializer
@@ -213,6 +205,32 @@ class ClinicSearchView(APIView):
             logger.error("ES Failed on search query %s: %s" % (req_body, e))
             return Response({})
         return Response(response)
+
+
+##########################
+#   Clinic Detail APIs
+##########################
+
+class ClinicHome(generics.RetrieveUpdateAPIView):
+    """
+    get: get home page info for a particular clinic branch
+    """
+    name = 'clinic-home'
+    queryset = ClinicProfile.objects.all()
+    serializer_class = ClinicHomeSerializer
+    lookup_field = 'uuid'
+    permission_classes = [IsAdminOrReadOnly]
+
+
+class ClinicDoctors(generics.RetrieveUpdateAPIView):
+    """
+    get: get doctor page info for a particular clinic (regardless of branch for now)
+    """
+    name = 'clinic-doctors'
+    queryset = ClinicProfile.objects.all()
+    serializer_class = ClinicDoctorsSerializer
+    lookup_field = 'uuid'
+    permission_classes = [IsAdminOrReadOnly]
 
 
 # deprecated: clinic-level
@@ -432,7 +450,7 @@ def like_unlike_clinic(request, clinic_uuid, flag='', do_like=True, actor_only=F
         # TODO: find default msg, think how to handle at client is more convenient
         return Response({'error': 'unauthenticated user'}, status.HTTP_401_UNAUTHORIZED)
 
-    branch_id = request.query_params.get('branchId', '')
+    branch_id = request.query_params.get('branch_id', '')
     # print("branch id", branch_id)
 
     # get action object

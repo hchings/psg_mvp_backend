@@ -86,3 +86,7 @@ psg_mvp_backend/static/
 psg_mvp_backend/backend/reviews/__pycache__/
 
 psg_mvp_backend/backend/reviews/management/commands/__pycache__/
+
+psg_mvp_backend/backend/tags/migrations/__pycache__/
+
+psg_mvp_backend/backend/tags/migrations/
