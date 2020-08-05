@@ -214,6 +214,7 @@ class ClinicHomeSerializer(serializers.HyperlinkedModelSerializer):
     logo_thumbnail = Base64ImageField()  # unsure, kinda large, maybe an URL is better
     branch_info = serializers.SerializerMethodField(required=False)
     saved_by_user = serializers.SerializerMethodField(required=False)
+    services = serializers.SerializerMethodField(required=False)
     reviews = serializers.SerializerMethodField(required=False)
     cases = serializers.SerializerMethodField(required=False)
 
@@ -221,7 +222,7 @@ class ClinicHomeSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = ClinicProfile
-        fields = ('website_url', 'uuid', 'display_name', 'branch_info',
+        fields = ('website_url', 'uuid', 'display_name', 'services', 'branch_info',
                   'saved_by_user', 'reviews', 'cases', 'logo_thumbnail')
 
     # should we add is_head_quarter ?
@@ -247,6 +248,12 @@ class ClinicHomeSerializer(serializers.HyperlinkedModelSerializer):
 
         # TODO: assumption: data check is in place
         return ''
+
+    # TODO: tmp for now. need normalization
+    def get_services(self, obj):
+        tokens = obj.services_raw or []
+        # tokens
+        return ['雙眼皮', '隆鼻', '削骨'] * 3
 
     # TODO: move out.
     def get_saved_by_user(self, obj):
