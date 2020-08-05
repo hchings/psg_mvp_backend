@@ -91,6 +91,13 @@ class ClinicBranch(models.Model):
     place_id = models.CharField(max_length=50,
                                 blank=True,
                                 help_text="unique google place_id")
+
+    branch_id = models.CharField(max_length=36,
+                                 default='',
+                                 blank=True,
+                                 editable=False,
+                                 help_text="A md5 hash (32 chars) from the place_id")
+
     is_exact_place_id = models.BooleanField(default=True,
                                             help_text="whether the clinic has Google Business ID")
     is_head_quarter = models.BooleanField(default=False, blank=True)
@@ -142,6 +149,78 @@ class ClinicBranchForm(forms.ModelForm):
         for key, _ in self.fields.items():
             if key not in ['branch_name']:
                 self.fields[key].required = False
+
+#####################################
+#     Price Point Abstract Model
+#####################################
+
+
+class PricePoint(models.Model):
+    """
+    Abstract model representing the price point of a service.
+
+    """
+    class Meta:
+        abstract = True
+
+    min_price = models.PositiveIntegerField(blank=True, null=True)
+    max_price = models.PositiveIntegerField(blank=True, null=True)
+    modified = models.DateField(auto_now=True, help_text="last modified")
+    source = models.CharField(max_length=20, blank=True)
+    source_url = models.URLField(blank=True, help_text="source link")
+
+    def __str__(self):
+        # TODO: WIP
+        return ''
+
+#####################################
+#     Service Tag Abstract Model
+#####################################
+
+
+class ServiceTag(models.Model):
+    """
+    Abstract model representing the info of service tag.
+    Many-to-one relationship to ClinicProfile.
+
+    """
+    class Meta:
+        abstract = True
+
+    # link to service model
+    service_id = models.CharField(max_length=30,
+                                  blank=False,
+                                  editable=False,
+                                  help_text="primary key to Service model")
+
+    name = models.CharField(max_length=30,
+                            blank=False,
+                            help_text="service name")
+
+    prices = models.ArrayModelField(
+        model_container=PricePoint,
+        default=[]
+    )
+
+    def __str__(self):
+        return self.name
+
+
+class ServiceTagForm(forms.ModelForm):
+    """
+    Customize form for ArrayModelField from djongo bcz
+    the self-generated Form has all fields set to required.
+    """
+
+    class Meta:
+        model = ServiceTag
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super(ServiceTagForm, self).__init__(*args, **kwargs)
+        # all fields are not required except for branch_name
+        for key, _ in self.fields.items():
+            self.fields[key].required = False
 
 
 class ClinicProfile(models.Model):
@@ -258,6 +337,13 @@ class ClinicProfile(models.Model):
     #     default=[]
     # )
 
+    services = models.ArrayModelField(
+        model_container=ServiceTag,
+        model_form_class=ServiceTagForm,
+        default=[],
+        help_text="normalized services"
+    )
+
     services_raw_input = models.TextField(blank=True, help_text="隆鼻, 雙眼皮, 抽脂, ... \
                                                                  Type '-' to clear the service_raw field")
     services_raw = models.ListField(blank=True,
@@ -313,7 +399,8 @@ class ClinicProfile(models.Model):
                 open_info=str(open_info),  # TODO: somehow will block if I use array
                 address=branch.address,
                 rating=branch.rating,
-                id=self.uuid  # uuid of the clinic
+                id=self.uuid,  # uuid of the clinic
+                branch_id=branch.branch_id  # unique id of branch.
             )
 
             data.append(doc.to_dict(include_meta=True))

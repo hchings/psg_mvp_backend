@@ -11,5 +11,7 @@ class AuthorSerializer(serializers.Serializer):
     scp_username = serializers.CharField(required=False, allow_blank=True)
 
 
+# TODO: I forgot what this is for
 class PartialAuthorSerializer(serializers.Serializer):
     name = serializers.CharField()
+    scp_username = serializers.CharField(required=False, allow_blank=True)

@@ -82,6 +82,8 @@ INSTALLED_APPS = [
     'users',
     # --- cases app ---
     'cases',
+    # --- reviews app ---
+    'reviews',
     # --- comments app ---
     'comments'
 ]
@@ -265,6 +267,14 @@ CORS_ORIGIN_WHITELIST = [
     "localhost:4200",
 ]
 
+
+###################################
+#         activity stream
+###################################
+# set this to true to pass extra metadata in actions.
+ACTSTREAM_SETTINGS = {
+    'USE_JSONFIELD': True
+}
 
 ###################################
 #          3rd party api

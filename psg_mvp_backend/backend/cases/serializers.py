@@ -100,10 +100,18 @@ class CaseCardSerializer(serializers.ModelSerializer):
 
     photo_num = serializers.SerializerMethodField()
 
+    # boolean
+    saved_by_user = serializers.SerializerMethodField(required=False)
+    liked_by_user = serializers.SerializerMethodField(required=False)
+
+    # number
+    like_num = serializers.SerializerMethodField(required=False)
+
     class Meta:
         model = Case
         fields = ('uuid', 'is_official', 'title', 'bf_img_thumb', 'af_img_thumb', 'surgeries', 'posted',
-                  'author', 'state', 'clinic', 'view_num', 'surgery_meta', 'photo_num')
+                  'author', 'state', 'clinic', 'view_num', 'surgery_meta', 'photo_num', 'like_num',
+                  'saved_by_user', 'liked_by_user')
 
     def get_author(self, obj):
         """
@@ -147,6 +155,9 @@ class CaseCardSerializer(serializers.ModelSerializer):
         :param obj:
         :return:
         """
+        if not self.context.get('request'):
+            return ''
+
         show_photo_num = self.context.get('request').query_params.get('show_photo_num')
         if show_photo_num and show_photo_num.lower() in ("yes", "true", "t", "1"):
             # get case object
@@ -163,6 +174,59 @@ class CaseCardSerializer(serializers.ModelSerializer):
             return photo_num
         else:
             return ''
+
+    def get_saved_by_user(self, obj):
+        """
+        Return a boolean flag indicating whether the user
+        in the request saved the current case.
+
+        For unauthorized users, it will always be false.
+
+        :param obj: the comment object
+        :return (boolean):
+        """
+        request = self.context.get('request', None)
+
+        # for unlogin user
+        if not request or request.user.is_anonymous:
+            return False
+
+        # it should only have one obj if it's saved
+        action_objs = obj.action_object_actions.filter(actor_object_id=request.user._id, verb='save')
+        # logger.info("action_objs in serializer %s" % action_objs)
+
+        return False if not action_objs else True
+
+    def get_liked_by_user(self, obj):
+        """
+        Return a boolean flag indicating whether the user
+        in the request liked the current case.
+
+        For unauthorized users, it will always be false.
+
+        :param obj: the comment object
+        :return (boolean):
+        """
+        request = self.context.get('request', None)
+
+        # for unlogin user
+        if not request or request.user.is_anonymous:
+            return False
+
+        # it should only have one obj if it's liked
+        action_objs = obj.action_object_actions.filter(actor_object_id=request.user._id, verb='like')
+        # logger.info("action_objs in serializer %s" % action_objs)
+
+        return False if not action_objs else True
+
+    def get_like_num(self, obj):
+        """
+        Return how many distinct users liked this case.
+
+        :param obj:
+        :return:
+        """
+        return len(obj.action_object_actions.filter(verb='like'))
 
 
 ######################################

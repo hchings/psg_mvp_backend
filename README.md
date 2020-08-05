@@ -13,6 +13,7 @@ Please refer to the documents (WIP) for details.
 Install [docker](https://docs.docker.com/) on your local environment. 
 
 ## B. To Run
+### B.1 Development
 1. Clone to code to your local env
 2. Run the following command, which will start all the instances.
 ```sh
@@ -37,6 +38,23 @@ $ docker-compose build web
 
 When running, the **Admin page** of the backend by default will be served at: `http://localhost:8000/admin`, and the Swagger Doc (Interactive API Doc) is at `http://localhost:8000`.
 
+### B.2 Production
+In production, instead of having one container for web, we have two:
+- one for Nginx, take in and balance requests. This is a standard nginx image which can be configured through nginx.conf.
+- another is Django + Gunicorn (they always go together), no port exposed
+
+Set IP=<your external IP> in your env variable.
+
+1. Collect staticfiles
+    ```bash
+    python manage.py collectstatic
+    ```
+2. Start/build containers
+    ```bash
+    docker-compose -f docker-compose-prod.yml up nginx
+    ```
+    
+The backend will now be served at `<your ip>:8000`.
 
 ## C. To Test
 #### C.1 Run Unit Tests only

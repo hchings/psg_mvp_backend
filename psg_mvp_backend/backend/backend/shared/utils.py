@@ -7,6 +7,7 @@ from time import time
 from random import SystemRandom
 import os
 import base64
+import hashlib
 
 from django.conf import settings
 
@@ -65,3 +66,14 @@ def image_as_base64(image_file):
         # need to encode, otherwise will return bytes
         encoded_string = base64.b64encode(img_f.read()).decode("utf-8")
     return 'data:image/%s;base64,%s' % (img_format, encoded_string)
+
+
+def hash_text(s):
+    """
+    SHA256 hash or text to 8 digits.
+
+    :param s: text to hash
+    :return:
+    """
+
+    return int(hashlib.sha256(s.encode('utf-8')).hexdigest(), 16) % 10**8

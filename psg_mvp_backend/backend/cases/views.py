@@ -5,13 +5,19 @@ API Views for Cases app.
 
 from collections import OrderedDict
 
+from annoying.functions import get_object_or_None
+from actstream import actions, action
+
 from rest_framework import generics, permissions, status
+from rest_framework.decorators import api_view
 from rest_framework.parsers import FileUploadParser, MultiPartParser, FormParser, JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.pagination import PageNumberPagination
 from elasticsearch_dsl import Q
 import coloredlogs, logging
+from django.contrib.contenttypes.models import ContentType
 
 from backend.settings import ES_PAGE_SIZE
 from backend.shared.permissions import AdminCanGetAuthCanPost
@@ -24,6 +30,9 @@ from .doc_type import CaseDoc
 
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
+
+# for getting actions
+case_content_type = ContentType.objects.get(model='case')
 
 
 # -------------------------------------------------------
@@ -240,6 +249,7 @@ class CaseSearchView(APIView):
             serializer = CaseCardSerializer(case_list, many=True, context={'request': request})
 
             # get clinic tiny logos
+            # TODO: some redundancy here
             clinic_ids = []
             for case in case_list:
                 try:
@@ -312,3 +322,125 @@ class CaseManageListView(generics.ListAPIView):
             # Put the recent one on the top.
             return Case.objects.all().filter(author={'uuid': str(self.request.user.uuid)},
                                              state=state).order_by('-posted')
+
+
+class CaseActionList(generics.ListAPIView):
+    """
+    get: get a list of saved cases of a user.
+
+    """
+    name = 'case-action-list'
+    serializer_class = CaseCardSerializer
+    pagination_class = PageNumberPagination
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """
+        Overwrite. To get a list of case object that's saved by the request user.
+        Note that we use action items instead of the built-in follow/unfollow,
+        hence some extra handling here.
+
+        :return:
+        """
+        user = self.request.user
+
+        if not user:
+            return []
+
+        # get list of saved actions, shouldn't have duplicate
+        saved_cases = user.actor_actions.filter(action_object_content_type=case_content_type,
+                                                verb='save')
+
+        # get the action object
+        queryset = []
+        case_set = set()
+        for item in saved_cases:
+            if item not in case_set:
+                queryset.append(item.action_object)
+
+        return queryset
+
+    def list(self, request):
+        """
+        Overwrite.
+        # TODO: check page
+
+        :param request:
+        :return:
+        """
+        queryset = self.filter_queryset(self.get_queryset())
+
+        page = self.paginate_queryset(queryset)
+        # print("page", page)
+        serializer = self.get_serializer(page, many=True)
+
+        # get clinic logos
+        clinic_ids = set()
+        for case in queryset:
+            # corrupted data from
+            if case is None:
+                continue
+            clinic_ids.add(case.clinic.uuid)
+
+        clinic_objs = ClinicProfile.objects.filter(uuid__in=clinic_ids)
+        logo_dict = {}
+
+        for clinic in clinic_objs:
+            logo_dict[clinic.uuid] = Base64ImageField().to_representation(clinic.logo_thumbnail_small)
+
+        final_response = self.get_paginated_response(serializer.data)
+        final_response.data['logos'] = logo_dict
+
+        # TODO: else part
+        return final_response
+
+
+@api_view(['POST'])
+def like_unlike_case(request, case_uuid, flag='', do_like=True, actor_only=False, save_unsave=False):
+    """
+    DRF Funcional-based view to like or unlike a case.
+    Note that for each case, we'll at most have 1 activity object (like).
+    Making a like API call when like is already the latest object will do no action.
+    Making an unlike API call in the same situation will wipe out the previous like record.
+
+
+    :param request: RESTful request.
+    :param case_uuid: the target to be followed. (The model is Case.)
+    :param flag: -
+    :param do_like: a flag so that both the follow and unfollow urls can
+                      share this same view.
+    :param actor_only: -
+    :param save_unsave: boolean, determine like/unlike mode or save/unsave
+    :return:
+    """
+
+    if not request.user.is_authenticated:
+        logger.error('Unauthenticated user using like/unlike API.')
+        # TODO: find default msg, think how to handle at client is more convenient
+        return Response({'error': 'unauthenticated user'}, status.HTTP_401_UNAUTHORIZED)
+
+    # get action object
+    case_obj = get_object_or_None(Case, uuid=case_uuid)
+
+    if not case_obj:
+        return Response({'error': 'invalid comment id'}, status.HTTP_400_BAD_REQUEST)
+
+    verb = 'save' if save_unsave else 'like'
+
+    res = case_obj.action_object_actions.filter(actor_object_id=request.user._id, verb=verb).order_by('-timestamp')
+
+    if do_like:
+        if res:
+            return Response({'succeed': 'duplicated %s action is ignored.' % verb}, status.HTTP_201_CREATED)
+
+        # else
+        if len(res) >= 2:
+            # negative index not supported
+            res[1:].delete()
+
+        action.send(request.user, verb=verb, action_object=case_obj)
+        return Response({'succeed': ""}, status.HTTP_201_CREATED)
+    else:
+        if res:
+            res.delete()
+        return Response({'succeed': "redo %s" % verb}, status.HTTP_201_CREATED)
