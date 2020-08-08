@@ -73,6 +73,10 @@ def fill_in_data(sender, instance, **kwargs):
         clinic = get_object_or_None(ClinicProfile, display_name=instance.clinic.display_name)
         # has corresponding clinic
         if clinic:
+            # fix potential djongo issues
+            if not clinic.services:
+                clinic.services = []
+
             instance.clinic.uuid = clinic.uuid
             # fill in branch place id
             head_quarter = None
@@ -93,7 +97,10 @@ def fill_in_data(sender, instance, **kwargs):
                 # TODO: clean up data here is kinda bad
                 if not head_quarter and len(clinic.branches) == 1:
                     clinic.branches[0].is_head_quarter = True
-                    clinic.save()
+                    try:
+                        clinic.save()
+                    except:
+                        logger.info('[fill in data] Clinic save setting HQ failed %s' % clinic)
 
                 if matched_branch:
                     instance.clinic.place_id = matched_branch.place_id or ''
