@@ -90,3 +90,5 @@ psg_mvp_backend/backend/reviews/management/commands/__pycache__/
 psg_mvp_backend/backend/tags/migrations/__pycache__/
 
 psg_mvp_backend/backend/tags/migrations/
+
+psg_mvp_backend/nginx_logs/
