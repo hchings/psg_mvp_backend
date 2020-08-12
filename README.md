@@ -56,6 +56,19 @@ Set IP=<your external IP> in your env variable.
     
 The backend will now be served at `<your ip>:8000`.
 
+To backup mongoDB to DO Space, first ensure you have the following env variables set:
+```
+export IP=
+export DB_USERNAME=
+export DB_PW=
+export PROJECT_ROOT=/root/workspace/psg_mvp/psg_mvp_backend
+export DB_CONTAINER_ID=<mongo's container id>
+```
+Then, run:
+```
+sh .backup_mongo.sh
+```
+
 ## C. To Test
 #### C.1 Run Unit Tests only
 The following commands will run all the unit tests with filename `test_*.py` and show you the number of pass/failed.
