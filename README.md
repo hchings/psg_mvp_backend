@@ -39,6 +39,7 @@ $ docker-compose build web
 When running, the **Admin page** of the backend by default will be served at: `http://localhost:8000/admin`, and the Swagger Doc (Interactive API Doc) is at `http://localhost:8000`.
 
 ### B.2 Production
+#### B.2.1 To Run
 In production, instead of having one container for web, we have two:
 - one for Nginx, take in and balance requests. This is a standard nginx image which can be configured through nginx.conf.
 - another is Django + Gunicorn (they always go together), no port exposed
@@ -56,7 +57,8 @@ Set IP=<your external IP> in your env variable.
     
 The backend will now be served at `<your ip>:8000`.
 
-To backup mongoDB to DO Space, first ensure you have the following env variables set:
+#### B.2.2 To back up mongoDB
+First ensure you have the following env variables set:
 ```
 export IP=
 export DB_USERNAME=
