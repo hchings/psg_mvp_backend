@@ -177,8 +177,8 @@ class ClinicInfo(models.Model):
     class Meta:
         abstract = True
 
-    display_name = models.CharField(max_length=30, blank=False)
-    branch_name = models.CharField(max_length=20, blank=False)
+    display_name = models.CharField(max_length=30, blank=True)  # TODO
+    branch_name = models.CharField(max_length=20, blank=True)
 
     # to get branch name
     place_id = models.CharField(max_length=50,
