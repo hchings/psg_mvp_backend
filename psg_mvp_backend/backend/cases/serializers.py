@@ -47,7 +47,7 @@ class ClinicInfoSerializer(serializers.Serializer):
     """
     Serializer for clinic field.
     """
-    display_name = serializers.CharField()
+    display_name = serializers.CharField(required=False, allow_blank=True)
     branch_name = serializers.CharField(required=False, allow_blank=True)
     doctor_name = serializers.CharField(required=False, allow_blank=True)
     place_id = serializers.ReadOnlyField()
