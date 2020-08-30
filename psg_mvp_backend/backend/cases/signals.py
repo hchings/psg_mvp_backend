@@ -14,6 +14,7 @@ from django.conf import settings
 from django.db.models.signals import post_delete, pre_save, post_init
 from django.dispatch import receiver
 from django.contrib.auth import get_user_model
+from django.core.exceptions import MultipleObjectsReturned
 
 from users.clinics.models import ClinicProfile
 from users.doctors.models import DoctorProfile
@@ -70,7 +71,11 @@ def fill_in_data(sender, instance, **kwargs):
 
     # clinic
     if instance.clinic.display_name:
-        clinic = get_object_or_None(ClinicProfile, display_name=instance.clinic.display_name)
+        try:
+            clinic = get_object_or_None(ClinicProfile, display_name=instance.clinic.display_name)
+        except MultipleObjectsReturned:
+            clinic = ClinicProfile.objects.filter(display_name=instance.clinic.display_name).first()
+            logger.warning("Found duplicated clinic profile: %s" % clinic)
         # has corresponding clinic
         if clinic:
             # fix potential djongo issues
@@ -119,9 +124,14 @@ def fill_in_data(sender, instance, **kwargs):
                                     instance.uuid))
             # Link to DoctorProfile if any. TODO: double check
             if instance.clinic.doctor_name:
-                doctor_profile = get_object_or_None(DoctorProfile,
-                                                    clinic_uuid=clinic.uuid,
-                                                    display_name=instance.clinic.doctor_name)
+                try:
+                    doctor_profile = get_object_or_None(DoctorProfile,
+                                                        clinic_uuid=clinic.uuid,
+                                                        display_name=instance.clinic.doctor_name)
+                except MultipleObjectsReturned:
+                    doctor_profile = DoctorProfile.objects.filter(clinic_uuid=clinic.uuid,
+                                                                  display_name=instance.clinic.doctor_name).first()
+                    logger.warning("Found duplicated doctor: %s" % doctor_profile)
                 if doctor_profile:
                     logger.info("[Fill in case data] Found matched doctor profile for doctor %s for case %s" %
                                 (doctor_profile.display_name,

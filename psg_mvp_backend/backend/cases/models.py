@@ -277,6 +277,14 @@ class CaseImages(models.Model):
                                  unique=False,
                                  help_text="the uuid field in the corresponding case. Do not fill in this manually.")
 
+    order = models.IntegerField(null=False,
+                                blank=False,
+                                default=0,
+                                help_text='image order. 0 first')
+
+    def __str__(self):
+        return str(self.img) if self.order is None else str(self.img) + ' (%s)' % self.order
+
     # 798 X 350 4:3
     # 1000 X 750
 
@@ -418,7 +426,7 @@ class Case(models.Model):
     rating = models.FloatField(help_text="ratings from google map API",
                                blank=True)
 
-    ori_url = models.URLField(blank=True, help_text="source link")
+    ori_url = models.URLField(blank=True, help_text="source link", max_length=1000)
 
     body = models.TextField(blank=True)
 
