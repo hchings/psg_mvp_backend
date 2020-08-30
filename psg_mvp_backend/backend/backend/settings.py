@@ -197,7 +197,7 @@ EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
 EMAIL_FILE_PATH = os.path.join(BASE_DIR, 'tmp/email')
 
 # django-rest-framework settings
-ES_PAGE_SIZE = 10  # for ES pagination
+ES_PAGE_SIZE = 16  # for ES pagination
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
