@@ -119,12 +119,12 @@ class CaseDetailView(UpdateConciseResponseMixin,
         # TODO: tmp, WIP
         other_imgs_list = []
         # TODO: WIP. very bad hard coded number.
-        for i in range(0, 6):
-            key = 'other_imgs' + str(i)
-            if key not in request.data:
-                break
-            other_imgs_list.append({'img': request.data[key],
-                                    'caption': ''})
+        keys = request.data.keys() or []
+
+        for key in keys:
+            if key.startswith('other_imgs'):
+                other_imgs_list.append({'img': request.data[key],
+                                        'caption': ''})
 
         # print("other_imgs_list", other_imgs_list)
         if other_imgs_list:

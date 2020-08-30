@@ -77,7 +77,7 @@ class CaseImagesAdmin(admin.ModelAdmin):
     """
     Customizing Admin Page for CaseImages Model
     """
-    list_display = ('_id', 'case_title', 'case_uuid', 'caption')
+    list_display = ('_id', 'order', 'case_title', 'case_uuid', 'caption')
 
     def case_title(self, obj):
         """

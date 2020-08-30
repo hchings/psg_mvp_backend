@@ -256,6 +256,7 @@ class CaseImagesCaptionEdit(serializers.Serializer):
     """
     id = serializers.CharField(required=False)
     caption = serializers.CharField(required=False, allow_blank=True)
+    order = serializers.IntegerField(required=False, min_value=0)
 
 
 class CaseImagesEditSerializer(serializers.Serializer):
@@ -266,6 +267,8 @@ class CaseImagesEditSerializer(serializers.Serializer):
                                  required=False)
 
     caption = serializers.CharField(required=False, allow_blank=True)
+
+    order = serializers.IntegerField(required=False, min_value=0)
 
     def get_id(self, obj):
         return str(obj._id)
@@ -405,6 +408,7 @@ class CaseDetailSerializer(serializers.ModelSerializer):
                 # can happen in both POST and PUT/PATCH.
                 # this is for newly created CaseImages
                 self.fields['captions'] = serializers.CharField(required=False)
+                self.fields['orders'] = serializers.CharField(required=False)
             else:
                 self.fields['surgeries'] = serializers.SerializerMethodField()
                 self.fields['other_imgs'] = serializers.SerializerMethodField()
@@ -418,95 +422,6 @@ class CaseDetailSerializer(serializers.ModelSerializer):
                     self.fields['scp_user_pic'] = serializers.SerializerMethodField(required=False)
         except KeyError:
             pass
-
-    # def is_valid(self, raise_exception=False):
-    #     assert hasattr(self, 'initial_data'), (
-    #         'Cannot call `.is_valid()` as no `data=` keyword argument was '
-    #         'passed when instantiating the serializer instance.'
-    #     )
-    #     print("~~~~~~running is valid")
-    #     if not hasattr(self, '_validated_data'):
-    #         try:
-    #             self._validated_data = self.run_validation(self.initial_data)
-    #         except ValidationError as exc:
-    #             self._validated_data = {}
-    #             self._errors = exc.detail
-    #         else:
-    #             self._errors = {}
-    #
-    #     if self._errors and raise_exception:
-    #         raise ValidationError(self.errors)
-    #
-    #     return not bool(self._errors)
-
-    # def run_validation(self, data=empty):
-    #     """
-    #     We override the default `run_validation`, because the validation
-    #     performed by validators and the `.validate()` method should
-    #     be coerced into an error dictionary with a 'non_fields_error' key.
-    #     """
-    #     # print("--------------run vali", data)
-    #     (is_empty_value, data) = self.validate_empty_values(data)
-    #     if is_empty_value:
-    #         return data
-    #
-    #     # print("--------------run vali 2 ", data)
-    #     value = self.to_internal_value(data)
-    #     # print("0000000000000000", value)
-    #     try:
-    #         self.run_validators(value)
-    #         value = self.validate(value)
-    #         # print("111111111111111", value)
-    #         assert value is not None, '.validate() should return the validated data'
-    #     except (ValidationError, DjangoValidationError) as exc:
-    #         raise ValidationError(detail=as_serializer_error(exc))
-    #
-    #     return value
-
-    # def to_internal_value(self, data):
-    #     """
-    #     Dict of native values <- Dict of primitive datatypes.
-    #     """
-    #     if not isinstance(data, Mapping):
-    #         message = self.error_messages['invalid'].format(
-    #             datatype=type(data).__name__
-    #         )
-    #         # raise ValidationError({
-    #         #     api_settings.NON_FIELD_ERRORS_KEY: [message]
-    #         # }, code='invalid')
-    #
-    #     ret = OrderedDict()
-    #     errors = OrderedDict()
-    #     fields = self._writable_fields
-    #
-    #     # data = dict(data)
-    #
-    #     for field in fields:
-    #         print("......check field", field)
-    #         validate_method = getattr(self, 'validate_' + field.field_name, None)
-    #         # print("data", data)
-    #         primitive_value = field.get_value(data)
-    #         print("....primiate value", primitive_value)
-    #         try:
-    #             validated_value = field.run_validation(primitive_value)
-    #             # print("....validated_value", validated_value)
-    #             if validate_method is not None:
-    #                 validated_value = validate_method(validated_value)
-    #                 # print("....validated_value 2", validated_value)
-    #         except ValidationError as exc:
-    #             errors[field.field_name] = exc.detail
-    #         except DjangoValidationError as exc:
-    #             errors[field.field_name] = get_error_detail(exc)
-    #         except SkipField:
-    #             pass
-    #         else:
-    #             # print("....set", field.source_attrs, validated_value)
-    #             set_value(ret, field.source_attrs, validated_value)
-    #
-    #     if errors:
-    #         raise ValidationError(errors)
-    #
-    #     return ret
 
     def create(self, validated_data):
         """
@@ -578,6 +493,14 @@ class CaseDetailSerializer(serializers.ModelSerializer):
             except SyntaxError as e:
                 logger.error('update case captions error %s' % str(e))
 
+        orders = []
+        if 'orders' in validated_data:
+            try:
+                orders = ast.literal_eval(validated_data['orders'])
+                logger.info("get orders: %s" % orders)
+            except SyntaxError as e:
+                logger.error('update case captions error %s' % str(e))
+
         # when editing captions of existing other imgs
         if validated_data.get('captions_edit', []):
             for item in validated_data.get('captions_edit', []):
@@ -586,7 +509,14 @@ class CaseDetailSerializer(serializers.ModelSerializer):
                                                       _id=ObjectId(item['id']),
                                                       case_uuid=instance.uuid)
                     if img_instance:
+                        # update caption
                         img_instance.caption = item.get('caption', '')
+                        # update order
+                        order = item.get('order', '')
+                        if order is not None and order != '':
+                            # print("!!!!update order to ", order)
+                            img_instance.order = order
+
                         img_instance.save()
                     else:
                         logger.error('No case img with id %s' % item['id'])
@@ -600,9 +530,20 @@ class CaseDetailSerializer(serializers.ModelSerializer):
                 logger.warning("caption len not matched. Got %s captions but %s other imgs"
                                % (len(captions), len(other_imgs)))
                 captions = [''] * len(other_imgs)
+
+            # check order length
+            # TODO: this logic needs to be improved.
+            if len(orders) != len(other_imgs):
+                # since we match caption and other_imgs based on the sequence,
+                # they must have the same lengths. If not, we'll drop them.
+                logger.warning("orders len not matched. Got %s orders but %s other imgs"
+                               % (len(orders), len(other_imgs)))
+                orders = [None] * len(other_imgs)
+
             for i, item in enumerate(other_imgs):
                 new_instance = CaseImages(img=item.get('img', ''),
                                           caption=captions[i],
+                                          order=orders[i],
                                           case_uuid=instance.uuid)
                 new_instance.save()
 
@@ -707,12 +648,23 @@ class CaseDetailSerializer(serializers.ModelSerializer):
     # TODO: tmp try
     def get_other_imgs(self, obj):
         objs = CaseImages.objects.filter(case_uuid=obj.uuid)
+        # this will sort objs by 'order' field None to the end
+        objsSsorted = sorted(objs, key=lambda x: (x.order is None, x.order))
+
+        objsToReturn = objs
+        # if all other images has and non-none order,
+        # return the imgs based on the order field.
+        if objsSsorted and objsSsorted[-1].order is not None:
+            objsToReturn = objsSsorted
+            # print("used sorted.")
+
         if self.edit_mode:
-            serializer = CaseImagesEditSerializer(objs,
+            # decide whether to sort
+            serializer = CaseImagesEditSerializer(objsToReturn,
                                                   many=True,
                                                   context={'request': self.context['request']})
         else:
-            serializer = CaseImagesSerializer(objs,
+            serializer = CaseImagesSerializer(objsToReturn,
                                               many=True,
                                               context={'request': self.context['request']})
 

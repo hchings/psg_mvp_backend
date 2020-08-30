@@ -419,7 +419,16 @@ def doctor_name_view(request, uuid='', clinic_name=''):
     doctors = DoctorProfile.objects.filter(clinic_uuid=clinic.uuid)
 
     # TODO: can add doctor profile pic
-    res = [doctor.display_name.strip() for doctor in doctors]
+    dedup = {}
+    res = []
+
+    for doctor in doctors:
+        name = doctor.display_name.strip()
+        if name not in dedup:
+            res.append(name)
+            dedup[name] = ''
+
+    # res = [doctor.display_name.strip() for doctor in doctors]
 
     # clinic_uuid = request.query_params.get('uuid', '').strip()
     return Response({'doctors': res},
