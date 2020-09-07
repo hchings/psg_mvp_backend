@@ -111,7 +111,7 @@ class CaseCardSerializer(serializers.ModelSerializer):
         model = Case
         fields = ('uuid', 'is_official', 'title', 'bf_img_thumb', 'af_img_thumb', 'surgeries', 'posted',
                   'author', 'state', 'clinic', 'view_num', 'surgery_meta', 'photo_num', 'like_num',
-                  'saved_by_user', 'liked_by_user')
+                  'saved_by_user', 'liked_by_user', 'failed')
 
     def get_author(self, obj):
         """
@@ -356,7 +356,7 @@ class CaseDetailSerializer(serializers.ModelSerializer):
                   'af_img', 'af_img_cropped', 'af_cap', 'surgeries', 'author', 'state', 'other_imgs',
                   'clinic', 'view_num', 'body', 'surgery_meta', 'rating', 'bf_img_cropped',
                   'recovery_time', 'anesthesia', 'scp_user_pic', 'positive_exp', 'side_effects', 'pain_points',
-                  'ori_url', 'comment_num', 'comments')
+                  'ori_url', 'comment_num', 'comments', 'failed')
 
     # def _force_get_value(self, dictionary):
     #     print("!!!!!!!!! set value")

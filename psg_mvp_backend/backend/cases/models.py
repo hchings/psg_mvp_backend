@@ -417,6 +417,11 @@ class Case(models.Model):
                                       blank=False,
                                       help_text='')
 
+    # false or none means it's a successful case
+    failed = models.BooleanField(default=False,
+                                 blank=True,
+                                 help_text='set to true if this case is a failed surgery')
+
     title = models.CharField(max_length=30,
                              blank=True)
 
