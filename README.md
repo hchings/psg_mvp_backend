@@ -52,7 +52,7 @@ Set IP=<your external IP> in your env variable.
     ```
 2. Start/build containers
     ```bash
-    docker-compose -f docker-compose-prod.yml up nginx
+    docker-compose -f docker-compose-prod.yml up -d nginx
     ```
     
 The backend will now be served at `<your ip>:8000`.
