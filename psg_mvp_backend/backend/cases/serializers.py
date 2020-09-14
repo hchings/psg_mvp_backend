@@ -54,6 +54,14 @@ class ClinicInfoSerializer(serializers.Serializer):
     uuid = serializers.ReadOnlyField()
 
 
+class ClinicInfoBriefSerializer(serializers.Serializer):
+    """
+    Serializer for clinic field.
+    """
+    display_name = serializers.ReadOnlyField()
+    uuid = serializers.ReadOnlyField()
+
+
 class SurgeryMetaSerializer(serializers.Serializer):
     """
     Serializer for surgery_meta field.
@@ -79,7 +87,7 @@ class SurgeryTagSerializer(serializers.Serializer):
 
 class CaseCardSerializer(serializers.ModelSerializer):
     # read-only, so using methodField is sufficient.
-    clinic = serializers.SerializerMethodField()
+    clinic = ClinicInfoBriefSerializer()
     uuid = serializers.ReadOnlyField()
 
     # this will correctly return full url in endpoints
@@ -96,7 +104,7 @@ class CaseCardSerializer(serializers.ModelSerializer):
 
     author = serializers.SerializerMethodField()
     surgeries = serializers.SerializerMethodField()
-    surgery_meta = serializers.SerializerMethodField()
+    # surgery_meta = serializers.SerializerMethodField()
 
     photo_num = serializers.SerializerMethodField()
 
@@ -110,7 +118,7 @@ class CaseCardSerializer(serializers.ModelSerializer):
     class Meta:
         model = Case
         fields = ('uuid', 'is_official', 'title', 'bf_img_thumb', 'af_img_thumb', 'surgeries', 'posted',
-                  'author', 'state', 'clinic', 'view_num', 'surgery_meta', 'photo_num', 'like_num',
+                  'author', 'state', 'clinic', 'view_num', 'photo_num', 'like_num',
                   'saved_by_user', 'liked_by_user', 'failed')
 
     def get_author(self, obj):
@@ -556,14 +564,65 @@ class CaseDetailSerializer(serializers.ModelSerializer):
 
             # TODO: add some try, except. right now is pretty fragile.
             for item in validated_data['img_to_delete']:
-                if item == 'af_img':
-                    instance.af_img.delete()
-                    # instance.af_img_cropped.delete()
-                    instance.af_cap = ''
-                elif item == 'bf_img':
+                # if item == 'af_img' or item == 'bf_img':
+                #     # imagekit processed field
+                #     try:
+                #         # delete cache file first
+                #         # this is because imagekit doesn't have a simple
+                #         # thumb.delete() function ....
+                #         field = getattr(instance, '%s_thumb' % item)
+                #         file = field.file
+                #         path_name = field.path
+                #         cache_backend = field.cachefile_backend
+                #         cache_backend.cache.delete(cache_backend.get_key(file))
+                #         field.storage.delete(file)
+                #         logger.info("[case signal %s] clear out cache %s " % (instance.uuid, path_name))
+                #     # AttributeError
+                #     except Exception as e:
+                #         logger.error("[case signal %s Error deleting cache]: %s" % (instance.uuid, str(e)))
+                #
+                #     try:
+                #         # then, delete the original imgs
+                #         getattr(instance, item).delete()
+                #         getattr(instance, '%s_cropped' % item).delete()
+                #     except Exception as e:
+                #         logger.error("[case signal %s Error deleting ori imgs]: %s" % (instance.uuid, str(e)))
+                if item == 'bf_img':
+                    # imagekit processed field
+                    try:
+                        # delete cache file first
+                        # this is because imagekit doesn't have a simple
+                        # thumb.delete() function ....
+                        field = instance.bf_img_thumb
+                        file = field.file
+                        path_name = field.path
+                        cache_backend = field.cachefile_backend
+                        cache_backend.cache.delete(cache_backend.get_key(file))
+                        field.storage.delete(file)
+                        logger.info("[case signal %s] clear out cache %s " % (instance.uuid, path_name))
+                    # AttributeError
+                    except Exception as e:
+                        logger.error("[case signal %s Error deleting cache]: %s" % (instance.uuid, str(e)))
+
                     instance.bf_img.delete()
-                    # instance.bf_img_cropped.delete()
-                    instance.bf_cap = ''
+                    instance.bf_img_cropped.delete()
+                elif item == 'af_img':
+                    # imagekit processed field
+                    try:
+                        # delete cache file first
+                        field = instance.af_img_thumb
+                        file = field.file
+                        path_name = field.path
+                        cache_backend = field.cachefile_backend
+                        cache_backend.cache.delete(cache_backend.get_key(file))
+                        field.storage.delete(file)
+                        logger.info("[case signal %s] clear out cache %s " % (instance.uuid, path_name))
+                    # AttributeError
+                    except Exception as e:
+                        logger.error("[case signal %s Error deleting cache]: %s" % (instance.uuid, str(e)))
+
+                    instance.af_img.delete()
+                    instance.af_img_cropped.delete()
                 else:
                     try:
                         img_instance = get_object_or_None(CaseImages,

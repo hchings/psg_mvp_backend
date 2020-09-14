@@ -35,13 +35,17 @@ class Command(BaseCommand):
     help = 'Indexes Cases in Elastic Search'
 
     def handle(self, *args, **options):
+        self.load_index(wipe_out=True)
+
+    @staticmethod
+    def load_index(wipe_out=False):
         es = Elasticsearch(
             [{'host': settings.ES_HOST, 'port': settings.ES_PORT}],
             index="cases"
         )
         cases_index = Index('cases', using='default')
         cases_index.document(CaseDoc)  # doc_type has been deprecated
-        if cases_index.exists():
+        if wipe_out and cases_index.exists():
             cases_index.delete()
             logger.warning("Deleted Cases Index.")
         CaseDoc.init()
@@ -52,3 +56,17 @@ class Command(BaseCommand):
         )
 
         logger.info("Indexed cases: %s" % str(result))
+
+    @classmethod
+    def ensure_index_exist(cls):
+        """
+        Return true if index wasn't exist but recreated.
+        :return:
+        """
+        cases_index = Index('cases', using='default')
+        if not cases_index.exists():
+            logger.warning("Case index not exist, recreating...")
+            cls.load_index()
+            return True
+
+        return False

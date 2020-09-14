@@ -2,16 +2,18 @@
 Signals for Cases app.
 
 """
-import shutil, os
+import shutil
+from os import path
 import coloredlogs, logging
 from annoying.functions import get_object_or_None
 from elasticsearch import Elasticsearch
+from elasticsearch.exceptions import NotFoundError
 from elasticsearch_dsl import Search, Q
 # from elasticsearch.helpers import bulk
 # from elasticsearch_dsl import UpdateByQuery
 
 from django.conf import settings
-from django.db.models.signals import post_delete, pre_save, post_init
+from django.db.models.signals import post_delete, pre_save, post_init, post_save
 from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 from django.core.exceptions import MultipleObjectsReturned
@@ -151,18 +153,23 @@ def fill_in_data(sender, instance, **kwargs):
 
     # ------ [IMPORTANT !!] Create/Update ES --------
     # check ES record, only if it's a published case
-    query = Q({"match": {"id": str(instance.uuid)}})
-    s = CaseDoc.search(index='cases').query(query)
-    if instance.state == 'published' or instance.state == 2:
-        if s.count() == 0:
-            logger.info('Indexed case %s into ES.' % instance.uuid)
-            instance.indexing()
-    else:
-        # remove the ES record is state change
-        if s.count() > 0:
-            response = s.delete()
-            logger.info("Deleted document of case %s in ES: %s" % (instance.uuid,
-                                                                   response))
+    try:
+        query = Q({"match": {"id": str(instance.uuid)}})
+        s = CaseDoc.search(index='cases').query(query)
+        if instance.state == 'published' or instance.state == 2:
+            if s.count() == 0:
+                logger.info('Indexed case %s into ES.' % instance.uuid)
+                instance.indexing()
+        else:
+            # remove the ES record is state change
+            if s.count() > 0:
+                response = s.delete()
+                logger.info("Deleted document of case %s in ES: %s" % (instance.uuid,
+                                                                       response))
+    except NotFoundError:
+        # prevent ES crashes
+        logger.error("[write case signal]: no index found.")
+        pass
 
     # check for migration
     # This is a patch for djongo's Listfield.
@@ -178,6 +185,27 @@ def fill_in_data(sender, instance, **kwargs):
     #     actions=(instance.indexing())
     # )
     # logger.info("updated case %s in ES: %s" % (instance.uuid, result))
+
+# TODO: this got called four times on a save
+# bug: change img, thumb not change
+@receiver(post_save, sender=Case)
+def case_health_check(sender, instance, **kwargs):
+    # check thumbnail
+    try:
+        # print("------post save")
+        if instance.af_img:
+            thumb_path = instance.af_img_thumb.path
+            # if not path.exists(thumb_path):
+            instance.af_img_thumb.generate(force=True)
+            # logger.info("[case singal post save %s]: regen thumb %s" % (instance.uuid, instance.af_img_thumb))
+
+        if instance.bf_img:
+            thumb_path = instance.bf_img_thumb.path
+            # if not path.exists(thumb_path):
+            instance.bf_img_thumb.generate(force=True)
+            # logger.info("[case singal post save %s]: regen thumb %s" % (instance.uuid, instance.bf_img_thumb))
+    except Exception as e:
+        logger.error("[case singal Error post save %s]: %s" % (instance.uuid, str(e)))
 
 
 @receiver(post_delete, sender=Case)
@@ -201,19 +229,19 @@ def delete_media(sender, instance, **kwargs):
     # 2.1 delete its whole directory
     dir_path = 'cases/case_' + str(instance.uuid) + '/'
     try:
-        shutil.rmtree(os.path.join(settings.MEDIA_ROOT, dir_path))
-        logging.info('Deleted: ' + os.path.join(settings.MEDIA_ROOT, dir_path))
+        shutil.rmtree(path.join(settings.MEDIA_ROOT, dir_path))
+        logging.info('Deleted: ' + path.join(settings.MEDIA_ROOT, dir_path))
     except FileNotFoundError:
         logging.error('Post %s\'s media no need cleaning.' % str(instance.uuid))
 
     # 2.2 delete folder in CACHE/ TODO: check
     dir_path = 'CACHE/images/cases/case_' + str(instance.uuid) + '/'
     try:
-        shutil.rmtree(os.path.join(settings.MEDIA_ROOT, dir_path))
-        logging.info('Deleted: ' + os.path.join(settings.MEDIA_ROOT, dir_path))
+        shutil.rmtree(path.join(settings.MEDIA_ROOT, dir_path))
+        logging.info('Deleted: ' + path.join(settings.MEDIA_ROOT, dir_path))
     except FileNotFoundError:
         logging.error('Post %s\'s cache media no need cleaning. %s'
-                      % (str(instance.uuid), os.path.join(settings.MEDIA_ROOT, dir_path)))
+                      % (str(instance.uuid), path.join(settings.MEDIA_ROOT, dir_path)))
 
     # 3. delete reference in ES
     s = Search(index="cases").using(es).query("match", id=str(instance.uuid))

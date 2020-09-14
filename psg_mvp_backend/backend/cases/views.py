@@ -4,6 +4,7 @@ API Views for Cases app.
 """
 
 from collections import OrderedDict
+import time
 
 from annoying.functions import get_object_or_None
 from actstream import actions, action
@@ -27,6 +28,7 @@ from .models import Case
 from .mixins import UpdateConciseResponseMixin
 from .serializers import CaseDetailSerializer, CaseCardSerializer
 from .doc_type import CaseDoc
+from cases.management.commands.index_cases import Command
 
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
@@ -200,6 +202,14 @@ class CaseSearchView(APIView):
             # get page num from url para.
             # page number starts from 0.
             page = int(request.query_params.get('page', 0))
+
+            # check
+            if page == 0 and not req_body:
+                # worst case
+                if Command.ensure_index_exist():
+                    time.sleep(1)
+                    CaseDoc.init()
+
             s = CaseDoc.search(index='cases')  # specify search DocType
 
             # add ES query, and only return the id field
