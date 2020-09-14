@@ -69,6 +69,11 @@ def fill_in_data(sender, instance, **kwargs):
     if not instance.state:
         instance.state = 'draft'
 
+    # assign failed case
+    # TODO: TMP, bad
+    if instance.rating == 1:
+        instance.failed = True
+
     # author
 
     # clinic
@@ -187,6 +192,7 @@ def fill_in_data(sender, instance, **kwargs):
     # logger.info("updated case %s in ES: %s" % (instance.uuid, result))
 
 # TODO: this got called four times on a save
+# TODO: this is bad perf.
 # bug: change img, thumb not change
 @receiver(post_save, sender=Case)
 def case_health_check(sender, instance, **kwargs):
