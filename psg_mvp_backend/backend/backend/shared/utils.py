@@ -5,16 +5,27 @@ Fields Utilities
 
 from time import time
 from random import SystemRandom
-import os
+import os, json
 import base64
 import hashlib
 
 from django.conf import settings
+from django.core.cache import cache
 
+from backend.settings import FIXTURE_ROOT
 
 # an arbitrary start time for make_id()
 _START_TIME = 1529056153044
 # _START_TIME = int(time() * 1000)
+
+# store a set of cache keys
+# as Memcached does not support wildcard nor loop through all keys
+CASE_SEARCH_CACHE_KEYS = set()
+
+# for catelog and tags
+CATALOG_FILE = os.path.join(FIXTURE_ROOT, 'catalog.json')
+surgery_mat_list = []
+sub_cate = {}
 
 
 def make_id():
@@ -77,3 +88,90 @@ def hash_text(s):
     """
 
     return int(hashlib.sha256(s.encode('utf-8')).hexdigest(), 16) % 10**8
+
+
+def _prep_catalog():
+    """
+    Prep for surgery stuff.
+    Only read file for once on initial call.
+    Values will be cached.
+
+    :return:
+    """
+    # read in json catalog only once
+    if not surgery_mat_list:
+        catalog_dict = {}
+        with open(CATALOG_FILE) as json_file:
+            catalog_dict = json.load(json_file)
+
+        for item in catalog_dict.get('catalog_items', []):
+            for subcat in item.get('subcategory', []):
+                name = subcat.get('name', '')
+                if name:
+                    # pop key if exist
+                    subcat.pop('syn', None)
+                    surgery_mat_list.append(subcat)
+
+    return surgery_mat_list
+
+
+def _prep_subcate():
+    """
+    Prep for <surgery cartegory>: [list of surgery subcate].
+
+    :return(dict): <surgery cartegory>: [list of surgery subcate].
+    """
+    if not sub_cate:
+        catalog_dict = {}
+        with open(CATALOG_FILE) as json_file:
+            catalog_dict = json.load(json_file)
+
+        for item in catalog_dict.get('catalog_items', []):
+            category = item.get('category', '')
+            if category and item.get('subcategory', []):
+                # print("dsds", item['subcategory'])
+                sub_cate[category] = [sub['name'] for sub in item['subcategory'] if sub.get('name', '')]
+
+    # print("subcate", sub_cate)
+    return sub_cate
+
+
+#######################
+#         CACHE
+#######################
+
+def invalidate_cached_data(cache_key, case_search_wildcard=False):
+    """
+    Invalid cache data by cache key.
+
+    :param(str) cache_key: now defined in each view.py
+    :param(boolean) case_search_wildcard: When set to true, will wipe out any keys
+                                          stored in CASE_SEARCH_CACHE_KEYS
+
+    :return:
+    """
+    if case_search_wildcard:
+        global CASE_SEARCH_CACHE_KEYS
+        for key in CASE_SEARCH_CACHE_KEYS:
+            # print("=====invalid search cache key:", key)
+            cache.delete(key)
+
+        # wipe out the whole CASE_SEARCH_CACHE_KEYS
+        CASE_SEARCH_CACHE_KEYS = set()
+    else:
+        # print("=====invalid cache key:", cache_key)
+        cache.delete(cache_key)
+
+
+def add_to_cache(cache_key, data, store_key=True):
+    """
+    Add data to a cache key.
+
+    :param cache_key:
+    :param data:
+    :param store_key: store key to CASE_SEARCH_CACHE_KEYS
+    :return:
+    """
+    cache.set(cache_key, data)
+    if store_key:
+        CASE_SEARCH_CACHE_KEYS.add(cache_key)
