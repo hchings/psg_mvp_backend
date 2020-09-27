@@ -2,20 +2,17 @@
 DRF Views for tags.
 
 """
-import json, os
-
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from elasticsearch_dsl import Q
 
+from django.core.cache import cache
+
 from users.doc_type import ClinicBranchDoc
-from backend.settings import FIXTURE_ROOT
+from backend.shared.utils import _prep_catalog
 
-
-# note that this is relevant to the top app folder
-CATALOG_FILE = os.path.join(FIXTURE_ROOT, 'catalog.json')
-surgery_mat_list = []
-
+# store list of surgery mat in memory.
+_prep_catalog()
 
 # no need pagination as it's for auto-complete
 # leverage the branch level data in ES
@@ -30,6 +27,13 @@ class ClinicNameListView(APIView):
     name = 'clinic-name-list'
 
     def get(self, request):
+        # get from cache if possible
+        cache_key = "clinics_names"
+        data = cache.get(cache_key)
+
+        if data:
+            return Response(data)
+
         q = Q({"match_all": {}})
         # [IMPORTANT] must set index param when ES has multiple indices.
         # otherwise, it will search on all indices even you set the doc type.
@@ -45,6 +49,8 @@ class ClinicNameListView(APIView):
         res = [item['_source'] for item in hits]
         # print(response_dict)
 
+        # set cache
+        cache.set(cache_key, res)
         return Response(res)
 
 
@@ -56,37 +62,19 @@ class SurgeryListView(APIView):
     """
     name = 'surgery-list'
 
-    @staticmethod
-    def _prep_catalog():
-        """
-        Prep for surgery stuff.
-        Only read file for once on initial call.
-        Values will be cached.
-
-        :return:
-        """
-        # read in json catalog only once
-        if not surgery_mat_list:
-            catalog_dict = {}
-            with open(CATALOG_FILE) as json_file:
-                catalog_dict = json.load(json_file)
-
-            for item in catalog_dict.get('catalog_items', []):
-                for subcat in item.get('subcategory', []):
-                    name = subcat.get('name', '')
-                    if name:
-                        # pop key if exist
-                        subcat.pop('syn', None)
-                        surgery_mat_list.append(subcat)
-
-        return surgery_mat_list
-
     def get(self, request):
         """
         
         :param request:
         :return:
         """
-        res = self._prep_catalog()
+        # check cache
+        cache_key = 'surgery_tags'
+        data = cache.get(cache_key)
+        if data:
+            return Response(data)
 
+        res = _prep_catalog()
+        # set cache
+        cache.set(cache_key, res)
         return Response(res)

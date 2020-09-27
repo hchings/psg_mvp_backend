@@ -92,9 +92,9 @@ class CaseCardSerializer(serializers.ModelSerializer):
 
     # this will correctly return full url in endpoints
     # but not when using it standalone in DRF views unless the context is set.
-    bf_img_thumb = serializers.ImageField(max_length=None,
-                                          use_url=True,
-                                          required=False)
+    # bf_img_thumb = serializers.ImageField(max_length=None,
+    #                                       use_url=True,
+    #                                       required=False)
 
     af_img_thumb = serializers.ImageField(max_length=None,
                                           use_url=True,
@@ -102,11 +102,8 @@ class CaseCardSerializer(serializers.ModelSerializer):
 
     # bf_img_thumb = serializers.SerializerMethodField()
 
-    author = serializers.SerializerMethodField()
+    # author = serializers.SerializerMethodField()
     surgeries = serializers.SerializerMethodField()
-    # surgery_meta = serializers.SerializerMethodField()
-
-    photo_num = serializers.SerializerMethodField()
 
     # boolean
     saved_by_user = serializers.SerializerMethodField(required=False)
@@ -117,9 +114,40 @@ class CaseCardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Case
-        fields = ('uuid', 'is_official', 'title', 'bf_img_thumb', 'af_img_thumb', 'surgeries', 'posted',
-                  'author', 'state', 'clinic', 'view_num', 'photo_num', 'like_num',
+        fields = ('uuid', 'is_official', 'title', 'af_img_thumb', 'surgeries', 'posted',
+                  'author', 'clinic', 'view_num', 'like_num',
                   'saved_by_user', 'liked_by_user', 'failed')
+
+    def __init__(self, *args, **kwargs):
+        """
+        Dynamically change field.
+
+        :param args:
+        :param kwargs:
+        """
+        # is search_view
+        self.search_view = kwargs.get("search_view", False)
+
+        if self.search_view:
+            # downstream can't accept this keyword
+            kwargs.pop('search_view')
+
+        super(CaseCardSerializer, self).__init__(*args, **kwargs)
+
+        try:
+            if self.search_view:
+                self.fields['like_num'] = serializers.SerializerMethodField()
+                self.fields['bf_img_thumb'] = serializers.ImageField(max_length=None,
+                                                                     use_url=True,
+                                                                     required=False)
+                self.fields['author'] = serializers.SerializerMethodField()
+            else:
+                # manage-case or edit mode etc
+                self.fields['photo_num'] = serializers.SerializerMethodField()
+                self.fields['state'] = serializers.CharField(required=False)
+                self.fields['author'] = serializers.SerializerMethodField() # detail author
+        except KeyError as e:
+            logger.error("[ERROR] CaseCardSerializer: %s" % str(e))
 
     def get_author(self, obj):
         """
@@ -129,7 +157,10 @@ class CaseCardSerializer(serializers.ModelSerializer):
         :param obj:
         :return:
         """
-        return embedded_model_method(obj, self.Meta.model, 'author')
+        if self.search_view is True:
+            return obj.author.scp_username if obj.author.scp else obj.author.name
+        else:
+            return embedded_model_method(obj, self.Meta.model, 'author', included_fields=['name', 'scp', 'scp_username'])
 
     def get_surgery_meta(self, obj):
         """
@@ -153,7 +184,7 @@ class CaseCardSerializer(serializers.ModelSerializer):
         :param obj:
         :return:
         """
-        return embedded_model_method(obj, self.Meta.model, 'surgeries')
+        return embedded_model_method(obj, self.Meta.model, 'surgeries', included_fields=['name'])
 
     def get_photo_num(self, obj):
         """
@@ -317,7 +348,8 @@ class CaseImagesEditSerializer(serializers.Serializer):
 class CaseDetailSerializer(serializers.ModelSerializer):
     uuid = serializers.ReadOnlyField()
     clinic = ClinicInfoSerializer(required=False)
-    author = AuthorSerializer(required=False)
+    # author = AuthorSerializer(required=False)
+    author = serializers.SerializerMethodField()
     # surgeries = serializers.SerializerMethodField(required=False)  # TODO this works for get only
     # surgeries = SurgeryTagSerializer(many=True) # TODO: this works for post only
     # surgeries = serializers.ListField() # this does not work
@@ -417,7 +449,7 @@ class CaseDetailSerializer(serializers.ModelSerializer):
                 # this is for newly created CaseImages
                 self.fields['captions'] = serializers.CharField(required=False)
                 self.fields['orders'] = serializers.CharField(required=False)
-            else:
+            else: # GET
                 self.fields['surgeries'] = serializers.SerializerMethodField()
                 self.fields['other_imgs'] = serializers.SerializerMethodField()
                 if self.edit_mode:
@@ -674,11 +706,18 @@ class CaseDetailSerializer(serializers.ModelSerializer):
 
     def get_author(self, obj):
         """
-        To serialize EmbeddedModel from djongo.
+        To serializer EmbeddedModel field from djongo.
+        https://github.com/nesdis/djongo/issues/115
+
         :param obj:
         :return:
         """
-        return embedded_model_method(obj, self.Meta.model, 'author')
+        if not self.edit_mode:
+            # public search view
+            return obj.author.scp_username if obj.author.scp else obj.author.name
+        else:
+            return embedded_model_method(obj, self.Meta.model, 'author',
+                                         included_fields=['name', 'scp', 'scp_username'])
 
     def get_surgery_meta(self, obj):
         """

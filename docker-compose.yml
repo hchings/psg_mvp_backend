@@ -32,6 +32,7 @@ services:
     depends_on:
       - mongo
       - elasticsearch
+      - cache
   elasticsearch: # Elasticsearch Instance
     container_name: elasticsearch
     build: ./es
@@ -49,6 +50,13 @@ services:
     ports: # Expose Elasticsearch ports
       - "9300:9300"
       - "9200:9200"
+  cache:
+    image: memcached
+    ports:
+      - "11211:11211"
+    entrypoint:
+      - memcached
+      - -m 64
   dejavu:
     image: appbaseio/dejavu:3.3.0
     container_name: dejavu

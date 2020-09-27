@@ -279,7 +279,7 @@ class ClinicProfile(models.Model):
                                     options={'quality': 100})
 
     logo_thumbnail_small = ImageSpecField(source='logo',
-                                          processors=[ResizeToFill(40, 40)],
+                                          processors=[ResizeToFill(30, 30)],
                                           format='JPEG',
                                           options={'quality': 100})
 
