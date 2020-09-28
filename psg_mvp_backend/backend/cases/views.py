@@ -19,9 +19,11 @@ from rest_framework.pagination import PageNumberPagination
 from elasticsearch_dsl import Q
 import coloredlogs, logging
 from django.contrib.contenttypes.models import ContentType
+from django.core.cache import cache
 
 from backend.settings import ES_PAGE_SIZE
 from backend.shared.permissions import AdminCanGetAuthCanPost
+from backend.shared.utils import add_to_cache, _prep_subcate
 from users.clinics.models import ClinicProfile
 from utils.drf.custom_fields import Base64ImageField
 from .models import Case
@@ -35,6 +37,9 @@ coloredlogs.install(level='DEBUG', logger=logger)
 
 # for getting actions
 case_content_type = ContentType.objects.get(model='case')
+
+# TODO: WIP
+# _prep_subcate()
 
 
 # -------------------------------------------------------
@@ -104,9 +109,23 @@ class CaseDetailView(UpdateConciseResponseMixin,
         This is called on GET method to increment the
         number of view of this post.
 
+        Two types of cache:
+        - with and without edit query nparam
+
         """
+        edit_mode = request.query_params.get("edit", False)
+        if edit_mode:
+            cache_key = "case_detail_edit_%s" % kwargs.get('uuid')
+        else:
+            cache_key = "case_detail_%s" % kwargs.get('uuid')
+
+        data = cache.get(cache_key)
+        if data:
+            return Response(data)
+
         instance = self.get_object()
         serializer = self.get_serializer(instance)
+        cache.set(cache_key, serializer.data)
         return Response(serializer.data)
 
     def patch(self, request, *args, **kwargs):
@@ -155,6 +174,8 @@ class CaseSearchView(APIView):
 
     """
     name = 'case-search'
+    # terms to remove from matc/multi-match query
+    generic_terms = ['隆', '豐', '頭', '骨', '部', '墊', '雕塑', '矯正']
 
     # TODO: WIP, sort
     def post(self, request):
@@ -182,26 +203,71 @@ class CaseSearchView(APIView):
         req_body = request.data
         # print("request body for case search", req_body)
 
-        q_combined = None
-        if req_body:
-            surgeries = req_body.get('surgeries', [])
-            q_surgeries = None
-            # OR on all surgery
-            if surgeries:
-                for item in surgeries:
-                    # give more weight on 'surgeries' field
-                    q_new = Q("multi_match",
-                              query=item,
-                              fields=["surgeries^2", "title", "clinic_name"])
-                    q_combined = q_new if not q_surgeries else q_surgeries | q_new
-
-        if not q_combined:
-            q_combined = Q({"match_all": {}})
-
         try:
             # get page num from url para.
             # page number starts from 0.
             page = int(request.query_params.get('page', 0))
+
+            # check cache
+            # use q combined + page number as cache key
+            # should open below five TODO
+            cache_key = '_'.join(['case_search', str(sorted(req_body.items())), str(page)]).replace(" ", "")
+            logger.info("cache key: %s" % cache_key)
+            data = cache.get(cache_key)
+            if data:
+                return Response(data)
+
+            q_combined = None
+            if req_body:
+                # 1. check surgeries col
+                surgeries = req_body.get('surgeries', [])
+                # If it's a defined surgery tag, we don't search on clinic name
+                if surgeries:
+                    q_surgeries = None
+                    for item in surgeries:
+                        # give more weight on 'surgeries' field
+                        # hard-coded words that I don't want to trigger in search
+                        q_new = Q("match_phrase",
+                                  surgeries=item)
+                        if '唇' in item:
+                            # TODO: this is a bad hacky way to not show 豐唇 and 縮唇 in the same result
+                            q_new_2 = Q("match_phrase",
+                                        title=item)
+                        else:
+                            item_cleaned = item
+                            for word in self.generic_terms:
+                                item_cleaned = item_cleaned.replace(word, '')
+
+                            # expand the search on title fields
+                            q_new_2 = Q("multi_match",
+                                        query=item_cleaned,
+                                        fields=["surgeries^2", "title"])
+                        q_surgeries = (q_new | q_new_2) if not q_surgeries else q_surgeries | q_new | q_new_2
+
+                    q_combined = q_surgeries
+
+                # 2. check other col, which stores undefined tags (free-text)
+                others = req_body.get('others', [])
+                # OR on all other search query
+                # TODO: WIP
+                if others:
+                    q_others = None
+                    for item in others:
+                        # give more weight on 'surgeries' field
+                        q_new = Q("multi_match",
+                                  query=item,
+                                  fields=["surgeries^2", "title", "clinic_name"])
+                        # q_new = Q("match",
+                        #           query=item,
+                        #           fields=["surgeries"],
+                        #           fuzziness=5)
+                        q_others = q_new if not q_others else q_others | q_new
+                        # print("chain oth, ", q_new)
+
+                    q_combined = q_others if not q_combined else q_combined | q_others
+
+            if q_combined is None:
+                q_combined = Q({"match_all": {}})
 
             # check
             if page == 0 and not req_body:
@@ -256,7 +322,8 @@ class CaseSearchView(APIView):
             case_list = list(queryset)
             case_list.sort(key=lambda case: ids.index(case.uuid))
             # [Important!] Must pass in the context to get the full media path.
-            serializer = CaseCardSerializer(case_list, many=True, context={'request': request})
+            # Pass in 'seach_view' for Memcached wildcard invalidation
+            serializer = CaseCardSerializer(case_list, many=True, context={'request': request}, search_view=True)
 
             # get clinic tiny logos
             # TODO: some redundancy here
@@ -289,12 +356,19 @@ class CaseSearchView(APIView):
 
             response['results'] = serializer.data
             response['logos'] = logo_dict
+            # response['logos'] = {}
+
+            # only set cache if success
+            add_to_cache(cache_key, response, True)
+            cache.set(cache_key, response)
 
         except Exception as e:
             # if ES failed. Use django's default way to search obj, which is very slow.
             logger.error("ES Failed on search cases with query %s: %s" % (req_body, e))
             cases = Case.objects.all()
-            serializer = CaseCardSerializer(cases, many=True)  # TODO: WIP. need better error handling.
+            serializer = CaseCardSerializer(cases, many=True,
+                                            search_view=True)  # TODO: WIP. need better error handling.
+            # TODO: WIP
             return Response({})
 
         return Response(response)
@@ -382,7 +456,9 @@ class CaseActionList(generics.ListAPIView):
 
         page = self.paginate_queryset(queryset)
         # print("page", page)
-        serializer = self.get_serializer(page, many=True)
+        # pass extra parameter when creating the serializer instance.
+        # The search_view param will decide which fields to return
+        serializer = self.get_serializer(page, many=True, search_view=True)
 
         # get clinic logos
         clinic_ids = set()

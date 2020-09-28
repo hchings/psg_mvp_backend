@@ -7,7 +7,7 @@ from os import path
 import coloredlogs, logging
 from annoying.functions import get_object_or_None
 from elasticsearch import Elasticsearch
-from elasticsearch.exceptions import NotFoundError
+# from elasticsearch.exceptions import NotFoundError
 from elasticsearch_dsl import Search, Q
 # from elasticsearch.helpers import bulk
 # from elasticsearch_dsl import UpdateByQuery
@@ -21,6 +21,7 @@ from django.core.exceptions import MultipleObjectsReturned
 from users.clinics.models import ClinicProfile
 from users.doctors.models import DoctorProfile
 from comments.models import Comment
+from backend.shared.utils import invalidate_cached_data
 from .models import Case, CaseImages
 from .doc_type import CaseDoc
 
@@ -165,15 +166,22 @@ def fill_in_data(sender, instance, **kwargs):
             if s.count() == 0:
                 logger.info('Indexed case %s into ES.' % instance.uuid)
                 instance.indexing()
+            else:
+                # has record, delete and re-index
+                response = s.delete()
+                logger.info("Deleted document of case %s in ES: %s for reindexing" % (instance.uuid,
+                                                                                      response))
+                instance.indexing()
         else:
             # remove the ES record is state change
             if s.count() > 0:
                 response = s.delete()
                 logger.info("Deleted document of case %s in ES: %s" % (instance.uuid,
                                                                        response))
-    except NotFoundError:
+    # NotFoundError
+    except Exception as e:
         # prevent ES crashes
-        logger.error("[write case signal]: no index found.")
+        logger.error("[Error write case signal]: %s" % str(e))
         pass
 
     # check for migration
@@ -212,6 +220,20 @@ def case_health_check(sender, instance, **kwargs):
             # logger.info("[case singal post save %s]: regen thumb %s" % (instance.uuid, instance.bf_img_thumb))
     except Exception as e:
         logger.error("[case singal Error post save %s]: %s" % (instance.uuid, str(e)))
+
+    ############################
+    #    Cache Invalidation
+    ############################
+
+    # invalidate case detail cache -- both edit and non edit mode
+    invalidate_cached_data('case_detail_%s' % instance.uuid)
+    invalidate_cached_data('case_detail_edit_%s' % instance.uuid)
+
+    # invalid case search cache only if the status is published,
+    # otherwise no affect.
+    if instance.state == 'published':
+        # delete all case search keys
+        invalidate_cached_data('', True)
 
 
 @receiver(post_delete, sender=Case)
