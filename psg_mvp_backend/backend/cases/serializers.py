@@ -349,7 +349,6 @@ class CaseDetailSerializer(serializers.ModelSerializer):
     uuid = serializers.ReadOnlyField()
     clinic = ClinicInfoSerializer(required=False)
     # author = AuthorSerializer(required=False)
-    author = serializers.SerializerMethodField()
     # surgeries = serializers.SerializerMethodField(required=False)  # TODO this works for get only
     # surgeries = SurgeryTagSerializer(many=True) # TODO: this works for post only
     # surgeries = serializers.ListField() # this does not work
@@ -436,6 +435,7 @@ class CaseDetailSerializer(serializers.ModelSerializer):
                 self.fields['scp_user_pic'] = serializers.ImageField(max_length=None,
                                                                      use_url=True,
                                                                      required=False)
+                self.fields['author'] = AuthorSerializer(required=False)
                 # if self.context['request'].method != 'POST':
                 # self.fields['other_imgs'] = CaseImagesSerializer(many=True, required=False)  # many=True
                 # self.fields['other_imgs'] = serializers.ListField(required=False)
@@ -452,6 +452,7 @@ class CaseDetailSerializer(serializers.ModelSerializer):
             else: # GET
                 self.fields['surgeries'] = serializers.SerializerMethodField()
                 self.fields['other_imgs'] = serializers.SerializerMethodField()
+                self.fields['author'] = serializers.SerializerMethodField()
                 if self.edit_mode:
                     # return img url if it's edit mode
                     self.fields['scp_user_pic'] = serializers.ImageField(max_length=None,
