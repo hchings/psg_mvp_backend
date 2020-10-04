@@ -17,10 +17,10 @@ services:
       - "27017:27017"
   web:
     build: ./psg_mvp_backend
-#    gunicorn --certfile=/code/security/localhost-ip.crt --keyfile=/code/security/localhost-ip.key --bind 0.0.0.0:443 --chdir ./backend backend.wsgi"
+    # gunicorn --bind 0.0.0.0:8000 --chdir ./backend backend.wsgi
     command: [sh, -c, "python3 ./backend/manage.py index_cases && \
                        python3 ./backend/manage.py index_clinic_profiles && \
-                       gunicorn --bind 0.0.0.0:8000 --chdir ./backend backend.wsgi"]
+                       gunicorn --certfile=/code/security/certificate.crt --keyfile=/code/security/private.key --bind 0.0.0.0:443 --chdir ./backend backend.wsgi"]
     environment:
       DJANGO_SETTINGS_MODULE: backend.settings
     volumes:
@@ -32,20 +32,20 @@ services:
       - elasticsearch
       - cache
     expose:
-      - "8000"
-#      - "443"
+    # - "8000"
+      - "443"
   nginx:
     image: nginx:1.17-alpine
     ports:
-      - 8000:80
-#      - 443:80
+    # - 80:80
+      - 443:80
     volumes:
       - ./psg_mvp_backend/nginx.conf:/etc/nginx/nginx.conf
       - ./psg_mvp_backend/static:/var/static  # <-- bind the static volume
       - ./psg_mvp_backend/media:/var/media  # <-- bind the media volume
       - ./psg_mvp_backend/nginx_logs:/var/log/nginx
       - ./psg_mvp_backend/security:/var/security
-#      - ./psg_mvp_backend/.well-known/pki-validation:/var/.well-known/pki-validation
+    # - ./psg_mvp_backend/.well-known/pki-validation:/var/.well-known/pki-validation
     depends_on:  # <-- wait for djangoapp to be "ready" before starting this service
       - web
   elasticsearch: # Elasticsearch Instance
