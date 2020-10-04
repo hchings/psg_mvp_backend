@@ -29,19 +29,19 @@ SECRET_KEY = 'hck+)fy3p9x789tx(x^-j*^!8ylg*e-n=lkh5*3zs^k&f$)h_='
 DEBUG = False
 
 # TODO: remove hard-coded front/backend IPs
-ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '206.189.218.129', '157.245.3.246']
+ALLOWED_HOSTS = ['0.0.0.0', 'localhost', 'api.surgi.fyi', 'www.api.surgi.fyi', '206.189.218.129', '157.245.3.246']
 
 # CORS_REPLACE_HTTPS_REFERER = False
 # HOST_SCHEME = "http://"
 # SECURE_PROXY_SSL_HEADER = None
 
-SESSION_COOKIE_SECURE = False
+# SESSION_COOKIE_SECURE = False
 
 # ----- open this for SSL ----
-# SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-# SECURE_SSL_REDIRECT = True
-# SESSION_COOKIE_SECURE = True
-# CSRF_COOKIE_SECURE = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
 # ----------------------------
 
 # SECURE_HSTS_SECONDS = None
@@ -284,6 +284,19 @@ CORS_ORIGIN_ALLOW_ALL = True
 CORS_ORIGIN_WHITELIST = [
     "localhost:4200",
 ]
+
+# for SSL/HTTPS
+CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = ['surgi.fyi', 'api.surgi.fyi:443', '.surgi.fyi', 'api.surgi.fyi']
+
+CORS_REPLACE_HTTPS_REFERER = True
+CSRF_COOKIE_DOMAIN = 'surgi.fyi'
+CORS_ORIGIN_WHITELIST = (
+    'https://surgi.fyi/',
+    'surgi.fyi',
+    'https://api.surgi.fyi',
+    'api.surgi.fyi',
+)
 
 
 ###################################
