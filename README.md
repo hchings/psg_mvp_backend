@@ -57,6 +57,11 @@ Set IP=<your external IP> in your env variable.
     
 The backend will now be served at `<your ip>:8000`.
 
+**[Important!!]** On production server, ensure you have a `security/` folder in the same folder as `Dockerfile.prod` which contains crt from [ZeroSSL](https://app.zerossl.com/): 
+1. certificate.crt
+2. private.key
+
+
 #### B.2.2 To back up mongoDB
 First ensure you have the following env variables set:
 ```
