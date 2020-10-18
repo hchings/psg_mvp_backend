@@ -7,7 +7,8 @@ Urls for cases.
 from django.conf.urls import url
 
 from .views import CaseDetailView, CaseList, CaseSearchView, \
-    CaseManageListView, CaseActionList, like_unlike_case
+    CaseManageListView, CaseActionList, like_unlike_case, \
+    CaseInviteTokenGenView, CaseInviteInfoDetail
 
 urlpatterns = [
     url(r'^$', CaseList.as_view(), name=CaseList.name),
@@ -27,4 +28,7 @@ urlpatterns = [
          'save_unsave': True},
         name='unlike-case'),
     url(r'^saved/$', CaseActionList.as_view(), name=CaseActionList.name),
+    url(r'^invite-gen/$', CaseInviteTokenGenView.as_view(), name=CaseInviteTokenGenView.name),
+    url(r'^invite-info/$', CaseInviteInfoDetail.as_view(), name=CaseInviteInfoDetail.name)
+
 ]

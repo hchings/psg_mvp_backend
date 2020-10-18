@@ -4,9 +4,11 @@ Model registration for admin site for Case.
 """
 from annoying.functions import get_object_or_None
 from django.contrib import admin
+from django.contrib.auth import get_user_model
 
-from .models import Case, CaseImages
+from .models import Case, CaseImages, CaseInviteToken
 
+user_model = get_user_model()
 
 class CaseAdmin(admin.ModelAdmin):
     """
@@ -89,5 +91,20 @@ class CaseImagesAdmin(admin.ModelAdmin):
         return '' if not case_obj else case_obj.title
 
 
+class CaseInviteTokenAdmin(admin.ModelAdmin):
+    """
+    Customizing Admin Page for CaseInviteToken Model
+    """
+    list_display = ('username', 'user_code', 'user_uuid', 'token', 'created_at')
+
+    def username(self, obj):
+        try:
+            user_obj = user_model.objects.get(uuid=obj.user_uuid)
+            return user_obj.username
+        except:
+            return ''
+
+
 admin.site.register(Case, CaseAdmin)
 admin.site.register(CaseImages, CaseImagesAdmin)
+admin.site.register(CaseInviteToken, CaseInviteTokenAdmin)

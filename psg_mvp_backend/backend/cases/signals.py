@@ -78,7 +78,7 @@ def fill_in_data(sender, instance, **kwargs):
     # author
 
     # clinic
-    if instance.clinic.display_name:
+    if instance.clinic and instance.clinic.display_name:
         try:
             clinic = get_object_or_None(ClinicProfile, display_name=instance.clinic.display_name)
         except MultipleObjectsReturned:

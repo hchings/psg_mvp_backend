@@ -92,15 +92,16 @@ def clinic_profile_store_service_tags_raw(sender, instance, **kwargs):
         instance.services_raw_input = ', '.join(instance.services_raw)
 
     # fill in branch id (md5 hash of place id)
-    for branch in instance.branches:
-        if branch.place_id and not branch.branch_id:
-            # print(branch.place_id, type(branch.place_id))
-            try:
-                hash_obj = hashlib.md5(branch.place_id.encode('utf-8'))
-                branch.branch_id = hash_obj.hexdigest()
-                # print(hash_obj.hexdigest())
-            except Exception as e:
-                logger.error(e)
+    if isinstance(instance, ClinicProfile):
+        for branch in instance.branches:
+            if branch.place_id and not branch.branch_id:
+                # print(branch.place_id, type(branch.place_id))
+                try:
+                    hash_obj = hashlib.md5(branch.place_id.encode('utf-8'))
+                    branch.branch_id = hash_obj.hexdigest()
+                    # print(hash_obj.hexdigest())
+                except Exception as e:
+                    logger.error(e)
 
 
 @receiver(pre_save, sender=DoctorProfile)
