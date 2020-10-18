@@ -3,11 +3,9 @@ DRF Serializers for Users app.
 
 """
 
-import json
-
 from rest_framework import serializers, exceptions
 from rest_auth.registration.serializers import RegisterSerializer
-from rest_auth.serializers import LoginSerializer
+# from rest_auth.serializers import LoginSerializer
 from rest_auth.models import TokenModel
 
 # from taggit_serializer.serializers import TagListSerializerField, \
@@ -37,6 +35,7 @@ class RegisterSerializerEx(RegisterSerializer):
 
     """
     user_type = serializers.ChoiceField(USER_TYPES, default='user')
+    otp = serializers.CharField(required=False, allow_blank=True)
 
     def save(self, request):
         """

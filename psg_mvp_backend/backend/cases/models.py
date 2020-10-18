@@ -9,6 +9,8 @@ from imagekit.processors import ResizeToFill, ResizeToFit
 from djongo import models
 from multiselectfield import MultiSelectField
 
+from uuid import uuid4
+
 from django import forms
 from backend.shared.utils import make_id
 from .doc_type import CaseDoc
@@ -345,7 +347,7 @@ class Case(models.Model):
     state = models.CharField(
         max_length=20,
         choices=STATES,
-        default=1,  # default to draft
+        default=1,  # default to reviewing
     )
 
     gender = models.CharField(max_length=15,
@@ -447,7 +449,6 @@ class Case(models.Model):
                                         format='JPEG',
                                         options={'quality': 100})
 
-
     # model_form_class = UserInfoForm
     author = models.EmbeddedModelField(
         model_container=UserInfo,
@@ -516,3 +517,28 @@ class Case(models.Model):
         # must add index, otherwise will get No Index error.
         doc.save(index="cases")  # TODO, not sure, seems not need this.
         return doc.to_dict(include_meta=True)
+
+
+############################################################
+#     Invite to write case tokens
+#     For now, each user will only have one referral code
+#############################################################
+
+class CaseInviteToken(models.Model):
+    _id = models.ObjectIdField()
+
+    token = models.UUIDField(primary_key=False,
+                             default=uuid4,
+                             editable=False)
+
+    user_code = models.CharField(max_length=30,
+                            unique=False,
+                            editable=False,
+                            help_text="")
+
+    user_uuid = models.CharField(max_length=30,
+                            unique=False,
+                            editable=False,
+                            help_text="the uuid field in the corresponding user. Do not fill in this manually.")
+
+    created_at = models.DateTimeField(auto_now_add=True)

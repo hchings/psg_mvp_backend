@@ -1,2 +1,2 @@
 [run]
-omit = manage.py, ./scripts/*
+omit = manage.py, ./scripts/*, */migrations/*, */tests/*
