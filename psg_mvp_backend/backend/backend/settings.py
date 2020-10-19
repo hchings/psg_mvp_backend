@@ -213,9 +213,22 @@ AUTH_USER_MODEL = 'users.User'
 SITE_ID = 1
 
 # Django Email backend Settings.
-EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
+# EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_FILE_PATH = os.path.join(BASE_DIR, 'tmp/email')
+# EMAIL_FILE_PATH = os.path.join(BASE_DIR, 'tmp/email')
+
+# TODO: WIP, not working
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_HOST_USER = 'founders@surgi.fyi'
+EMAIL_HOST_PASSWORD = '' # fill in the real pw  #TODO: read from env
+# EMAIL_HOST_PASSWORD = 'zxnhvjvjttnbyjks' #past the key or password app here
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = 'Surgi.fyi'
+EMAIL_USE_SSL = False
+
 
 # django-rest-framework settings
 ES_PAGE_SIZE = 16  # for ES pagination

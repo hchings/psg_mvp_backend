@@ -40,3 +40,18 @@ class User(AbstractUser):
                                  choices=USER_TYPE_CHOICES,
                                  default=1)
 
+
+class RegistrationOTP(models.Model):
+    _id = models.ObjectIdField()
+
+    hashed_email = models.CharField(max_length=36,
+                                 blank=False,
+                                 editable=False,
+                                 help_text="A md5 hash (32 chars) for email")
+
+    otp = models.CharField(max_length=10,
+                           blank=False,
+                           editable=False,
+                           help_text="6-digit verification code")
+
+    created = models.DateTimeField(auto_now_add=True, help_text="created")  # default=timezone.now

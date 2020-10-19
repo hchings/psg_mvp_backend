@@ -4,7 +4,7 @@ Model registration for admin site.
 """
 from django.utils.safestring import mark_safe
 from django.contrib import admin
-from .models import User
+from .models import User, RegistrationOTP
 from .clinics.models import ClinicProfile
 from .doctors.models import DoctorProfile
 
@@ -86,7 +86,13 @@ class DoctorProfileAdmin(admin.ModelAdmin):
             return 'No_image'
 
 
+class RegistrationOTPAdmin(admin.ModelAdmin):
+    list_display = ('hashed_email', 'otp', 'created')
+    readonly_fields = ('hashed_email', 'otp', 'created')
+
+
 admin.site.register(User, UserAdmin)
 # admin.site.register(UserProfile)
 admin.site.register(ClinicProfile, ClinicProfileAdmin)
 admin.site.register(DoctorProfile, DoctorProfileAdmin)
+admin.site.register(RegistrationOTP, RegistrationOTPAdmin)

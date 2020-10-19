@@ -26,11 +26,13 @@ from backend.shared.permissions import AdminCanGetAuthCanPost
 from backend.shared.utils import add_to_cache, _prep_subcate
 from users.clinics.models import ClinicProfile
 from utils.drf.custom_fields import Base64ImageField
-from .models import Case
+from .models import Case, CaseInviteToken
 from .mixins import UpdateConciseResponseMixin
 from .serializers import CaseDetailSerializer, CaseCardSerializer
 from .doc_type import CaseDoc
 from cases.management.commands.index_cases import Command
+
+from django.contrib.auth import get_user_model
 
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
@@ -530,3 +532,62 @@ def like_unlike_case(request, case_uuid, flag='', do_like=True, actor_only=False
         if res:
             res.delete()
         return Response({'succeed': "redo %s" % verb}, status.HTTP_201_CREATED)
+
+
+# -------------------------------------------------------------------
+#  Case Invite - for inviting other users to write case TODO: WIP
+# -------------------------------------------------------------------
+
+
+class CaseInviteTokenGenView(generics.RetrieveAPIView):
+    name = 'case-invite-gen'
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # try to get token
+        token = get_object_or_None(CaseInviteToken, user_uuid=request.user.uuid)
+
+        if not token:
+            # assume is required
+            username = request.user.username
+
+            if not username:
+                # TODO: bad
+                username = request.user.email.split('@')[0]
+
+            username = username.lower().replace(' ', '') + str(request.user.uuid)[:3]
+
+            token = CaseInviteToken(user_code=username, user_uuid=request.user.uuid)
+            token.save()
+
+        return Response({'referral_user': token.user_code,
+                         'referral_token': token.token}, status.HTTP_200_OK)
+
+
+class CaseInviteInfoDetail(generics.RetrieveAPIView):
+    """
+    TODO: you can add in more info if you want.
+    """
+    name = 'case-invite-info'
+
+    def get(self, request):
+        user_code = request.query_params.get("userCode", False)
+        invite_token = request.query_params.get("token", False)
+
+        # try to get token
+        token = get_object_or_None(CaseInviteToken,
+                                   user_code=user_code,
+                                   token=invite_token)
+
+        if not token:
+            return Response({'error': 'invalid token'}, status.HTTP_400_BAD_REQUEST)
+
+
+        inviter_user_obj = get_object_or_None(get_user_model(), uuid=token.user_uuid)
+
+        if inviter_user_obj:
+            username = inviter_user_obj.username.title()
+        else:
+            username = ''
+
+        return Response({'inviter': username}, status.HTTP_200_OK)

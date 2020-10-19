@@ -8,6 +8,7 @@ from random import SystemRandom
 import os, json
 import base64
 import hashlib
+from random import randint
 
 from django.conf import settings
 from django.core.cache import cache
@@ -135,6 +136,18 @@ def _prep_subcate():
     # print("subcate", sub_cate)
     return sub_cate
 
+
+def random_with_n_digits(n):
+    """
+    Gen random numerical code in n digits.
+    This is primarily used for otp.
+
+    :param n:
+    :return:
+    """
+    range_start = 10**(n-1)
+    range_end = (10**n)-1
+    return randint(range_start, range_end)
 
 #######################
 #         CACHE
