@@ -28,7 +28,7 @@ SECRET_KEY = 'hck+)fy3p9x789tx(x^-j*^!8ylg*e-n=lkh5*3zs^k&f$)h_='
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*', '0.0.0.0', 'localhost'] # TODO: remove star
+ALLOWED_HOSTS = ['*', '0.0.0.0', 'localhost']  # TODO: remove star
 
 # CORS_REPLACE_HTTPS_REFERER = False
 # HOST_SCHEME = "http://"
@@ -76,6 +76,9 @@ INSTALLED_APPS = [
     'allauth.account',
     'rest_auth.registration',
     'allauth.socialaccount',
+    # ... include the providers you want to enable:
+    'allauth.socialaccount.providers.facebook',
+    # 'allauth.socialaccount.providers.google',
     # --- django imagekit package ---
     'imagekit',
     # --- django fileField auto clean up ---
@@ -129,6 +132,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                # `allauth` needs this from django
+                'django.template.context_processors.request',
             ],
         },
     },
@@ -232,13 +237,12 @@ SITE_ID = 1
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_HOST_USER = 'founders@surgi.fyi'
-EMAIL_HOST_PASSWORD = '' # fill in the real pw  #TODO: read from env
+EMAIL_HOST_PASSWORD = ''  # fill in the real pw  #TODO: read from env
 # EMAIL_HOST_PASSWORD = 'zxnhvjvjttnbyjks' #past the key or password app here
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = 'Surgi.fyi'
 EMAIL_USE_SSL = False
-
 
 # django-rest-framework settings
 ES_PAGE_SIZE = 16  # for ES pagination
@@ -256,7 +260,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS':
         'rest_framework.pagination.LimitOffsetPagination',
     # 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 20    # TODO: to-be-decided
+    'PAGE_SIZE': 20  # TODO: to-be-decided
 }
 
 # django-rest-auth configuration
@@ -301,13 +305,11 @@ LOGOUT_URL = reverse_lazy('rest_logout')
 ES_HOST = 'elasticsearch'
 ES_PORT = 9200
 
-
 # for cors
 CORS_ORIGIN_ALLOW_ALL = True
 CORS_ORIGIN_WHITELIST = [
     "localhost:4200",
 ]
-
 
 ###################################
 #         activity stream
@@ -332,3 +334,18 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 
 
+
+
+# Provider specific settings
+SOCIALACCOUNT_PROVIDERS = {
+    'facebook': {
+        # For each OAuth based provider, either add a ``SocialApp``
+        # (``socialaccount`` app) containing the required client
+        # credentials, or list them here:
+        'APP': {
+            'client_id': '149950582283786',
+            'secret': 'ef6856eaf0a5b9ccee879f5b70787e5c',
+            'key': ''
+        }
+    }
+}

@@ -6,6 +6,10 @@ DRF Views for users and auth.
 from hashlib import md5
 import coloredlogs, logging
 from datetime import timedelta
+
+from allauth.socialaccount.providers.facebook.views import FacebookOAuth2Adapter
+from rest_auth.registration.views import SocialLoginView
+
 # import pytz
 
 from django.utils import timezone
@@ -230,3 +234,7 @@ class UserInfoView(generics.RetrieveAPIView):
 #     serializer_class = UserSerializer
 #
 #     # permission_classes = (OnlyAdminCanDelete,)
+
+
+class FacebookLogin(SocialLoginView):
+    adapter_class = FacebookOAuth2Adapter

@@ -10,7 +10,8 @@ from rest_auth.urls import urlpatterns as rest_auth_urls
 from django.conf.urls import url, include
 from django.views.generic import TemplateView
 
-from .views import RegisterViewEx, LoginViewEx, verify_username_view, UserInfoView
+from .views import RegisterViewEx, LoginViewEx, verify_username_view, 
+from .views import RegisterViewEx, LoginViewEx, verify_username_view, UserInfoView, FacebookLogin
 # UserList, UserDetail
 
 urlpatterns = [
@@ -26,6 +27,7 @@ urlpatterns = [
         name='account_confirm_email'),
     url(r'^registration/verify-username/$', verify_username_view, name='verity_username'),
     url(r'^user-info/$', UserInfoView.as_view(), name=UserInfoView.name)
+    url(r'^facebook/$', FacebookLogin.as_view(), name='fb_login')
     # url(r'^users/$', UserList.as_view(), name=UserList.name),
     # url(r'^users/(?P<pk>[0-9]+)$', UserDetail.as_view(), name=UserDetail.name),
 ]
