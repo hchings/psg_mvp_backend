@@ -402,12 +402,12 @@ class CaseManageListView(generics.ListAPIView):
 
         if is_superuser:
             # superuser can see all posts.
-            return Case.objects.all().filter(state=state).order_by('-posted')
+            return Case.objects.filter(state=state).order_by('-posted')
         else:
             # if not user, the response will just be empty.
             # Put the recent one on the top.
-            return Case.objects.all().filter(author={'uuid': str(self.request.user.uuid)},
-                                             state=state).order_by('-posted')
+            return Case.objects.filter(author={'uuid': str(self.request.user.uuid)},
+                                       state=state).order_by('-posted')
 
 
 class CaseActionList(generics.ListAPIView):

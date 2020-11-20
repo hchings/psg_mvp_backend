@@ -121,7 +121,7 @@ ROOT_URLCONF = 'backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],  # specify dir to loop up templates
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -196,6 +196,19 @@ USE_TZ = True
 
 STATIC_ROOT = os.path.join(TOP_DIR, 'static')
 STATIC_URL = '/static/'
+
+STATICFILES_DIRS = [
+    os.path.join(TOP_DIR, 'backend/static/email_imgs')
+]
+
+# STATIC_ROOT = ''
+#
+# STATIC_URL = '/static/'
+#
+# STATICFILES_DIRS = ( os.path.join(TOP_DIR, 'static'), )
+
+
+# print("dfd", os.path.join(TOP_DIR, 'static'))
 
 # media storage configuration
 MEDIA_ROOT = os.path.join(TOP_DIR, 'media')
@@ -309,4 +322,13 @@ ACTSTREAM_SETTINGS = {
 ###################################
 # Google Map API key (project mvp1).
 # You can enable more API services under this key in Google's console.
-GOOGLE_MAP_API_KEY = 'AIzaSyDDbkqc3aU4LvKFU_78HgGoJMqY_5e-t1s' # TODO: remove this
+GOOGLE_MAP_API_KEY = 'AIzaSyDDbkqc3aU4LvKFU_78HgGoJMqY_5e-t1s'  # TODO: remove this
+
+###################################
+#            Celery
+###################################
+CELERY_BROKER_URL = 'redis://:p6fd93ffd394f708a7a39d4b61715309ae6d6625e42ce95d3e8771507e2ede6a3@ec2-34-197-161-211.compute-1.amazonaws.com:12389'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+
+

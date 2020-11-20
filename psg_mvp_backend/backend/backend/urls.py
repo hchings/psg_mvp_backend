@@ -43,5 +43,5 @@ urlpatterns = internal_apis + [
     url(r'^tags/', include('tags.urls')),
 ]
 
-
+urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
