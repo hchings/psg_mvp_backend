@@ -14,14 +14,18 @@ from django.utils import timezone
 from rest_auth.registration.views import RegisterView
 from rest_auth.views import LoginView
 from rest_auth.serializers import LoginSerializer
+from rest_framework.permissions import IsAuthenticated
+from rest_framework import generics
 from annoying.functions import get_object_or_None
 
 from django.conf import settings
+from django.contrib.contenttypes.models import ContentType
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework import status
 
 from backend.shared.utils import random_with_n_digits
+from cases.models import Case
 
 from .serializers import RegisterSerializerEx, TokenSerializerEx
 from .models import User, RegistrationOTP
@@ -37,6 +41,9 @@ coloredlogs.install(level='DEBUG', logger=logger)
 
 # fixed otp length
 OTP_LENGTH = 6
+
+# for getting actions
+case_content_type = ContentType.objects.get(model='case')
 
 
 # --- Auth ---
@@ -160,6 +167,43 @@ def verify_username_view(request):
         return Response({'succeed': "valid username."}, status.HTTP_200_OK)
     else:
         return Response({'error': "username exists."}, status.HTTP_200_OK)
+
+
+# TODO: WIP
+class UserInfoView(generics.RetrieveAPIView):
+    name = 'user-info'
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+
+
+        :param request:
+        :return:
+        """
+
+        # 1. get saved cnt
+        user = request.user
+        saved_cases = user.actor_actions.filter(action_object_content_type=case_content_type,
+                                                verb='save')
+
+        # get the action object
+        case_set = set()
+        saved_cnt = 0
+        for item in saved_cases:
+            if item not in case_set:
+                saved_cnt += 1
+
+        # 2, 3. get review/published cnt
+        review_cnt = Case.objects.filter(author={'uuid': str(user.uuid)},
+                            state='reviewing').count()
+        published_cnt = Case.objects.filter(author={'uuid': str(user.uuid)},
+                                         state='published').count()
+
+        return Response({'saved_cnt': saved_cnt,
+                         'review_cnt': review_cnt,
+                         'published_cnt': published_cnt}, status.HTTP_200_OK)
+
 
 # # --- User ---
 # class UserList(generics.ListAPIView):

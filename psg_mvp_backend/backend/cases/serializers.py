@@ -21,6 +21,7 @@ from rest_framework.fields import (  # NOQA # isort:skip
 from comments.models import Comment
 from comments.serializers import CommentSerializer
 from comments.views import COMMENT_PAGE_SIZE
+from users.clinics.models import ClinicProfile
 
 # COMMENT_PAGE_SIZE
 
@@ -52,6 +53,26 @@ class ClinicInfoSerializer(serializers.Serializer):
     doctor_name = serializers.CharField(required=False, allow_blank=True)
     place_id = serializers.ReadOnlyField()
     uuid = serializers.ReadOnlyField()
+
+
+class ClinicInfoURLSerializer(serializers.Serializer):
+    """
+    Serializer for clinic field.
+    This is because the current mvp has no clinic pages yet.
+    """
+    display_name = serializers.CharField(required=False, allow_blank=True)
+    doctor_name = serializers.CharField(required=False, allow_blank=True)
+    url = serializers.SerializerMethodField()
+
+    def get_url(self, obj):
+        display_name = obj.display_name
+
+        if display_name:
+            clinic_obj = get_object_or_None(ClinicProfile, display_name=display_name)
+            if clinic_obj:
+                return clinic_obj.website_url
+
+        return ''
 
 
 class ClinicInfoBriefSerializer(serializers.Serializer):
@@ -347,7 +368,7 @@ class CaseImagesEditSerializer(serializers.Serializer):
 # TODO: don't know why all the Base64ImageField here don't work
 class CaseDetailSerializer(serializers.ModelSerializer):
     uuid = serializers.ReadOnlyField()
-    clinic = ClinicInfoSerializer(required=False)
+
     # author = AuthorSerializer(required=False)
     # surgeries = serializers.SerializerMethodField(required=False)  # TODO this works for get only
     # surgeries = SurgeryTagSerializer(many=True) # TODO: this works for post only
@@ -393,7 +414,7 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         # fields = "__all__"
         fields = ('uuid', 'is_official', 'title', 'bf_img', 'bf_img_cropped', 'bf_cap',
                   'af_img', 'af_img_cropped', 'af_cap', 'surgeries', 'author', 'state', 'other_imgs',
-                  'clinic', 'view_num', 'body', 'surgery_meta', 'rating', 'bf_img_cropped',
+                  'view_num', 'body', 'surgery_meta', 'rating', 'bf_img_cropped',
                   'recovery_time', 'anesthesia', 'scp_user_pic', 'positive_exp', 'side_effects', 'pain_points',
                   'ori_url', 'comment_num', 'comments', 'failed')
 
@@ -436,6 +457,7 @@ class CaseDetailSerializer(serializers.ModelSerializer):
                                                                      use_url=True,
                                                                      required=False)
                 self.fields['author'] = AuthorSerializer(required=False)
+                self.fields['clinic'] = ClinicInfoSerializer(required=False)
                 # if self.context['request'].method != 'POST':
                 # self.fields['other_imgs'] = CaseImagesSerializer(many=True, required=False)  # many=True
                 # self.fields['other_imgs'] = serializers.ListField(required=False)
@@ -453,6 +475,7 @@ class CaseDetailSerializer(serializers.ModelSerializer):
                 self.fields['surgeries'] = serializers.SerializerMethodField()
                 self.fields['other_imgs'] = serializers.SerializerMethodField()
                 self.fields['author'] = serializers.SerializerMethodField()
+                self.fields['clinic'] = ClinicInfoURLSerializer()
                 if self.edit_mode:
                     # return img url if it's edit mode
                     self.fields['scp_user_pic'] = serializers.ImageField(max_length=None,

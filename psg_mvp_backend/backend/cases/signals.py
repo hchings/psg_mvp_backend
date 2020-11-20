@@ -22,6 +22,7 @@ from users.clinics.models import ClinicProfile
 from users.doctors.models import DoctorProfile
 from comments.models import Comment
 from backend.shared.utils import invalidate_cached_data
+from .tasks import send_case_in_review_confirmed
 from .models import Case, CaseImages
 from .doc_type import CaseDoc
 
@@ -34,8 +35,8 @@ es = Elasticsearch([{'host': settings.ES_HOST, 'port': settings.ES_PORT}],
 User = get_user_model()
 
 
-@receiver(post_init, sender=Case)
-def fill_in_on_create(sender, instance, **kwargs):
+@receiver(post_save, sender=Case)
+def fill_in_on_create(sender, instance, created, **kwargs):
     """
     Fill case.author.scp = True to indicate the case
     is scraped if the case is created by users with is_staff == true.
@@ -46,17 +47,21 @@ def fill_in_on_create(sender, instance, **kwargs):
     :return:
     """
 
-    # Check whether author is staff (i.e., have access to admin site)
-    # if yes, mark the case as scraped
-    author_name = instance.author.name
+    # if new obj got created
+    if created:
+        # Check whether author is staff (i.e., have access to admin site)
+        # if yes, mark the case as scraped
+        author_name = instance.author.name
 
-    if author_name:
-        user = get_object_or_None(User, username=author_name)
-        if user and user.is_staff:
-            instance.author.scp = True
+        if author_name:
+            user = get_object_or_None(User, username=author_name)
+            if user and user.is_staff:
+                instance.author.scp = True
+
+        # print("!! post_save created signal", instance)
 
 
-# TODO: WIP. need more test.
+# TODO: WIP. need more test. need rewrite...
 @receiver(pre_save, sender=Case)
 def fill_in_data(sender, instance, **kwargs):
     """
@@ -66,6 +71,15 @@ def fill_in_data(sender, instance, **kwargs):
     :param kwargs:
     :return:
     """
+    # TODO: WIP
+    # check the first time the case tranferred from 'review' to 'publish'
+    if instance.state == 'published' or instance.state == 2:
+        pre_save_instance = get_object_or_None(Case, uuid=instance.uuid)
+        if pre_save_instance and \
+                (pre_save_instance.state == 'reviewing' or pre_save_instance.state == 1):
+            pass
+            # print("---send out published signal")
+
     # sanity check on status
     if not instance.state:
         instance.state = 'draft'
