@@ -12,8 +12,11 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 
 from django.contrib.auth import get_user_model
+from django.db.models import Q
+
 from cases.models import Case
 from actstream import actions, action
+from backend.shared.utils import invalidate_cached_data
 from .models import Comment
 from .serializers import CommentSerializer
 
@@ -40,10 +43,21 @@ class CommentListView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         case_id = self.request.query_params.get('case_id', '')
-        queryset = Comment.objects.all()
+        # for nested comments
+        reply_to_id = self.request.query_params.get('reply_to_id', '')
 
         if case_id:
-            queryset = queryset.filter(case_id=case_id)
+            if not reply_to_id:
+                self.pagination_class.page_size = COMMENT_PAGE_SIZE
+                queryset = Comment.objects.filter(Q(reply_to_id='') | Q(reply_to_id__isnull=True)) \
+                    .filter(case_id=case_id).order_by('-posted')
+            else:
+                # has reply_to_id, aka getting nested comments
+                self.pagination_class.page_size = COMMENT_PAGE_SIZE / 2
+                queryset = Comment.objects.filter(case_id=case_id,
+                                                  reply_to_id=reply_to_id).order_by('posted') # oldest at top
+        else:
+            queryset = Comment.objects.all()
 
         # TODO: change to only admin
         return queryset
@@ -161,4 +175,12 @@ def like_unlike_comment(request, comment_uuid, flag='', do_like=True, actor_only
     else:
         if res:
             res.delete()
+        else:
+            # no CRUD on Action object to trigger siganl
+            # so cache won't be cleaned.
+            # We have to clear cache explicitedly here
+            invalidate_cached_data('case_detail_%s' % comment_obj.case_id)
+            # delete all case search keys
+            invalidate_cached_data('', True)
+
         return Response({'succeed': "redo %s" % verb}, status.HTTP_201_CREATED)

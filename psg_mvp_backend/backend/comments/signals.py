@@ -3,11 +3,13 @@ Signals for Comments app.
 
 """
 from annoying.functions import get_object_or_None
+from actstream.models import Action
 
-from django.db.models.signals import pre_save
+from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 
+from backend.shared.utils import invalidate_cached_data
 
 from .models import Comment
 
@@ -34,3 +36,25 @@ def ensure_author_name(sender, instance, **kwargs):
             instance.author.name = user_obj.username
     except AttributeError:
         pass
+
+    ############################
+    #    Cache Invalidation
+    ############################
+
+    # invalidate case detail cache -- only non edit mode
+    invalidate_cached_data('case_detail_%s' % instance.case_id)
+    # delete all case search keys
+    invalidate_cached_data('', True)
+
+
+@receiver(post_save, sender=Action)
+@receiver(post_delete, sender=Action)
+def action_update(sender, instance, **kwargs):
+    ############################
+    #    Cache Invalidation
+    ############################
+
+    # invalidate case detail cache -- only non edit mode
+    invalidate_cached_data('case_detail_%s' % instance.action_object.case_id)
+    # delete all case search keys
+    invalidate_cached_data('', True)

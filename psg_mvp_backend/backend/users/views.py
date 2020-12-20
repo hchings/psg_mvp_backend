@@ -33,6 +33,7 @@ from cases.models import Case
 
 from .serializers import RegisterSerializerEx, TokenSerializerEx
 from .models import User, RegistrationOTP
+from .tasks import send_otp_code
 
 # from .permissions import OnlyAdminCanDelete
 
@@ -70,9 +71,10 @@ class RegisterViewEx(RegisterView):
         # 2. parse otp code and get hashed_email
         # print("check data", serializer.data)
         otp_code = serializer.data.get('otp', '')
+        regis_email = serializer.data.get('email', '') # email used in registration
 
         try:
-            hashed_email = md5(serializer.data.get('email', '').encode('utf-8')).hexdigest()
+            hashed_email = md5(regis_email.encode('utf-8')).hexdigest()
         except Exception as e:
             logger.error("[ERROR] RegisterViewEx md5: %s " % str(e))
             hashed_email = serializer.data.get('email', '')
@@ -85,9 +87,14 @@ class RegisterViewEx(RegisterView):
             otp_obj = RegistrationOTP(hashed_email=hashed_email,
                                       otp=otp_new)
             otp_obj.save()
-            # print("otp code", otp_new)
+            #print("otp code", otp_new)
+
+            # send out email in asnyc way
+            # TODO: solve the blocking issue when redis is down
+            send_otp_code.delay(regis_email, otp_new)
 
             headers = self.get_success_headers(serializer.data)
+            # TODO: + error handdling
             return Response({'success': 'verification email sent.'},
                             status=status.HTTP_201_CREATED,
                             headers=headers)

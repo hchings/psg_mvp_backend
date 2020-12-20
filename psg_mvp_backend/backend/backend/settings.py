@@ -236,13 +236,21 @@ SITE_ID = 1
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_HOST_USER = 'founders@surgi.fyi'
-EMAIL_HOST_PASSWORD = ''  # fill in the real pw  #TODO: read from env
+EMAIL_HOST_USER = 'notifications@surgi.fyi'
+# EMAIL_HOST_PASSWORD = 'jagp%%eh475'  # fill in the real pw  #TODO: read from env
+EMAIL_HOST_PASSWORD = 'xkuoacxlivwyzttl'
 # EMAIL_HOST_PASSWORD = 'zxnhvjvjttnbyjks' #past the key or password app here
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = 'Surgi.fyi'
 EMAIL_USE_SSL = False
+
+###################################
+#     django-alluth seetings
+###################################
+# disable default regis confirm email from django-alluth
+# as we'll send out our own.
+ACCOUNT_EMAIL_VERIFICATION = 'none'
 
 # django-rest-framework settings
 ES_PAGE_SIZE = 16  # for ES pagination
@@ -329,11 +337,18 @@ GOOGLE_MAP_API_KEY = 'AIzaSyDDbkqc3aU4LvKFU_78HgGoJMqY_5e-t1s'  # TODO: remove t
 ###################################
 #            Celery
 ###################################
-CELERY_BROKER_URL = 'redis://:p6fd93ffd394f708a7a39d4b61715309ae6d6625e42ce95d3e8771507e2ede6a3@ec2-34-197-161-211.compute-1.amazonaws.com:12389'
+CELERY_BROKER_URL = 'redis://:p6fd93ffd394f708a7a39d4b61715309ae6d6625e42ce95d3e8771507e2ede6a3@ec2-54-243-217-95.compute-1.amazonaws.com:22449'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
-
-
+# Try 5 times. Initially try again immediately, then add 0.5 seconds for each
+# subsequent try (with a maximum of 3 seconds). This comes out to roughly 3
+# seconds of total delay (0, 0.5, 1, 1.5).
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    'max_retries': 4,
+    'interval_start': 0,
+    'interval_step': 0.5,
+    'interval_max': 3,
+}
 
 
 # Provider specific settings

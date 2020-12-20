@@ -4,6 +4,8 @@ Signals for Cases app.
 """
 import shutil
 from os import path
+from datetime import datetime
+import pytz
 import coloredlogs, logging
 from annoying.functions import get_object_or_None
 from elasticsearch import Elasticsearch
@@ -22,7 +24,6 @@ from users.clinics.models import ClinicProfile
 from users.doctors.models import DoctorProfile
 from comments.models import Comment
 from backend.shared.utils import invalidate_cached_data
-from .tasks import send_case_in_review_confirmed
 from .models import Case, CaseImages
 from .doc_type import CaseDoc
 
@@ -46,19 +47,26 @@ def fill_in_on_create(sender, instance, created, **kwargs):
     :param kwargs:
     :return:
     """
+    pass
 
     # if new obj got created
-    if created:
-        # Check whether author is staff (i.e., have access to admin site)
-        # if yes, mark the case as scraped
-        author_name = instance.author.name
-
-        if author_name:
-            user = get_object_or_None(User, username=author_name)
-            if user and user.is_staff:
-                instance.author.scp = True
-
-        # print("!! post_save created signal", instance)
+    # if created:
+    #     # Check whether author is staff (i.e., have access to admin site)
+    #     # if yes, mark the case as scraped
+    #     author_name = instance.author.name
+    #
+    #     if author_name:
+    #         user = get_object_or_None(User, username=author_name)
+    #         if user and user.is_staff:
+    #             instance.author.scp = True
+    #
+    #     print("updated a p to ", instance.posted)
+    #     instance.author_posted = instance.posted
+    #
+    #     # print("!! post_save created signal", instance)
+    #
+    # else:
+    #     pass
 
 
 # TODO: WIP. need more test. need rewrite...
@@ -203,6 +211,17 @@ def fill_in_data(sender, instance, **kwargs):
     # it sucks at providing the right default for old records.
     if instance.pain_points is None:
         instance.pain_points = []  # provide a default
+
+    # update author_posted field
+    try:
+        request_user = instance._request_user
+
+        if request_user and str(request_user.uuid) == str(instance.author.uuid):
+            instance.author_posted = datetime.now(pytz.utc)
+    except Exception as e:
+        pass
+
+    # regardless of scp or not
 
     # TODO: update searchable fields
     # ubq = UpdateByQuery(index="cases").using(es).query("match", title="old title").script(

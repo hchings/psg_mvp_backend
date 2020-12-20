@@ -9,6 +9,8 @@ from bson import ObjectId
 from annoying.functions import get_object_or_None
 import coloredlogs, logging
 
+from django.db.models import Q
+
 from backend.shared.fields import embedded_model_method
 from backend.shared.serializers import AuthorSerializer
 from backend.shared.utils import image_as_base64
@@ -135,7 +137,7 @@ class CaseCardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Case
-        fields = ('uuid', 'is_official', 'title', 'af_img_thumb', 'surgeries', 'posted',
+        fields = ('uuid', 'is_official', 'title', 'af_img_thumb', 'surgeries',
                   'author', 'clinic', 'view_num', 'like_num',
                   'saved_by_user', 'liked_by_user', 'failed')
 
@@ -162,11 +164,14 @@ class CaseCardSerializer(serializers.ModelSerializer):
                                                                      use_url=True,
                                                                      required=False)
                 self.fields['author'] = serializers.SerializerMethodField()
+                self.fields['posted'] = serializers.SerializerMethodField(required=False)  # tODO: WIP
             else:
                 # manage-case or edit mode etc
                 self.fields['photo_num'] = serializers.SerializerMethodField()
                 self.fields['state'] = serializers.CharField(required=False)
-                self.fields['author'] = serializers.SerializerMethodField() # detail author
+                self.fields['author'] = serializers.SerializerMethodField()  # detail author
+                self.fields['posted'] = serializers.CharField(required=False)
+                self.fields['author_posted'] = serializers.CharField(required=False)
         except KeyError as e:
             logger.error("[ERROR] CaseCardSerializer: %s" % str(e))
 
@@ -181,7 +186,18 @@ class CaseCardSerializer(serializers.ModelSerializer):
         if self.search_view is True:
             return obj.author.scp_username if obj.author.scp else obj.author.name
         else:
-            return embedded_model_method(obj, self.Meta.model, 'author', included_fields=['name', 'scp', 'scp_username'])
+            return embedded_model_method(obj, self.Meta.model, 'author',
+                                         included_fields=['name', 'scp', 'scp_username'])
+
+    def get_posted(self, obj):
+        """
+        Return customer-facing posted time (author_posted)
+        and fall back to system posted if author_posted does not exist.
+
+        :param obj:
+        :return:
+        """
+        return obj.author_posted or obj.posted
 
     def get_surgery_meta(self, obj):
         """
@@ -275,7 +291,6 @@ class CaseCardSerializer(serializers.ModelSerializer):
 
         # it should only have one obj if it's liked
         action_objs = obj.action_object_actions.filter(actor_object_id=request.user._id, verb='like')
-        # logger.info("action_objs in serializer %s" % action_objs)
 
         return False if not action_objs else True
 
@@ -409,12 +424,14 @@ class CaseDetailSerializer(serializers.ModelSerializer):
     comment_num = serializers.SerializerMethodField(required=False)
     comments = serializers.SerializerMethodField(required=False)
 
+    posted = serializers.SerializerMethodField(required=False)  # tODO: WIP
+
     class Meta:
         model = Case
         # fields = "__all__"
         fields = ('uuid', 'is_official', 'title', 'bf_img', 'bf_img_cropped', 'bf_cap',
                   'af_img', 'af_img_cropped', 'af_cap', 'surgeries', 'author', 'state', 'other_imgs',
-                  'view_num', 'body', 'surgery_meta', 'rating', 'bf_img_cropped',
+                  'view_num', 'body', 'surgery_meta', 'rating', 'bf_img_cropped', 'posted',
                   'recovery_time', 'anesthesia', 'scp_user_pic', 'positive_exp', 'side_effects', 'pain_points',
                   'ori_url', 'comment_num', 'comments', 'failed')
 
@@ -471,7 +488,7 @@ class CaseDetailSerializer(serializers.ModelSerializer):
                 # this is for newly created CaseImages
                 self.fields['captions'] = serializers.CharField(required=False)
                 self.fields['orders'] = serializers.CharField(required=False)
-            else: # GET
+            else:  # GET
                 self.fields['surgeries'] = serializers.SerializerMethodField()
                 self.fields['other_imgs'] = serializers.SerializerMethodField()
                 self.fields['author'] = serializers.SerializerMethodField()
@@ -516,20 +533,29 @@ class CaseDetailSerializer(serializers.ModelSerializer):
             surgery_tag = SurgeryTag(name=surgery.get('name', ''), mat=surgery.get('mat', ''))
             surgeries_objs.append(surgery_tag)
 
-        case_obj = Case.objects.create(**validated_data,
-                                       author=UserInfo(name=author.get('name', ''),
-                                                       uuid=author.get('uuid', ''),
-                                                       scp_username=author.get('scp_username', '')),
-                                       clinic=ClinicInfo(display_name=clinic.get('display_name', ''),
-                                                         branch_name=clinic.get('branch_name', ''),
-                                                         doctor_name=clinic.get('doctor_name', '')),
-                                       surgery_meta=SurgeryMeta(year=int(surgery_meta.get('year', 0)) or None,
-                                                                # None not ''
-                                                                month=int(surgery_meta.get('month', 0)) or None,
-                                                                min_price=int(surgery_meta.get('min_price', 0)) or None,
-                                                                max_price=int(
-                                                                    surgery_meta.get('max_price', 0)) or None),
-                                       surgeries=surgeries_objs)
+        request = self.context.get('request', None)
+        request_user = None if not request else request.user
+
+        # can't directly use create here as I need to attach an unknown field _request_user
+        # for the sake of updating author_posted signal
+        # case_obj = Case.objects.create
+        case_obj = Case(**validated_data,
+                        author=UserInfo(name=author.get('name', ''),
+                                        uuid=author.get('uuid', ''),
+                                        scp_username=author.get('scp_username', '')),
+                        clinic=ClinicInfo(display_name=clinic.get('display_name', ''),
+                                          branch_name=clinic.get('branch_name', ''),
+                                          doctor_name=clinic.get('doctor_name', '')),
+                        surgery_meta=SurgeryMeta(year=int(surgery_meta.get('year', 0)) or None,
+                                                 # None not ''
+                                                 month=int(surgery_meta.get('month', 0)) or None,
+                                                 min_price=int(surgery_meta.get('min_price', 0)) or None,
+                                                 max_price=int(
+                                                     surgery_meta.get('max_price', 0)) or None),
+                        surgeries=surgeries_objs)
+
+        case_obj._request_user = request_user
+        case_obj.save()
         # if author:
         #     UserInfo.objects.create(**author)
         return case_obj
@@ -725,6 +751,11 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         # instance.clinic = validated_data.get('clinic', instance.email)
         # instance.content = validated_data.get('content', instance.content)
         # instance.created = validated_data.get('created', instance.created)
+
+        request = self.context.get('request', None)
+        if request:
+            instance._request_user = request.user
+
         instance.save()
         return instance
 
@@ -742,6 +773,16 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         else:
             return embedded_model_method(obj, self.Meta.model, 'author',
                                          included_fields=['name', 'scp', 'scp_username'])
+
+    def get_posted(self, obj):
+        """
+        Return customer-facing posted time (author_posted)
+        and fall back to system posted if author_posted does not exist.
+
+        :param obj:
+        :return:
+        """
+        return obj.author_posted or obj.posted
 
     def get_surgery_meta(self, obj):
         """
@@ -806,7 +847,9 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         :return:
         """
         # TODO: fix this!!
-        objs = Comment.objects.filter(case_id=obj.uuid)
+        # only get first-level comments, which have null or empty reply_to_id
+        objs = Comment.objects.filter(Q(reply_to_id='') | Q(reply_to_id__isnull=True)) \
+            .filter(case_id=obj.uuid).order_by('-posted')
         objs = objs[:min(len(objs), COMMENT_PAGE_SIZE)]
         # TODO: could remove the case_id in the serializer
         serializer = CommentSerializer(objs, many=True, context={'request': self.context['request']})
@@ -820,5 +863,6 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         :param obj:
         :return:
         """
-        objs = Comment.objects.filter(case_id=obj.uuid)
+        objs = Comment.objects.filter(Q(reply_to_id='') | Q(reply_to_id__isnull=True)) \
+            .filter(case_id=obj.uuid)
         return len(objs)

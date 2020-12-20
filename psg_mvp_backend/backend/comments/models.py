@@ -28,3 +28,18 @@ class Comment(models.Model):
     )
 
     text = models.TextField(blank=False)
+
+    # for nested comments
+    reply_to_id = models.CharField(default='',
+                                   max_length=30,
+                                   blank=True,
+                                   help_text='id of its parent comment')
+
+    # to avoid the need of fetching case again
+    is_op = models.BooleanField(default=False,
+                                blank=True,
+                                help_text='is original author')
+
+    def __str__(self):
+        text_preview = '' if not self.text else self.text[:min(len(self.text), 10)]
+        return '_'.join([self.case_id, text_preview])

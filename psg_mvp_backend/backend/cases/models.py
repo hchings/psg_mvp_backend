@@ -188,7 +188,7 @@ class ClinicInfo(models.Model):
                                 help_text="unique google place_id")
     # editable = False,
     uuid = models.CharField(max_length=30,
-                            blank=False,
+                            blank=True,
                             help_text="the uuid field in the corresponding clinic. Do not fill in this manually.")
 
     # doctor info
@@ -203,6 +203,23 @@ class ClinicInfo(models.Model):
     # must add this otherwise can't print
     def __str__(self):
         return self.display_name
+
+
+class ClinicInfoForm(forms.ModelForm):
+    """
+    Customize form for SurgeryMeta from djongo bcz
+    the self-generated Form has all fields set to required.
+    """
+
+    class Meta:
+        model = ClinicInfo
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super(ClinicInfoForm, self).__init__(*args, **kwargs)
+        # all fields are not required
+        for key, _ in self.fields.items():
+            self.fields[key].required = False
 
 
 class SurgeryMeta(models.Model):
@@ -334,6 +351,13 @@ class Case(models.Model):
         ('', '')  # undefined
     )
 
+    SKIP_REASONS = (
+        ('dissent', 'dissent from author'),
+        ('quality', 'low quality'),
+        ('rules', 'violate community rules'),
+        ('', '')  # undefined
+    )
+
     _id = models.ObjectIdField()
 
     uuid = models.BigIntegerField(default=make_id,
@@ -341,7 +365,10 @@ class Case(models.Model):
                                   editable=False)
 
     # posted = models.TimeField(auto_now=True, help_text="last modified")
-    posted = models.DateTimeField(auto_now=True, help_text="last modified")
+    posted = models.DateTimeField(auto_now=True, help_text="the real value of last modified")
+    author_posted = models.DateTimeField(blank=True,
+                                         null=True,
+                                         help_text="the real value of last modified")
     created = models.DateTimeField(auto_now_add=True, help_text="created")  # default=timezone.now
 
     state = models.CharField(
@@ -352,9 +379,11 @@ class Case(models.Model):
 
     gender = models.CharField(max_length=15,
                               choices=GENDERS,
-                              default='undefined')
+                              default='female')
 
     recovery_time = models.CharField(max_length=20,
+                                     blank=True,
+                                     null=True,
                                      choices=RECOVERY_CHOICES,
                                      default='undefined')
 
@@ -455,12 +484,17 @@ class Case(models.Model):
     )
 
     clinic = models.EmbeddedModelField(
-        model_container=ClinicInfo
+        model_container=ClinicInfo,
+        model_form_class=ClinicInfoForm,
+        blank=True,
+        null=True
     )
 
     surgery_meta = models.EmbeddedModelField(
         model_container=SurgeryMeta,
         model_form_class=SurgeryMetaForm,
+        blank=True,
+        null=True
     )
 
     surgeries = models.ArrayModelField(
@@ -490,6 +524,16 @@ class Case(models.Model):
 
     # weird you can't set max value here
     interest = models.FloatField(default=0, blank=True)
+
+    # case management
+    skip = models.BooleanField(default=False,
+                               help_text='set to true to hide case from any UIs')
+
+    skip_reason = models.CharField(
+        max_length=30,
+        choices=SKIP_REASONS,
+        default='undefined'
+    )
 
     def __str__(self):
         sig = ' '.join(['case', str(self.uuid)])
@@ -532,13 +576,13 @@ class CaseInviteToken(models.Model):
                              editable=False)
 
     user_code = models.CharField(max_length=30,
-                            unique=False,
-                            editable=False,
-                            help_text="")
+                                 unique=False,
+                                 editable=False,
+                                 help_text="")
 
     user_uuid = models.CharField(max_length=30,
-                            unique=False,
-                            editable=False,
-                            help_text="the uuid field in the corresponding user. Do not fill in this manually.")
+                                 unique=False,
+                                 editable=False,
+                                 help_text="the uuid field in the corresponding user. Do not fill in this manually.")
 
     created_at = models.DateTimeField(auto_now_add=True)
