@@ -85,11 +85,11 @@ services:
       - CELERY_TASK_SERIALIZER = 'json'
     depends_on:
       - redis
-    redis:
-      image: redis:latest
-      container_name: rd01
-      ports:
-        - '6379:6379'
+  redis:
+    image: redis:latest
+    container_name: rd01
+    ports:
+      - '6379:6379'
   dejavu:
     image: appbaseio/dejavu:3.3.0
     container_name: dejavu
