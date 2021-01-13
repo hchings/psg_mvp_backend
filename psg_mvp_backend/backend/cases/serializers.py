@@ -8,6 +8,7 @@ from drf_extra_fields.fields import Base64ImageField
 from bson import ObjectId
 from annoying.functions import get_object_or_None
 import coloredlogs, logging
+from hitcount.models import HitCount
 
 from django.db.models import Q
 
@@ -134,6 +135,8 @@ class CaseCardSerializer(serializers.ModelSerializer):
 
     # number
     like_num = serializers.SerializerMethodField(required=False)
+
+    view_num = serializers.SerializerMethodField(required=False)
 
     class Meta:
         model = Case
@@ -303,6 +306,18 @@ class CaseCardSerializer(serializers.ModelSerializer):
         """
         return len(obj.action_object_actions.filter(verb='like'))
 
+    def get_view_num(self, obj):
+        try:
+            hitcount_obj = get_object_or_None(HitCount, object_pk=obj.uuid)
+        except HitCount.MultipleObjectsReturned:
+            # TODO: not sure yet why multiple HitCount could be created.
+            hitcount_obj = HitCount.objects.filter(object_pk=obj.uuid)[0]
+            logger.error("Multiple object returned in get_view_num: case uuid %s" % obj.uuid)
+
+        if not hitcount_obj:
+            return 0
+        else:
+            return hitcount_obj.hits or 0
 
 ######################################
 #      Detail CRUD Serializers
@@ -431,7 +446,7 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         # fields = "__all__"
         fields = ('uuid', 'is_official', 'title', 'bf_img', 'bf_img_cropped', 'bf_cap',
                   'af_img', 'af_img_cropped', 'af_cap', 'surgeries', 'author', 'state', 'other_imgs',
-                  'view_num', 'body', 'surgery_meta', 'rating', 'bf_img_cropped', 'posted',
+                  'body', 'surgery_meta', 'rating', 'bf_img_cropped', 'posted',
                   'recovery_time', 'anesthesia', 'scp_user_pic', 'positive_exp', 'side_effects', 'pain_points',
                   'ori_url', 'comment_num', 'comments', 'failed')
 

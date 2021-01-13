@@ -82,7 +82,7 @@ class SurgeryListView(APIView):
         if data:
             return Response(data)
 
-        res = _prep_catalog()
+        res, _ = _prep_catalog()
         # set cache
         cache.set(cache_key, res)
         return Response(res)

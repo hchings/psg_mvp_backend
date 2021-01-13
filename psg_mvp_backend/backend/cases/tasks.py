@@ -29,7 +29,19 @@ def send_case_in_review_confirmed(case_instance):
     subject = "🚀 %s, Surgi正在檢閱你的%s整型案例" % (username.capitalize(), first_tag)
 
     try:
-        send_mail(subject, "text body", "founders@surgi.fyi",
+        send_mail(subject, "text body", "notifications@surgi.fyi",
                 ["hchings@gmail.com"], html_message=msg_html)
+    except Exception as e:
+        logger.error("[Error] send_case_in_review_confirmed: %s" % str(e))
+
+# TODO: WIP
+@shared_task
+def send_case_invite(username, invitee_email, invite_url):
+    subject = "%s 邀請你" % username
+    msg_html = render_to_string('beefree.html', {'WTF': invite_url})
+
+    try:
+        send_mail(subject, invite_url, "notifications@surgi.fyi",
+                [invitee_email], html_message=msg_html)
     except Exception as e:
         logger.error("[Error] send_case_in_review_confirmed: %s" % str(e))

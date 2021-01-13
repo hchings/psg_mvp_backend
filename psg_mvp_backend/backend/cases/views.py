@@ -4,10 +4,12 @@ API Views for Cases app.
 """
 
 from collections import OrderedDict
-import time
+import time, sys
 
 from annoying.functions import get_object_or_None
 from actstream import actions, action
+from hitcount.views import HitCountDetailView
+from hitcount.utils import RemovedInHitCount13Warning, get_hitcount_model
 
 from rest_framework import generics, permissions, status
 from rest_framework.decorators import api_view
@@ -27,9 +29,10 @@ from backend.shared.utils import add_to_cache, _prep_subcate
 from users.clinics.models import ClinicProfile
 from utils.drf.custom_fields import Base64ImageField
 from .models import Case, CaseInviteToken
-from .mixins import UpdateConciseResponseMixin
+from .mixins import UpdateConciseResponseMixin, MyHitCountMixin
 from .serializers import CaseDetailSerializer, CaseCardSerializer
 from .doc_type import CaseDoc
+from .tasks import send_case_invite
 from cases.management.commands.index_cases import Command
 
 from django.contrib.auth import get_user_model
@@ -88,7 +91,8 @@ class CaseList(generics.ListCreateAPIView):
 
 # Note the inherit order matters due to MRO.
 class CaseDetailView(UpdateConciseResponseMixin,
-                     generics.RetrieveUpdateDestroyAPIView):
+                     generics.RetrieveUpdateDestroyAPIView,
+                     HitCountDetailView, MyHitCountMixin):
     """
     get: Return a given case with complete info. (for edit a case)
     delete: Delete a given case.
@@ -100,10 +104,14 @@ class CaseDetailView(UpdateConciseResponseMixin,
 
     """
     name = 'case-detail'
+    model = Case
     queryset = Case.objects.all()
     serializer_class = CaseDetailSerializer
     lookup_field = 'uuid'
     permission_classes = [IsAuthenticatedOrReadOnly]
+    # set to True to count the hit
+    count_hit = True
+    object = None
 
     def retrieve(self, request, *args, **kwargs):
         """
@@ -122,6 +130,10 @@ class CaseDetailView(UpdateConciseResponseMixin,
             cache_key = "case_detail_%s" % kwargs.get('uuid')
 
         data = cache.get(cache_key)
+
+        instance = self.get_object()
+        self.object = instance
+        self.get_context_data()
         if data:
             return Response(data)
 
@@ -156,6 +168,39 @@ class CaseDetailView(UpdateConciseResponseMixin,
         # this will call UpdateConciseResponseMixin's method
         return self.partial_update(request, *args, **kwargs)
 
+    def get_context_data(self, **kwargs):
+        context = super(HitCountDetailView, self).get_context_data(**kwargs)
+        # print("~~~~~~~~~~get_context_data------------", context)
+        if self.object:
+            # print("------object", self.object)
+
+            # def get_for_object(self, obj):
+            ctype = ContentType.objects.get_for_model(self.object)
+            # print("======ctype", ctype)
+            #     hit_count, created = self.get_or_create(
+            #         content_type=ctype, object_pk=obj.pk)
+            #     return hit_count
+
+            hit_count, created = get_hitcount_model().objects.get_or_create(content_type=ctype,
+                                                                   object_pk=self.object.uuid)
+            # hit_count = get_hitcount_model().objects.get(object_pk=self.object.uuid)
+            # print("hit_count, created", hit_count, created)
+            hits = hit_count.hits
+            context['hitcount'] = {'pk': hit_count.pk}
+
+            # print("~~~~~~~~~~hit---", hits, hit_count)
+
+            if self.count_hit:
+                hit_count_response = self.hit_count_m(self.request, hit_count)
+                # print("hcr", hit_count_response, hit_count_response.hit_counted)
+                if hit_count_response.hit_counted:
+                    hits = hits + 1
+                context['hitcount']['hit_counted'] = hit_count_response.hit_counted
+                context['hitcount']['hit_message'] = hit_count_response.hit_message
+
+            context['hitcount']['total_hits'] = hits
+
+        return context
 
 # -------------------------------------------------------
 #  For searching on cases or get a default list of cases
@@ -215,104 +260,115 @@ class CaseSearchView(APIView):
             # should open below five TODO
             cache_key = '_'.join(['case_search', str(sorted(req_body.items())), str(page)]).replace(" ", "")
             logger.info("cache key: %s" % cache_key)
-            data = cache.get(cache_key)
-            if data:
-                return Response(data)
+            cached_data = cache.get(cache_key)
 
-            q_combined = None
-            if req_body:
-                # 1. check surgeries col
-                surgeries = req_body.get('surgeries', [])
-                # If it's a defined surgery tag, we don't search on clinic name
-                if surgeries:
-                    q_surgeries = None
-                    for item in surgeries:
-                        # give more weight on 'surgeries' field
-                        # hard-coded words that I don't want to trigger in search
-                        q_new = Q("match_phrase",
-                                  surgeries=item)
-                        if '唇' in item:
-                            # TODO: this is a bad hacky way to not show 豐唇 and 縮唇 in the same result
-                            q_new_2 = Q("match_phrase",
-                                        title=item)
-                        else:
-                            item_cleaned = item
-                            for word in self.generic_terms:
-                                item_cleaned = item_cleaned.replace(word, '')
+            # TODO: open
+            # if data:
+            #     return Response(data)
 
-                            # expand the search on title fields
-                            q_new_2 = Q("multi_match",
-                                        query=item_cleaned,
-                                        fields=["surgeries^2", "title"])
-                        q_surgeries = (q_new | q_new_2) if not q_surgeries else q_surgeries | q_new | q_new_2
+            # if no cache case ids
+            if not cached_data or not cached_data['ids']:
+                # print("no cache found!!!!")
+                q_combined = None
+                if req_body:
+                    # 1. check surgeries col
+                    surgeries = req_body.get('surgeries', [])
+                    # If it's a defined surgery tag, we don't search on clinic name
+                    if surgeries:
+                        q_surgeries = None
+                        for item in surgeries:
+                            # give more weight on 'surgeries' field
+                            # hard-coded words that I don't want to trigger in search
+                            q_new = Q("match_phrase",
+                                      surgeries=item)
+                            if '唇' in item:
+                                # TODO: this is a bad hacky way to not show 豐唇 and 縮唇 in the same result
+                                q_new_2 = Q("match_phrase",
+                                            title=item)
+                            else:
+                                item_cleaned = item
+                                for word in self.generic_terms:
+                                    item_cleaned = item_cleaned.replace(word, '')
 
-                    q_combined = q_surgeries
+                                # expand the search on title fields
+                                q_new_2 = Q("multi_match",
+                                            query=item_cleaned,
+                                            fields=["surgeries^2", "title"])
+                            q_surgeries = (q_new | q_new_2) if not q_surgeries else q_surgeries | q_new | q_new_2
 
-                # 2. check other col, which stores undefined tags (free-text)
-                others = req_body.get('others', [])
-                # OR on all other search query
-                # TODO: WIP
-                if others:
-                    q_others = None
-                    for item in others:
-                        # give more weight on 'surgeries' field
-                        q_new = Q("multi_match",
-                                  query=item,
-                                  fields=["surgeries^2", "title", "clinic_name"])
-                        # q_new = Q("match",
-                        #           query=item,
-                        #           fields=["surgeries"],
-                        #           fuzziness=5)
-                        q_others = q_new if not q_others else q_others | q_new
-                        # print("chain oth, ", q_new)
+                        q_combined = q_surgeries
 
-                    q_combined = q_others if not q_combined else q_combined | q_others
+                    # 2. check other col, which stores undefined tags (free-text)
+                    frees = req_body.get('frees', [])
+                    # OR on all other search query
+                    # TODO: WIP
+                    if frees:
+                        q_free = None
+                        for item in frees:
+                            # give more weight on 'surgeries' field
+                            q_new = Q("multi_match",
+                                      query=item,
+                                      fields=["surgeries^2", "title", "clinic_name"])
+                            q_free = q_new if not q_free else q_free | q_new
+                            # print("chain oth, ", q_new)
 
-            if q_combined is None:
-                q_combined = Q({"match_all": {}})
+                        q_combined = q_free if not q_combined else q_combined | q_free
 
-            # check
-            if page == 0 and not req_body:
-                # worst case
-                if Command.ensure_index_exist():
-                    time.sleep(1)
-                    CaseDoc.init()
+                    others = req_body.get('others', [])
+                    if others:
+                        # q_new = Search(index='cases').query('terms', categories=others)
+                        q_new = Q("terms", categories=others)
+                        q_combined = q_combined | q_new if q_combined else q_new
 
-            s = CaseDoc.search(index='cases')  # specify search DocType
+                if q_combined is None:
+                    q_combined = Q({"match_all": {}})
 
-            # add ES query, and only return the id field
-            s = s.query(q_combined).source(includes=['id'])
+                # check
+                if page == 0 and not req_body:
+                    # worst case
+                    if Command.ensure_index_exist():
+                        time.sleep(1)
+                        CaseDoc.init()
 
-            # add filters, note to use "term" instead of "match"
-            if 'is_official' in req_body:
-                s = s.filter('term', is_official=req_body['is_official'] or False)
+                s = CaseDoc.search(index='cases')  # specify search DocType
 
-            if req_body.get('gender', ''):
-                s = s.filter('term', gender=req_body['gender'])
+                # add ES query, and only return the id field
+                s = s.query(q_combined).source(includes=['id'])
 
-            cnt = s.count()  # get number of hits
-            total_page = cnt // ES_PAGE_SIZE + 1
+                # add filters, note to use "term" instead of "match"
+                if 'is_official' in req_body:
+                    s = s.filter('term', is_official=req_body['is_official'] or False)
 
-            if page >= total_page:
-                return Response({'error': 'exceeds page num.'})
+                if req_body.get('gender', ''):
+                    s = s.filter('term', gender=req_body['gender'])
 
-            # Only take minimum number of records that you need for this page from ES by slicing
-            res = s[page * ES_PAGE_SIZE: min((page + 1) * ES_PAGE_SIZE, cnt)].execute()
-            response_dict = res.to_dict()
+                cnt = s.count()  # get number of hits
+                total_page = cnt // ES_PAGE_SIZE + 1
 
-            # print("get result", response_dict)
+                if page >= total_page:
+                    return Response({'error': 'exceeds page num.'})
 
-            hits = response_dict['hits']['hits']
+                # Only take minimum number of records that you need for this page from ES by slicing
+                res = s[page * ES_PAGE_SIZE: min((page + 1) * ES_PAGE_SIZE, cnt)].execute()
+                response_dict = res.to_dict()
 
-            data, ids = [], []
-            data_dict = {}  # for storing an Q(1) mapping from id to source document
-            for hit in hits:
-                hit['_source']['score'] = hit.get('_score', '')
-                doc = hit['_source']
-                # doc.pop('open_sunday')
-                data.append(doc)
-                ids.append(int(hit['_source']['id']))
-                data_dict[hit['_source']['id']] = data[-1]
+                # print("get result", response_dict)
+
+                hits = response_dict['hits']['hits']
+
+                data, ids = [], []
+                data_dict = {}  # for storing an Q(1) mapping from id to source document
+                for hit in hits:
+                    hit['_source']['score'] = hit.get('_score', '')
+                    doc = hit['_source']
+                    # doc.pop('open_sunday')
+                    data.append(doc)
+                    ids.append(int(hit['_source']['id']))
+                    data_dict[hit['_source']['id']] = data[-1]
+
+            else:
+                # use cached value
+                ids = cached_data['ids']
 
             # get the corresponding objects from mongo.
             # however, Django ORM returns the results in a different order,
@@ -329,23 +385,29 @@ class CaseSearchView(APIView):
 
             # get clinic tiny logos
             # TODO: some redundancy here
-            clinic_ids = []
-            for case in case_list:
-                try:
-                    c_id = case.clinic.uuid
-                    clinic_ids.append(c_id)
-                except AttributeError as e:
-                    logger.error("CaseSearchView error: %s" % e)
+            if not cached_data or not cached_data['logo_dict']:
+                clinic_ids = []
+                for case in case_list:
+                    try:
+                        c_id = case.clinic.uuid
+                        clinic_ids.append(c_id)
+                    except AttributeError as e:
+                        logger.error("CaseSearchView error: %s" % e)
 
-            # TODO: WIP
-            queryset = ClinicProfile.objects.filter(uuid__in=clinic_ids)
+                # TODO: WIP
+                queryset = ClinicProfile.objects.filter(uuid__in=clinic_ids)
 
-            # add back info that are not stored in ES engine.
-            # since there are only a few fields. It's faster to skip serializer.
-            logo_dict = {}
-            for clinic in queryset:
-                if clinic.uuid not in logo_dict:
-                    logo_dict[clinic.uuid] = Base64ImageField().to_representation(clinic.logo_thumbnail_small)
+                # add back info that are not stored in ES engine.
+                # since there are only a few fields. It's faster to skip serializer.
+                logo_dict = {}
+                for clinic in queryset:
+                    if clinic.uuid not in logo_dict:
+                        logo_dict[clinic.uuid] = Base64ImageField().to_representation(clinic.logo_thumbnail_small)
+            else:
+                # print("use cached logo dict!!!!")
+                logo_dict = cached_data['logo_dict']
+                cnt = cached_data['count']
+                total_page = cached_data['total_page']
 
             # ----- format response ------
             response['count'] = cnt
@@ -361,15 +423,43 @@ class CaseSearchView(APIView):
             # response['logos'] = {}
 
             # only set cache if success
-            add_to_cache(cache_key, response, True)
-            cache.set(cache_key, response)
+            if not cached_data:
+                to_cache = {
+                    'ids': ids,
+                    'count': cnt,
+                    'total_page': total_page,
+                    'logo_dict': logo_dict
+                }
+
+                add_to_cache(cache_key, to_cache, True)
+                # add_to_cache(cache_key, response, True)
 
         except Exception as e:
             # if ES failed. Use django's default way to search obj, which is very slow.
-            logger.error("ES Failed on search cases with query %s: %s" % (req_body, e))
-            cases = Case.objects.all()
-            serializer = CaseCardSerializer(cases, many=True,
-                                            search_view=True)  # TODO: WIP. need better error handling.
+            exc_type, exc_obj, tb = sys.exc_info()
+            f = tb.tb_frame
+            filename = f.f_code.co_filename
+
+            logger.error("ES Failed on search cases with query %s: %s on line %s in %s"
+                         % (req_body, e, sys.exc_info()[-1].tb_lineno, filename))
+
+            # cases = Case.objects.all()
+            # serializer = CaseCardSerializer(cases, many=True,
+            #                                 search_view=True)  # TODO: WIP. need better error handling.
+
+            # TODO: WIP
+            # response['count'] = cnt
+            # response['total_page'] = total_page
+            #
+            # # unlike DRF's pagination where urls of prev/next are returned,
+            # # for ES we only return page num for simplicity.
+            # response['prev'] = None if not page else page - 1
+            # response['next'] = None if page == total_page - 1 else page + 1
+            #
+            # response['results'] = serializer.data
+            # response['logos'] = logo_dict
+
+
             # TODO: WIP
             return Response({})
 
@@ -591,3 +681,26 @@ class CaseInviteInfoDetail(generics.RetrieveAPIView):
             username = ''
 
         return Response({'inviter': username}, status.HTTP_200_OK)
+
+
+# TODO: WIP
+class CaseSendInvite(generics.ListCreateAPIView):
+    """
+    Send out invite write case email
+    """
+
+    name = 'case-send-invite'
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        req_body = request.data
+        invitee_email = req_body.get('recipient', '')
+        invite_url = req_body.get('inviteURL', '')
+
+        send_case_invite.delay(request.user.username, invitee_email, invite_url)
+
+        if not invitee_email or not invite_url:
+            return Response({'error': 'invalid email or invite url'}, status.HTTP_400_BAD_REQUEST)
+
+        return Response({'succeed': 'invite email sent'}, status.HTTP_201_CREATED)
+

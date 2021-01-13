@@ -94,7 +94,9 @@ INSTALLED_APPS = [
     # --- reviews app ---
     'reviews',
     # --- comments app ---
-    'comments'
+    'comments',
+    # --- hit come for cases ---
+    'hitcount'
 ]
 
 MIDDLEWARE = [
@@ -337,7 +339,8 @@ GOOGLE_MAP_API_KEY = 'AIzaSyDDbkqc3aU4LvKFU_78HgGoJMqY_5e-t1s'  # TODO: remove t
 ###################################
 #            Celery
 ###################################
-CELERY_BROKER_URL = 'redis://:p6fd93ffd394f708a7a39d4b61715309ae6d6625e42ce95d3e8771507e2ede6a3@ec2-54-243-217-95.compute-1.amazonaws.com:22449'
+# CELERY_BROKER_URL = 'redis://:p6fd93ffd394f708a7a39d4b61715309ae6d6625e42ce95d3e8771507e2ede6a3@ec2-54-243-217-95.compute-1.amazonaws.com:22449'
+CELERY_BROKER_URL = 'redis://redis:6379/0'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 # Try 5 times. Initially try again immediately, then add 0.5 seconds for each

@@ -6,7 +6,7 @@ from annoying.functions import get_object_or_None
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 
-from .models import Case, CaseImages, CaseInviteToken
+from .models import Case, CaseImages, CaseInviteToken, Hit
 
 user_model = get_user_model()
 
@@ -104,7 +104,14 @@ class CaseInviteTokenAdmin(admin.ModelAdmin):
         except:
             return ''
 
+class HitAdmin(admin.ModelAdmin):
+    """
+    Customizing Admin Page for Hit Model
+    """
+    list_display = ('created', 'user', 'ip', 'session', 'user_agent', 'hitcount')
+
 
 admin.site.register(Case, CaseAdmin)
 admin.site.register(CaseImages, CaseImagesAdmin)
 admin.site.register(CaseInviteToken, CaseInviteTokenAdmin)
+admin.site.register(Hit, HitAdmin)
