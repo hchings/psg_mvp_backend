@@ -27,12 +27,24 @@ class User(AbstractUser):
         ('clinic', 'clinic'),
     )
 
+    GENDERS = (
+        ('female', 'female'),
+        ('male', 'male'),
+        ('other', 'other'),
+        ('', '')  # undefined
+    )
+
+    gender = models.CharField(max_length=15,
+                              choices=GENDERS,
+                              default='')
+
     _id = models.ObjectIdField()
     # TODO: might use this instead
     # uuid = ShortUUIDField()
     uuid = models.BigIntegerField(default=make_id,
                                   unique=True,
                                   editable=False)
+
 
     # override email as a required field
     # email = models.EmailField(_('email address'))

@@ -6,25 +6,36 @@ DRF Views for users and auth.
 from hashlib import md5
 import coloredlogs, logging
 from datetime import timedelta
+
+from allauth.socialaccount.providers.facebook.views import FacebookOAuth2Adapter
+from rest_auth.registration.views import SocialLoginView
+
 # import pytz
 
 from django.utils import timezone
 
 # from rest_framework import generics, permissions
 from rest_auth.registration.views import RegisterView
-from rest_auth.views import LoginView
+from rest_auth.views import LoginView, PasswordChangeView
 from rest_auth.serializers import LoginSerializer
+from rest_framework.permissions import IsAuthenticated
+from rest_framework import generics
 from annoying.functions import get_object_or_None
 
 from django.conf import settings
+from django.contrib.contenttypes.models import ContentType
+from django.db import transaction
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework import status
 
 from backend.shared.utils import random_with_n_digits
+from cases.models import Case
+from comments.models import Comment
 
 from .serializers import RegisterSerializerEx, TokenSerializerEx
 from .models import User, RegistrationOTP
+from .tasks import send_otp_code
 
 # from .permissions import OnlyAdminCanDelete
 
@@ -37,6 +48,9 @@ coloredlogs.install(level='DEBUG', logger=logger)
 
 # fixed otp length
 OTP_LENGTH = 6
+
+# for getting actions
+case_content_type = ContentType.objects.get(model='case')
 
 
 # --- Auth ---
@@ -59,9 +73,10 @@ class RegisterViewEx(RegisterView):
         # 2. parse otp code and get hashed_email
         # print("check data", serializer.data)
         otp_code = serializer.data.get('otp', '')
+        regis_email = serializer.data.get('email', '') # email used in registration
 
         try:
-            hashed_email = md5(serializer.data.get('email', '').encode('utf-8')).hexdigest()
+            hashed_email = md5(regis_email.encode('utf-8')).hexdigest()
         except Exception as e:
             logger.error("[ERROR] RegisterViewEx md5: %s " % str(e))
             hashed_email = serializer.data.get('email', '')
@@ -74,9 +89,14 @@ class RegisterViewEx(RegisterView):
             otp_obj = RegistrationOTP(hashed_email=hashed_email,
                                       otp=otp_new)
             otp_obj.save()
-            # print("otp code", otp_new)
+            #print("otp code", otp_new)
+
+            # send out email in asnyc way
+            # TODO: solve the blocking issue when redis is down
+            send_otp_code.delay(regis_email, otp_new)
 
             headers = self.get_success_headers(serializer.data)
+            # TODO: + error handdling
             return Response({'success': 'verification email sent.'},
                             status=status.HTTP_201_CREATED,
                             headers=headers)
@@ -161,6 +181,77 @@ def verify_username_view(request):
     else:
         return Response({'error': "username exists."}, status.HTTP_200_OK)
 
+
+class UserInfoView(generics.RetrieveUpdateAPIView):
+    name = 'user-info'
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+
+
+        :param request:
+        :return:
+        """
+
+        # 1. get saved cnt
+        user = request.user
+        saved_cases = user.actor_actions.filter(action_object_content_type=case_content_type,
+                                                verb='save')
+
+        # get the action object
+        case_set = set()
+        saved_cnt = 0
+        for item in saved_cases:
+            if item not in case_set:
+                saved_cnt += 1
+
+        # 2, 3. get review/published cnt
+        review_cnt = Case.objects.filter(author={'uuid': str(user.uuid)},
+                            state='reviewing').count()
+        published_cnt = Case.objects.filter(author={'uuid': str(user.uuid)},
+                                         state='published').count()
+
+        return Response({'saved_cnt': saved_cnt,
+                         'review_cnt': review_cnt,
+                         'published_cnt': published_cnt,
+                         'gender': user.gender}, status.HTTP_200_OK)
+
+    @transaction.atomic
+    def patch(self, request, *args, **kwargs):
+        new_username = request.data.get("userName", "")
+        gender = request.data.get("gender", "")
+
+        # if new_username:
+        #     print("got userName", new_username, request.user.username)
+
+        # res = comment_obj.action_object_actions.filter(actor_object_id=request.user._id, verb=verb).order_by(
+        #     '-timestamp')
+
+        # change all related objs
+        user = request.user
+
+        if new_username:
+            user.username = new_username
+
+        user.gender = gender
+        user.save()
+
+        if new_username:
+            # case objs
+            case_objs = Case.objects.filter(author={'uuid': str(user.uuid)})
+            for obj in case_objs:
+                obj.author.name = new_username
+                obj.save()
+
+            comment_objs = Comment.objects.filter(author={'uuid': str(user.uuid)})
+            for obj in comment_objs:
+                obj.author.name = new_username
+                obj.save()
+
+
+        return  Response({}, status.HTTP_204_NO_CONTENT)
+
 # # --- User ---
 # class UserList(generics.ListAPIView):
 #     """
@@ -186,3 +277,15 @@ def verify_username_view(request):
 #     serializer_class = UserSerializer
 #
 #     # permission_classes = (OnlyAdminCanDelete,)
+
+
+#########################
+#     Password Reset
+#########################
+class MyPasswordChangeView(PasswordChangeView):
+    # TODO: WIP
+    pass
+
+
+class FacebookLogin(SocialLoginView):
+    adapter_class = FacebookOAuth2Adapter

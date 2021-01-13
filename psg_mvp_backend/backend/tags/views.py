@@ -5,8 +5,10 @@ DRF Views for tags.
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from elasticsearch_dsl import Q
+from elasticsearch.exceptions import NotFoundError
 
 from django.core.cache import cache
+from django.core.management import call_command
 
 from users.doc_type import ClinicBranchDoc
 from backend.shared.utils import _prep_catalog
@@ -39,7 +41,13 @@ class ClinicNameListView(APIView):
         # otherwise, it will search on all indices even you set the doc type.
         s = ClinicBranchDoc.search(index='clinic_profile')
         s = s.query(q).source(["display_name", "branch_name"])
-        cnt = s.count()
+
+        try:
+            cnt = s.count()
+        except NotFoundError as e:
+            print("Error in clinic-name-list: %s, reload index" % str(e))
+            call_command('index_clinic_profiles')
+            cnt = s.count()
 
         res = s[0:cnt].execute()  # you cannot print this
 
@@ -74,7 +82,7 @@ class SurgeryListView(APIView):
         if data:
             return Response(data)
 
-        res = _prep_catalog()
+        res, _ = _prep_catalog()
         # set cache
         cache.set(cache_key, res)
         return Response(res)

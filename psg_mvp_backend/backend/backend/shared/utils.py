@@ -27,6 +27,7 @@ CASE_SEARCH_CACHE_KEYS = set()
 CATALOG_FILE = os.path.join(FIXTURE_ROOT, 'catalog.json')
 surgery_mat_list = []
 sub_cate = {}
+sub_cate_to_cate = {} # sub category to 1-st layer category
 
 
 def make_id():
@@ -100,7 +101,7 @@ def _prep_catalog():
     :return:
     """
     # read in json catalog only once
-    if not surgery_mat_list:
+    if not surgery_mat_list or not sub_cate_to_cate:
         catalog_dict = {}
         with open(CATALOG_FILE) as json_file:
             catalog_dict = json.load(json_file)
@@ -112,8 +113,10 @@ def _prep_catalog():
                     # pop key if exist
                     subcat.pop('syn', None)
                     surgery_mat_list.append(subcat)
+                    sub_cate_to_cate[name] = item['category']
 
-    return surgery_mat_list
+        # print("sub_cate to cate", sub_cate_to_cate)
+    return surgery_mat_list, sub_cate_to_cate
 
 
 def _prep_subcate():
@@ -122,7 +125,7 @@ def _prep_subcate():
 
     :return(dict): <surgery cartegory>: [list of surgery subcate].
     """
-    if not sub_cate:
+    if not sub_cate or not sub_cate_to_cate:
         catalog_dict = {}
         with open(CATALOG_FILE) as json_file:
             catalog_dict = json.load(json_file)
@@ -131,10 +134,18 @@ def _prep_subcate():
             category = item.get('category', '')
             if category and item.get('subcategory', []):
                 # print("dsds", item['subcategory'])
-                sub_cate[category] = [sub['name'] for sub in item['subcategory'] if sub.get('name', '')]
+                # sub_cate[category] = [sub['name'] for sub in item['subcategory'] if sub.get('name', '')]
+
+                sub_cate[category] = []
+                for sub in item['subcategory']:
+                    if sub.get('name', ''):
+                        sub_cate[category].append(sub['name'])
+                        sub_cate_to_cate[sub['name']] = category
+
 
     # print("subcate", sub_cate)
-    return sub_cate
+    print("generated sub cate to cate.")
+    return sub_cate, sub_cate_to_cate
 
 
 def random_with_n_digits(n):

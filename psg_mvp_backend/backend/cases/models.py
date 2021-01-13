@@ -8,16 +8,23 @@ from imagekit.models import ProcessedImageField, ImageSpecField
 from imagekit.processors import ResizeToFill, ResizeToFit
 from djongo import models
 from multiselectfield import MultiSelectField
+from hitcount.models import HitCountMixin, HitCount
+from hitcount.managers import HitCountManager, HitManager
+# from django.contrib.contenttypes.fields import GenericRelation
+# from django.utils.translation import ugettext_lazy as _
 
 from uuid import uuid4
 
 from django import forms
+from backend.shared.utils import _prep_catalog
 from backend.shared.utils import make_id
 from .doc_type import CaseDoc
 
 YEAR_CHOICES = [(y, y) for y in range(2000, date.today().year + 1)]
 MONTH_CHOICE = [(m, m) for m in range(1, 13)]
 
+
+_, sub_cate_to_cate = _prep_catalog()
 
 ############################################################
 #   For getting img file names and paths
@@ -188,7 +195,7 @@ class ClinicInfo(models.Model):
                                 help_text="unique google place_id")
     # editable = False,
     uuid = models.CharField(max_length=30,
-                            blank=False,
+                            blank=True,
                             help_text="the uuid field in the corresponding clinic. Do not fill in this manually.")
 
     # doctor info
@@ -203,6 +210,23 @@ class ClinicInfo(models.Model):
     # must add this otherwise can't print
     def __str__(self):
         return self.display_name
+
+
+class ClinicInfoForm(forms.ModelForm):
+    """
+    Customize form for SurgeryMeta from djongo bcz
+    the self-generated Form has all fields set to required.
+    """
+
+    class Meta:
+        model = ClinicInfo
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super(ClinicInfoForm, self).__init__(*args, **kwargs)
+        # all fields are not required
+        for key, _ in self.fields.items():
+            self.fields[key].required = False
 
 
 class SurgeryMeta(models.Model):
@@ -292,7 +316,7 @@ class CaseImages(models.Model):
 
 
 # TODO: add delete photo stuff/signal
-class Case(models.Model):
+class Case(models.Model, HitCountMixin):
     """
     The core model for a case.
     """
@@ -334,14 +358,27 @@ class Case(models.Model):
         ('', '')  # undefined
     )
 
+    SKIP_REASONS = (
+        ('dissent', 'dissent from author'),
+        ('quality', 'low quality'),
+        ('rules', 'violate community rules'),
+        ('', '')  # undefined
+    )
+
     _id = models.ObjectIdField()
 
     uuid = models.BigIntegerField(default=make_id,
                                   unique=False,
                                   editable=False)
 
+    # not working, Djongo/mongo does not support relation
+    # hit_count = GenericRelation(HitCount, object_id_field='object_uuid',
+    #                             related_query_name='hit_count_generic_relation')
     # posted = models.TimeField(auto_now=True, help_text="last modified")
-    posted = models.DateTimeField(auto_now=True, help_text="last modified")
+    posted = models.DateTimeField(auto_now=True, help_text="the real value of last modified")
+    author_posted = models.DateTimeField(blank=True,
+                                         null=True,
+                                         help_text="the real value of last modified")
     created = models.DateTimeField(auto_now_add=True, help_text="created")  # default=timezone.now
 
     state = models.CharField(
@@ -352,9 +389,11 @@ class Case(models.Model):
 
     gender = models.CharField(max_length=15,
                               choices=GENDERS,
-                              default='undefined')
+                              default='female')
 
     recovery_time = models.CharField(max_length=20,
+                                     blank=True,
+                                     null=True,
                                      choices=RECOVERY_CHOICES,
                                      default='undefined')
 
@@ -455,12 +494,17 @@ class Case(models.Model):
     )
 
     clinic = models.EmbeddedModelField(
-        model_container=ClinicInfo
+        model_container=ClinicInfo,
+        model_form_class=ClinicInfoForm,
+        blank=True,
+        null=True
     )
 
     surgery_meta = models.EmbeddedModelField(
         model_container=SurgeryMeta,
         model_form_class=SurgeryMetaForm,
+        blank=True,
+        null=True
     )
 
     surgeries = models.ArrayModelField(
@@ -486,10 +530,20 @@ class Case(models.Model):
     positive_exp = MultiSelectField(choices=POSITIVE_EXP_CHOICES,
                                     null=True, blank=True)
 
-    view_num = models.PositiveIntegerField(default=0, help_text='number of views')
+    # view_num = models.PositiveIntegerField(default=0, help_text='number of views')
 
     # weird you can't set max value here
     interest = models.FloatField(default=0, blank=True)
+
+    # case management
+    skip = models.BooleanField(default=False,
+                               help_text='set to true to hide case from any UIs')
+
+    skip_reason = models.CharField(
+        max_length=30,
+        choices=SKIP_REASONS,
+        default='undefined'
+    )
 
     def __str__(self):
         sig = ' '.join(['case', str(self.uuid)])
@@ -510,6 +564,7 @@ class Case(models.Model):
             gender=self.gender,
             is_official=self.is_official,
             interest=self.interest,
+            categories = [sub_cate_to_cate[item.name] for item in self.surgeries if item.name in sub_cate_to_cate] if self.surgeries else [],
             surgeries=[item.name for item in self.surgeries] if self.surgeries else [],
             id=str(self.uuid)  # uuid of case
         )
@@ -532,13 +587,86 @@ class CaseInviteToken(models.Model):
                              editable=False)
 
     user_code = models.CharField(max_length=30,
-                            unique=False,
-                            editable=False,
-                            help_text="")
+                                 unique=False,
+                                 editable=False,
+                                 help_text="")
 
     user_uuid = models.CharField(max_length=30,
-                            unique=False,
-                            editable=False,
-                            help_text="the uuid field in the corresponding user. Do not fill in this manually.")
+                                 unique=False,
+                                 editable=False,
+                                 help_text="the uuid field in the corresponding user. Do not fill in this manually.")
 
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+############################################################
+#     Hit Count. See Hit Count package for code details.
+#
+#############################################################
+
+class Hit(models.Model):
+    """
+    Model captures a single Hit by a visitor.
+    None of the fields are editable because they are all dynamically created.
+    Browsing the Hit list in the Admin will allow one to blacklist both
+    IP addresses as well as User Agents. Blacklisting simply causes those
+    hits to not be counted or recorded.
+    Depending on how long you set the HITCOUNT_KEEP_HIT_ACTIVE, and how long
+    you want to be able to use `HitCount.hits_in_last(days=30)` you can choose
+    to clean up your Hit table by using the management `hitcount_cleanup`
+    management command.
+    """
+    created = models.DateTimeField(editable=False, auto_now_add=True, db_index=True)
+    ip = models.CharField(max_length=40, editable=False, db_index=True)
+    session = models.CharField(max_length=40, editable=False, db_index=True)
+    user_agent = models.CharField(max_length=255, editable=False)
+    # user = models.ForeignKey(AUTH_USER_MODEL, null=True, editable=False, on_delete=models.CASCADE)
+    # hitcount = models.ForeignKey(MODEL_HITCOUNT, editable=False, on_delete=models.CASCADE)
+    user = models.CharField(max_length=40, editable=False, blank=False) # user Uuid
+    hitcount = models.PositiveIntegerField(blank=False, default=0) # hitcount pk
+
+    objects = HitManager()
+
+    class Meta:
+        ordering = ('-created',)
+        get_latest_by = 'created'
+        # verbose_name = _("hit")
+        # verbose_name_plural = _("hits")
+
+    def __str__(self):
+        return 'Hit: %s' % self.pk
+
+    def save(self, *args, **kwargs):
+        """
+        The first time the object is created and saved, we increment
+        the associated HitCount object by one. The opposite applies
+        if the Hit is deleted.
+        """
+        if self.pk is None:
+            # get hitcount object and increase
+            try:
+                # print("fined pk", self.hitcount)
+                hitcount_obj = HitCount.objects.get(pk=self.hitcount)
+                if hitcount_obj.hits is None:
+                    hitcount_obj.hits = 1
+                else:
+                    hitcount_obj.hits = hitcount_obj.hits + 1
+                    hitcount_obj.save()
+                # hitcount_obj.increase()
+            except Exception as e:
+                print("Hit error: no obj", e)
+
+        super(Hit, self).save(*args, **kwargs)
+    #
+    # TODO: this does not work in Djongo/mongo context.
+    # TODO: so I don't handle deletion for now.
+    # def delete(self, save_hitcount=False):
+    #     """
+    #     If a Hit is deleted and save_hitcount=True, it will preserve the
+    #     HitCount object's total. However, under normal circumstances, a
+    #     delete() will trigger a subtraction from the HitCount object's total.
+    #     NOTE: This doesn't work at all during a queryset.delete().
+    #     """
+    #     delete_hit_count.send(
+    #         sender=self, instance=self, save_hitcount=save_hitcount)
+    #     super(Hit, self).delete()

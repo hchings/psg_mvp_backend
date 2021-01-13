@@ -6,7 +6,7 @@ from annoying.functions import get_object_or_None
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 
-from .models import Case, CaseImages, CaseInviteToken
+from .models import Case, CaseImages, CaseInviteToken, Hit
 
 user_model = get_user_model()
 
@@ -15,10 +15,10 @@ class CaseAdmin(admin.ModelAdmin):
     Customizing Admin Page for Case Model
 
     """
-    list_display = ('uuid', 'created', 'posted', 'status', 'is_scrapped', 'title', 'is_official', 'gender', 'rating',
+    list_display = ('uuid', 'created', 'posted', 'author_posted', 'skip', 'skip_reason','status', 'is_scrapped', 'failed', 'title', 'is_official', 'gender', 'rating',
                     'author', 'author_uuid', 'clinic_branch', 'clinic_uuid', 'doctor', 'doctor_profile_id')
-    # list_filter = ('is_staff', 'user_type')
-    # search_fields = ('username', 'email')
+    list_filter = ('state', 'is_official', 'gender', 'rating', 'interest', 'skip', 'skip_reason', 'failed')
+    search_fields = ('uuid', 'author', 'title', 'email')
     # raw_id_fields = ('username',)
     # ordering = ['user_type', 'uuid']
 
@@ -104,7 +104,14 @@ class CaseInviteTokenAdmin(admin.ModelAdmin):
         except:
             return ''
 
+class HitAdmin(admin.ModelAdmin):
+    """
+    Customizing Admin Page for Hit Model
+    """
+    list_display = ('created', 'user', 'ip', 'session', 'user_agent', 'hitcount')
+
 
 admin.site.register(Case, CaseAdmin)
 admin.site.register(CaseImages, CaseImagesAdmin)
 admin.site.register(CaseInviteToken, CaseInviteTokenAdmin)
+admin.site.register(Hit, HitAdmin)

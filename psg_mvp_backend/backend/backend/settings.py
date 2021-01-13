@@ -77,6 +77,9 @@ INSTALLED_APPS = [
     'allauth.account',
     'rest_auth.registration',
     'allauth.socialaccount',
+    # ... include the providers you want to enable:
+    'allauth.socialaccount.providers.facebook',
+    # 'allauth.socialaccount.providers.google',
     # --- django imagekit package ---
     'imagekit',
     # --- django fileField auto clean up ---
@@ -92,7 +95,9 @@ INSTALLED_APPS = [
     # --- reviews app ---
     'reviews',
     # --- comments app ---
-    'comments'
+    'comments',
+    # --- hit come for cases ---
+    'hitcount'
 ]
 
 MIDDLEWARE = [
@@ -122,7 +127,7 @@ ROOT_URLCONF = 'backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],  # specify dir to loop up templates
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -130,6 +135,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                # `allauth` needs this from django
+                'django.template.context_processors.request',
             ],
         },
     },
@@ -200,6 +207,19 @@ USE_TZ = True
 STATIC_ROOT = os.path.join(TOP_DIR, 'static')
 STATIC_URL = '/static/'
 
+STATICFILES_DIRS = [
+    os.path.join(TOP_DIR, 'backend/static/email_imgs')
+]
+
+# STATIC_ROOT = ''
+#
+# STATIC_URL = '/static/'
+#
+# STATICFILES_DIRS = ( os.path.join(TOP_DIR, 'static'), )
+
+
+# print("dfd", os.path.join(TOP_DIR, 'static'))
+
 # media storage configuration
 MEDIA_ROOT = os.path.join(TOP_DIR, 'media')
 MEDIA_URL = '/media/'
@@ -221,14 +241,21 @@ SITE_ID = 1
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_HOST_USER = 'founders@surgi.fyi'
-EMAIL_HOST_PASSWORD = '' # fill in the real pw  #TODO: read from env
+EMAIL_HOST_USER = 'notifications@surgi.fyi'
+# EMAIL_HOST_PASSWORD = 'jagp%%eh475'  # fill in the real pw  #TODO: read from env
+EMAIL_HOST_PASSWORD = 'xkuoacxlivwyzttl'
 # EMAIL_HOST_PASSWORD = 'zxnhvjvjttnbyjks' #past the key or password app here
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = 'Surgi.fyi'
 EMAIL_USE_SSL = False
 
+###################################
+#     django-alluth seetings
+###################################
+# disable default regis confirm email from django-alluth
+# as we'll send out our own.
+ACCOUNT_EMAIL_VERIFICATION = 'none'
 
 # django-rest-framework settings
 ES_PAGE_SIZE = 16  # for ES pagination
@@ -246,7 +273,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS':
         'rest_framework.pagination.LimitOffsetPagination',
     # 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 20    # TODO: to-be-decided
+    'PAGE_SIZE': 20  # TODO: to-be-decided
 }
 
 # django-rest-auth configuration
@@ -291,7 +318,6 @@ LOGOUT_URL = reverse_lazy('rest_logout')
 ES_HOST = 'elasticsearch'
 ES_PORT = 9200
 
-
 # for cors
 CORS_ORIGIN_ALLOW_ALL = True
 CORS_ORIGIN_WHITELIST = [
@@ -325,4 +351,36 @@ ACTSTREAM_SETTINGS = {
 ###################################
 # Google Map API key (project mvp1).
 # You can enable more API services under this key in Google's console.
-GOOGLE_MAP_API_KEY = 'AIzaSyDDbkqc3aU4LvKFU_78HgGoJMqY_5e-t1s' # TODO: remove this
+GOOGLE_MAP_API_KEY = 'AIzaSyDDbkqc3aU4LvKFU_78HgGoJMqY_5e-t1s'  # TODO: remove this
+
+###################################
+#            Celery
+###################################
+# CELERY_BROKER_URL = 'redis://:p6fd93ffd394f708a7a39d4b61715309ae6d6625e42ce95d3e8771507e2ede6a3@ec2-54-243-217-95.compute-1.amazonaws.com:22449'
+CELERY_BROKER_URL = 'redis://redis:6379/0'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+# Try 5 times. Initially try again immediately, then add 0.5 seconds for each
+# subsequent try (with a maximum of 3 seconds). This comes out to roughly 3
+# seconds of total delay (0, 0.5, 1, 1.5).
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    'max_retries': 4,
+    'interval_start': 0,
+    'interval_step': 0.5,
+    'interval_max': 3,
+}
+
+
+# Provider specific settings
+SOCIALACCOUNT_PROVIDERS = {
+    'facebook': {
+        # For each OAuth based provider, either add a ``SocialApp``
+        # (``socialaccount`` app) containing the required client
+        # credentials, or list them here:
+        'APP': {
+            'client_id': '149950582283786',
+            'secret': 'ef6856eaf0a5b9ccee879f5b70787e5c',
+            'key': ''
+        }
+    }
+}

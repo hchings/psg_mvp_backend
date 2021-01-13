@@ -33,6 +33,7 @@ services:
       - mongo
       - elasticsearch
       - cache
+      - celery
   elasticsearch: # Elasticsearch Instance
     container_name: elasticsearch
     build: ./es
@@ -57,6 +58,25 @@ services:
     entrypoint:
       - memcached
       - -m 64
+  celery:
+    # image: celery
+    build: ./psg_mvp_backend
+    command: [sh, -c, "cd ./backend && \
+                       celery -A backend worker -l info"]
+    volumes:
+      - ./psg_mvp_backend:/code
+    environment:
+#       - CELERY_BROKER_URL=redis://:p6fd93ffd394f708a7a39d4b61715309ae6d6625e42ce95d3e8771507e2ede6a3@ec2-54-243-217-95.compute-1.amazonaws.com:22449
+      - CELERY_BROKER_URL =redis://redis:6379/0'
+      - CELERY_ACCEPT_CONTENT = ['json']
+      - CELERY_TASK_SERIALIZER = 'json'
+    depends_on:
+      - redis
+  redis:
+    image: redis:latest
+    container_name: rd01
+    ports:
+      - '6379:6379'
   dejavu:
     image: appbaseio/dejavu:3.3.0
     container_name: dejavu

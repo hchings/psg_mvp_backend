@@ -15,8 +15,8 @@ class UserAdmin(admin.ModelAdmin):
 
     """
     list_display = ('username', 'uuid', 'email', 'user_type',
-                    'is_staff')
-    list_filter = ('is_staff', 'user_type')
+                    'is_staff', 'gender')
+    list_filter = ('is_staff', 'user_type', 'gender')
     search_fields = ('username', 'email')
     # raw_id_fields = ('username',)
     ordering = ['user_type', 'uuid']

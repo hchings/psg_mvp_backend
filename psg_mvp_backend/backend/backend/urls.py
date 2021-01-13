@@ -36,6 +36,7 @@ urlpatterns = internal_apis + [
     path('admin/', admin.site.urls),
     url(r'activity/', include('actstream.urls')),
     url(r'auth/', include('users.urls')),
+    url(r'accounts/', include('allauth.urls')),
     url(r'^clinics/', include('users.clinics.urls')),
     url(r'^cases/', include('cases.urls')),
     url(r'^reviews/', include('reviews.urls')),
@@ -44,5 +45,5 @@ urlpatterns = internal_apis + [
     url(r'^tags/', include('tags.urls')),
 ]
 
-
+urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

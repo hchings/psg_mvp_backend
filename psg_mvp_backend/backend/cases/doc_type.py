@@ -48,6 +48,7 @@ class CaseDoc(DocType):
     gender = Keyword()
     is_official = Boolean()
     interest = HalfFloat()  # interestingness
+    categories = Keyword()
     surgeries = Text(analyzer=analyzer_cn, multi=True)  # unsure?
 
     # not query this, so no need analyzer
