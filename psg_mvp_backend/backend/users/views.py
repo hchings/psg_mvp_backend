@@ -16,7 +16,7 @@ from django.utils import timezone
 
 # from rest_framework import generics, permissions
 from rest_auth.registration.views import RegisterView
-from rest_auth.views import LoginView
+from rest_auth.views import LoginView, PasswordChangeView
 from rest_auth.serializers import LoginSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import generics
@@ -24,12 +24,14 @@ from annoying.functions import get_object_or_None
 
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
+from django.db import transaction
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework import status
 
 from backend.shared.utils import random_with_n_digits
 from cases.models import Case
+from comments.models import Comment
 
 from .serializers import RegisterSerializerEx, TokenSerializerEx
 from .models import User, RegistrationOTP
@@ -180,8 +182,7 @@ def verify_username_view(request):
         return Response({'error': "username exists."}, status.HTTP_200_OK)
 
 
-# TODO: WIP
-class UserInfoView(generics.RetrieveAPIView):
+class UserInfoView(generics.RetrieveUpdateAPIView):
     name = 'user-info'
     permission_classes = [IsAuthenticated]
 
@@ -213,8 +214,43 @@ class UserInfoView(generics.RetrieveAPIView):
 
         return Response({'saved_cnt': saved_cnt,
                          'review_cnt': review_cnt,
-                         'published_cnt': published_cnt}, status.HTTP_200_OK)
+                         'published_cnt': published_cnt,
+                         'gender': user.gender}, status.HTTP_200_OK)
 
+    @transaction.atomic
+    def patch(self, request, *args, **kwargs):
+        new_username = request.data.get("userName", "")
+        gender = request.data.get("gender", "")
+
+        # if new_username:
+        #     print("got userName", new_username, request.user.username)
+
+        # res = comment_obj.action_object_actions.filter(actor_object_id=request.user._id, verb=verb).order_by(
+        #     '-timestamp')
+
+        # change all related objs
+        user = request.user
+
+        if new_username:
+            user.username = new_username
+
+        user.gender = gender
+        user.save()
+
+        if new_username:
+            # case objs
+            case_objs = Case.objects.filter(author={'uuid': str(user.uuid)})
+            for obj in case_objs:
+                obj.author.name = new_username
+                obj.save()
+
+            comment_objs = Comment.objects.filter(author={'uuid': str(user.uuid)})
+            for obj in comment_objs:
+                obj.author.name = new_username
+                obj.save()
+
+
+        return  Response({}, status.HTTP_204_NO_CONTENT)
 
 # # --- User ---
 # class UserList(generics.ListAPIView):
@@ -241,6 +277,14 @@ class UserInfoView(generics.RetrieveAPIView):
 #     serializer_class = UserSerializer
 #
 #     # permission_classes = (OnlyAdminCanDelete,)
+
+
+#########################
+#     Password Reset
+#########################
+class MyPasswordChangeView(PasswordChangeView):
+    # TODO: WIP
+    pass
 
 
 class FacebookLogin(SocialLoginView):
