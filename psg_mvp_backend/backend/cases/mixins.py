@@ -141,8 +141,8 @@ class MyHitCountMixin(object):
 
         # first, use a user's authentication to see if they made an earlier hit
         if is_authenticated_user:
-            if not qs.filter(user=user.uuid, hitcount=hitcount.pk):
-                hit.user = user.uuid  # associate this hit with a user
+            if not qs.filter(user=str(user.uuid), hitcount=hitcount.pk):
+                hit.user = str(user.uuid)  # associate this hit with a user
                 hit.save()
                 # print("---hit counted, auth user", user.username)
                 response = UpdateHitCountResponse(
