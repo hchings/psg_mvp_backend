@@ -22,15 +22,17 @@ from elasticsearch_dsl import Q
 import coloredlogs, logging
 from django.contrib.contenttypes.models import ContentType
 from django.core.cache import cache
+# from django.db.models import When
 
 from backend.settings import ES_PAGE_SIZE
 from backend.shared.permissions import AdminCanGetAuthCanPost
 from backend.shared.utils import add_to_cache, _prep_subcate
 from users.clinics.models import ClinicProfile
+from .serializers import ClinicLogoSerializer
 from utils.drf.custom_fields import Base64ImageField
 from .models import Case, CaseInviteToken
 from .mixins import UpdateConciseResponseMixin, MyHitCountMixin
-from .serializers import CaseDetailSerializer, CaseCardSerializer
+from .serializers import CaseDetailSerializer, CaseCardSerializer, CaseStatsSerializer
 from .doc_type import CaseDoc
 from .tasks import send_case_invite
 from cases.management.commands.index_cases import Command
@@ -135,6 +137,8 @@ class CaseDetailView(UpdateConciseResponseMixin,
         self.object = instance
         self.get_context_data()
         if data:
+            # TODO: should open
+            # pass
             return Response(data)
 
         instance = self.get_object()
@@ -182,7 +186,7 @@ class CaseDetailView(UpdateConciseResponseMixin,
             #     return hit_count
 
             hit_count, created = get_hitcount_model().objects.get_or_create(content_type=ctype,
-                                                                   object_pk=self.object.uuid)
+                                                                            object_pk=self.object.uuid)
             # hit_count = get_hitcount_model().objects.get(object_pk=self.object.uuid)
             # print("hit_count, created", hit_count, created)
             hits = hit_count.hits
@@ -202,9 +206,75 @@ class CaseDetailView(UpdateConciseResponseMixin,
 
         return context
 
+
 # -------------------------------------------------------
 #  For searching on cases or get a default list of cases
 # -------------------------------------------------------
+class CaseUserActionView(APIView):
+    name = 'case-user-action'
+
+    def get(self, request):
+
+        user = request.user
+
+        # for unlogin user
+        if not user or user.is_anonymous:
+            return Response({}, status.HTTP_200_OK)
+
+        response = OrderedDict({})
+
+            # get list of saved actions, shouldn't have duplicate
+
+        liked_cases = user.actor_actions.filter(action_object_content_type=case_content_type,
+                                                verb='like') or []
+
+        saved_cases = user.actor_actions.filter(action_object_content_type=case_content_type,
+                                                verb='save') or []
+
+        print("liked_cases", liked_cases)
+        print("saved_cases", saved_cases)
+
+
+        response['liked'] = {item.action_object.uuid: True for item in liked_cases if hasattr(item.action_object, 'uuid')}
+        response['saved'] = {item.action_object.uuid: True for item in saved_cases if hasattr(item.action_object, 'uuid')}
+        return Response(response, status.HTTP_200_OK)
+
+    # {'liked': {'uuid': true},  'saved': {'uuid': true}}
+
+
+class CaseStatsView(APIView):
+    """
+    Separate CaseStats from Case Search API for performance.
+    """
+    name = 'case-stats'
+
+    def post(self, request):
+        # get page num from url para.
+        # page number starts from 0.
+        page = int(request.query_params.get('page', 0))
+
+        # ----- parse request body -----
+        req_body = request.data
+        # print("request body for case search", req_body)
+
+        cache_key = '_'.join(['case_search', str(sorted(req_body.items())), str(page)]).replace(" ", "")
+        # cache_key = 'case_search_[]_0'
+        logger.info("cache key: %s" % cache_key)
+        cached_data = cache.get(cache_key)  # should open
+
+        ids = [] if not cached_data else cached_data.get('ids', [])
+
+        if not ids:
+            # cache error
+            return Response({})
+
+        queryset = Case.objects.filter(uuid__in=ids)
+
+        serializer = CaseStatsSerializer(queryset, many=True, context={'request': request})
+
+        return Response({item['uuid']: {'view_num': item['view_num'],
+                                        'like_num': item['like_num']} for item in serializer.data})
+
 
 class CaseSearchView(APIView):
     """
@@ -258,15 +328,20 @@ class CaseSearchView(APIView):
             # check cache
             # use q combined + page number as cache key
             # should open below five TODO
+            # start = time.time()
+            # start_all = time.time()
             cache_key = '_'.join(['case_search', str(sorted(req_body.items())), str(page)]).replace(" ", "")
             logger.info("cache key: %s" % cache_key)
-            cached_data = cache.get(cache_key)
+            cached_data = cache.get(cache_key)  # should open
 
+            # print('check cache Time: %4f, has cache: %s' % (time.time() - start, True if cached_data else False))
+            # cached_data = None # no this thing
             # TODO: open
-            # if data:
-            #     return Response(data)
+            if cached_data and cached_data.get('response', {}):
+                return Response(cached_data.get('response', {}))
 
             # if no cache case ids
+            # start = time.time()
             if not cached_data or not cached_data['ids']:
                 # print("no cache found!!!!")
                 q_combined = None
@@ -368,47 +443,87 @@ class CaseSearchView(APIView):
 
             else:
                 # use cached value
-                ids = cached_data['ids']
+                # ids = cached_data['ids']
+                pass
+
+            # print('ES Time: %4f' % (time.time() - start))
 
             # get the corresponding objects from mongo.
             # however, Django ORM returns the results in a different order,
             # but it doesn't matter as I only need to get the logos.
-            queryset = Case.objects.filter(uuid__in=ids)
+            start = time.time()
+
+            # queryset = Case.objects.filter(uuid__in=ids)
+            #
+            tmp_dict = Case.objects.in_bulk(ids, field_name='uuid')
+            # tmp_dict = {}
+            # for item in queryset:
+            #     tmp_dict[item.uuid] = item
+
+            # tmp_dict =  {obj.uuid: obj
+            #              for obj in Case.objects.filter(uuid__in=ids)}
+
+            # .only('uuid', 'is_official', 'title', 'surgeries',
+            # 'author', 'clinic', 'failed')
+
+            # preserved = models.Case(*[When(uuid=uuid, then=pos) for pos, uuid in enumerate(ids)])
+            # print(preserved, type(preserved))
+            # # queryset = []
+            #
+            # queryset = Case.objects.filter(uuid__in=ids).order_by(preserved)
+
+            # print('Query Time: %4f' % (time.time() - start))
 
             # ids = [hit['_source']['id'] for hit in hits]
             # queryset = Skill.objects.filter(id__in=ids)
-            case_list = list(queryset)
-            case_list.sort(key=lambda case: ids.index(case.uuid))
+            # start = time.time()
+
+            # case_list.sort(key=lambda case: ids.index(case.uuid))
+            case_list = [tmp_dict[id] for id in ids]
+
+            # print('Sort Time: %4f' % (time.time() - start))
+
             # [Important!] Must pass in the context to get the full media path.
             # Pass in 'seach_view' for Memcached wildcard invalidation
+
+            # start = time.time()
             serializer = CaseCardSerializer(case_list, many=True, context={'request': request}, search_view=True)
 
+            # print('Serializer Time: %4f' % (time.time() - start))
+
+            # start = time.time()
             # get clinic tiny logos
             # TODO: some redundancy here
             if not cached_data or not cached_data['logo_dict']:
-                clinic_ids = []
-                for case in case_list:
-                    try:
-                        c_id = case.clinic.uuid
-                        clinic_ids.append(c_id)
-                    except AttributeError as e:
-                        logger.error("CaseSearchView error: %s" % e)
+                # start1 = time.time()
+                try:
+                    clinic_ids = {case.clinic.uuid for case in case_list if case.clinic.uuid}
+                except AttributeError as e:
+                    logger.error("CaseSearchView error: %s" % e)
 
                 # TODO: WIP
-                queryset = ClinicProfile.objects.filter(uuid__in=clinic_ids)
+                queryset_logos = ClinicProfile.objects.filter(uuid__in=clinic_ids).only('logo')
 
+                # print('Logo dict Time 1.1: %4f' % (time.time() - start1))
+
+                # start2 = time.time()
+
+                serializer_logo = ClinicLogoSerializer(queryset_logos, many=True, context={'request': request})
                 # add back info that are not stored in ES engine.
                 # since there are only a few fields. It's faster to skip serializer.
-                logo_dict = {}
-                for clinic in queryset:
-                    if clinic.uuid not in logo_dict:
-                        logo_dict[clinic.uuid] = Base64ImageField().to_representation(clinic.logo_thumbnail_small)
+                logo_dict = {item['uuid']: item['logo_thumbnail_small'] for item in serializer_logo.data}
+
+                # print('Logo dict Time 1.2: %4f' % (time.time() - start2))
             else:
                 # print("use cached logo dict!!!!")
-                logo_dict = cached_data['logo_dict']
-                cnt = cached_data['count']
-                total_page = cached_data['total_page']
+                # logo_dict = cached_data['logo_dict']
+                # cnt = cached_data['count']
+                # total_page = cached_data['total_page']
+                pass
 
+            # print('Logo dict Time: %4f' % (time.time() - start))
+
+            # start = time.time()
             # ----- format response ------
             response['count'] = cnt
             response['total_page'] = total_page
@@ -417,22 +532,26 @@ class CaseSearchView(APIView):
             # for ES we only return page num for simplicity.
             response['prev'] = None if not page else page - 1
             response['next'] = None if page == total_page - 1 else page + 1
-
+            # start22 = time.time()
             response['results'] = serializer.data
+            # print('Case Ser data Time: %4f' % (time.time() - start22))
             response['logos'] = logo_dict
             # response['logos'] = {}
 
             # only set cache if success
             if not cached_data:
                 to_cache = {
-                    'ids': ids,
-                    'count': cnt,
-                    'total_page': total_page,
-                    'logo_dict': logo_dict
+                    'ids': ids,   # need this for case status
+                    'response': response
+                    # 'count': cnt,
+                    # 'total_page': total_page,
+                    # 'logo_dict': logo_dict
                 }
 
                 add_to_cache(cache_key, to_cache, True)
-                # add_to_cache(cache_key, response, True)
+
+            # print('Wrap up Time: %4f' % (time.time() - start))
+            # print('    ---- ALL Time: %s' % (time.time() - start_all))
 
         except Exception as e:
             # if ES failed. Use django's default way to search obj, which is very slow.
@@ -550,7 +669,7 @@ class CaseActionList(generics.ListAPIView):
         # print("page", page)
         # pass extra parameter when creating the serializer instance.
         # The search_view param will decide which fields to return
-        serializer = self.get_serializer(page, many=True, search_view=True)
+        serializer = self.get_serializer(page, many=True, search_view=True, saved_page=True)
 
         # get clinic logos
         clinic_ids = set()

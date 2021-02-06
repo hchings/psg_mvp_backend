@@ -26,6 +26,7 @@ from comments.models import Comment
 from backend.shared.utils import invalidate_cached_data
 from .models import Case, CaseImages
 from .doc_type import CaseDoc
+from .tasks import send_case_in_review_confirmed, send_case_published_notice
 
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
@@ -50,23 +51,32 @@ def fill_in_on_create(sender, instance, created, **kwargs):
     pass
 
     # if new obj got created
-    # if created:
-    #     # Check whether author is staff (i.e., have access to admin site)
-    #     # if yes, mark the case as scraped
-    #     author_name = instance.author.name
-    #
-    #     if author_name:
-    #         user = get_object_or_None(User, username=author_name)
-    #         if user and user.is_staff:
-    #             instance.author.scp = True
-    #
-    #     print("updated a p to ", instance.posted)
-    #     instance.author_posted = instance.posted
-    #
-    #     # print("!! post_save created signal", instance)
-    #
-    # else:
-    #     pass
+    if created:
+        # Check whether author is staff (i.e., have access to admin site)
+        # if yes, mark the case as scraped
+
+        # author_name = instance.author.name
+        #
+        # if author_name:
+        #     user = get_object_or_None(User, username=author_name)
+        #     if user and user.is_staff:
+        #         instance.author.scp = True
+        #
+        # print("updated a p to ", instance.posted)
+        # instance.author_posted = instance.posted
+
+        # send out "your case is in review email"
+        if instance.state == 'reviewing':
+            # first surgery
+            surgeries = instance.surgeries or []
+            first_tag = '' if not surgeries else surgeries[0].name
+            logger.info('send out case in review notif.')
+            send_case_in_review_confirmed.delay(instance.author.uuid,
+                                                first_tag,
+                                                instance.title,
+                                                instance.uuid)
+
+        # print("!! post_save created signal", instance, instance.state)
 
 
 # TODO: WIP. need more test. need rewrite...
@@ -80,12 +90,19 @@ def fill_in_data(sender, instance, **kwargs):
     :return:
     """
     # TODO: WIP
-    # check the first time the case tranferred from 'review' to 'publish'
-    if instance.state == 'published' or instance.state == 2:
+    # check the first time the case tranferred from 'review' to 'publish' and not scrapped case
+    # and send out a notif email
+    if (instance.state == 'published' or instance.state == 2) and not instance.author.scp:
         pre_save_instance = get_object_or_None(Case, uuid=instance.uuid)
         if pre_save_instance and \
                 (pre_save_instance.state == 'reviewing' or pre_save_instance.state == 1):
-            pass
+            surgeries = instance.surgeries or []
+            first_tag = '' if not surgeries else surgeries[0].name
+            logger.info('send out case published notif.')
+            send_case_published_notice.delay(instance.author.uuid,
+                                             first_tag,
+                                             instance.title,
+                                             instance.uuid)
             # print("---send out published signal")
 
     # sanity check on status

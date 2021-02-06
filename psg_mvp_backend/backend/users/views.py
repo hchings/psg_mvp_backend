@@ -16,11 +16,12 @@ from django.utils import timezone
 
 # from rest_framework import generics, permissions
 from rest_auth.registration.views import RegisterView
-from rest_auth.views import LoginView, PasswordChangeView
+from rest_auth.views import LoginView, PasswordChangeView, PasswordResetView
 from rest_auth.serializers import LoginSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import generics
 from annoying.functions import get_object_or_None
+from rest_framework.generics import GenericAPIView
 
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
@@ -33,9 +34,9 @@ from backend.shared.utils import random_with_n_digits
 from cases.models import Case
 from comments.models import Comment
 
-from .serializers import RegisterSerializerEx, TokenSerializerEx
+from .serializers import RegisterSerializerEx, TokenSerializerEx, CustomPasswordResetSerializer
 from .models import User, RegistrationOTP
-from .tasks import send_otp_code
+from .tasks import send_otp_code, send_registration_success
 
 # from .permissions import OnlyAdminCanDelete
 
@@ -115,6 +116,12 @@ class RegisterViewEx(RegisterView):
                 # print("-----------opt code correct, registered")
                 user = self.perform_create(serializer)
                 headers = self.get_success_headers(serializer.data)
+
+                # send out registration email
+                try:
+                    send_registration_success.delay(regis_email)
+                except Exception as e:
+                    logger.error("RegisterView Ex send reg succes email error: %s" % str(e))
                 return Response(self.get_response_data(user),
                                 status=status.HTTP_201_CREATED,
                                 headers=headers)
@@ -207,13 +214,24 @@ class UserInfoView(generics.RetrieveUpdateAPIView):
                 saved_cnt += 1
 
         # 2, 3. get review/published cnt
-        review_cnt = Case.objects.filter(author={'uuid': str(user.uuid)},
-                            state='reviewing').count()
-        published_cnt = Case.objects.filter(author={'uuid': str(user.uuid)},
-                                         state='published').count()
+        if not request.user.is_superuser:
+            review_cnt = Case.objects.filter(author={'uuid': str(user.uuid)},
+                                state='reviewing').count()
+            published_cnt = Case.objects.filter(author={'uuid': str(user.uuid)},
+                                             state='published').count()
+
+            draft_cnt = Case.objects.filter(author={'uuid': str(user.uuid)},
+                                            state='draft').count()
+        else:
+            # Superuser can see ALL cases
+            review_cnt = Case.objects.filter(state='reviewing').count()
+            published_cnt = Case.objects.filter(state='published').count()
+
+            draft_cnt = Case.objects.filter(state='draft').count()
 
         return Response({'saved_cnt': saved_cnt,
                          'review_cnt': review_cnt,
+                         'draft': draft_cnt,
                          'published_cnt': published_cnt,
                          'gender': user.gender}, status.HTTP_200_OK)
 
@@ -289,3 +307,24 @@ class MyPasswordChangeView(PasswordChangeView):
 
 class FacebookLogin(SocialLoginView):
     adapter_class = FacebookOAuth2Adapter
+
+
+class CustomPasswordResetView(GenericAPIView):
+    """
+    Calls Django Auth PasswordResetForm save method.
+    Accepts the following POST parameters: email
+    Returns the success/fail message.
+    """
+    serializer_class = CustomPasswordResetSerializer
+
+    def post(self, request, *args, **kwargs):
+        # Create a serializer with request.data
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        serializer.save()
+        # Return the success message with OK HTTP status
+        return Response(
+            {"detail": "Password reset e-mail has been sent."},
+            status=status.HTTP_200_OK
+        )

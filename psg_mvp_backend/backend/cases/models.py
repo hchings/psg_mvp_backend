@@ -368,7 +368,7 @@ class Case(models.Model, HitCountMixin):
     _id = models.ObjectIdField()
 
     uuid = models.BigIntegerField(default=make_id,
-                                  unique=False,
+                                  unique=True,
                                   editable=False)
 
     # not working, Djongo/mongo does not support relation
@@ -623,7 +623,7 @@ class Hit(models.Model):
     # user = models.ForeignKey(AUTH_USER_MODEL, null=True, editable=False, on_delete=models.CASCADE)
     # hitcount = models.ForeignKey(MODEL_HITCOUNT, editable=False, on_delete=models.CASCADE)
     user = models.CharField(max_length=40, editable=False, blank=False) # user Uuid
-    hitcount = models.PositiveIntegerField(blank=False, default=0) # hitcount pk
+    hitcount = models.CharField(max_length=40, blank=False) # hitcount pk
 
     objects = HitManager()
 
@@ -646,7 +646,7 @@ class Hit(models.Model):
             # get hitcount object and increase
             try:
                 # print("fined pk", self.hitcount)
-                hitcount_obj = HitCount.objects.get(pk=self.hitcount)
+                hitcount_obj = HitCount.objects.get(pk=str(self.hitcount))
                 if hitcount_obj.hits is None:
                     hitcount_obj.hits = 1
                 else:
@@ -670,3 +670,11 @@ class Hit(models.Model):
     #     delete_hit_count.send(
     #         sender=self, instance=self, save_hitcount=save_hitcount)
     #     super(Hit, self).delete()
+
+
+# class HitCount(HitCountBase):
+#     """Built-in hitcount class. Default functionality."""
+#     pk = models.CharField(max_length=40, blank=False)
+#
+#     class Meta(HitCountBase.Meta):
+#         db_table = "hitcount_hit_count"
