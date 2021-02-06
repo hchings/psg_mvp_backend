@@ -319,11 +319,11 @@ LOGOUT_URL = reverse_lazy('rest_logout')
 ES_HOST = 'elasticsearch'
 ES_PORT = 9200
 
-# for cors
-CORS_ORIGIN_ALLOW_ALL = True
-CORS_ORIGIN_WHITELIST = [
-    "localhost:4200",
-]
+# for cors (dev mode)
+# CORS_ORIGIN_ALLOW_ALL = True
+# CORS_ORIGIN_WHITELIST = [
+#     "localhost:4200",
+# ]
 
 # for SSL/HTTPS
 CORS_ALLOW_CREDENTIALS = True
