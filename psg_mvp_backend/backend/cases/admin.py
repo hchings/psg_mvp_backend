@@ -18,7 +18,7 @@ class CaseAdmin(admin.ModelAdmin):
     list_display = ('uuid', 'created', 'posted', 'author_posted', 'skip', 'skip_reason','status', 'is_scrapped', 'failed', 'title', 'is_official', 'gender', 'rating',
                     'author', 'author_uuid', 'clinic_branch', 'clinic_uuid', 'doctor', 'doctor_profile_id')
     list_filter = ('state', 'is_official', 'gender', 'rating', 'interest', 'skip', 'skip_reason', 'failed')
-    search_fields = ('uuid', 'author', 'title', 'email')
+    search_fields = ('uuid', 'author', 'title')
     # raw_id_fields = ('username',)
     # ordering = ['user_type', 'uuid']
 

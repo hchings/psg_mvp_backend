@@ -1,0 +1,16 @@
+{% load i18n %}{% autoescape off %}
+
+<p>Hi {% block username %}{{username}}{% endblock %},</p>
+{% block case_link %}
+<p>Surgi 收到了您撰寫的{{ first_tag }}整型案例{% if case_title %}<span style="font-weight: bold;">"{{ case_title }}"</span>{% endif %}：</p>
+{% if signature %}<a href="https://surgi.fyi/{{signature}}/contributions(cases:{{case_id}})">https://surgi.fyi/{{signature}}/contributions(cases:{{case_id}})</a>{% endif %}
+{% endblock %}
+
+<br>
+<p>若案例符合社區規範，我們會盡快發佈並通知您。</p>
+<p>您的醫美經驗將會幫助許多用戶。</p>
+<br>
+<br>
+<p>Surgi團隊  敬上</p>
+<a href="https://surgi.fyi">https://surgi.fyi</a>
+{% endautoescape %}

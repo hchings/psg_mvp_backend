@@ -14,8 +14,6 @@ import coloredlogs, logging
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
-from cases.models import Case
-from cases.doc_type import CaseDoc
 from users.clinics.models import ClinicProfile
 
 
@@ -33,25 +31,13 @@ class Command(BaseCommand):
     help = 'Indexes Cases in Elastic Search'
 
     def handle(self, *args, **options):
-        # self.load_index(wipe_out=True)
+        self.load_index(wipe_out=True)
 
-        cases = Case.objects.filter(state='published')
-        missing_clinic_profile = set()
-        missing_logo = set()
+        res = ClinicProfile.objects.all()
 
-        for case in cases:
-            clinic_id = case.clinic.uuid
-            display_name = case.clinic.display_name
-            if not clinic_id and display_name and display_name not in missing_clinic_profile:
-                # print
-                missing_clinic_profile.add(display_name)
-                print("Missing clinic profile: %s" % display_name)
 
-            if clinic_id:
-                clinic_profile = ClinicProfile.objects.get(uuid=case.clinic.uuid)
-                if clinic_id not in missing_logo and not clinic_profile.logo:
-                    missing_logo.add(clinic_id)
-                    print("Missing: logo", clinic_profile.display_name)
+
+
 
         # clinic no logo
         # clinic name 未知
@@ -62,3 +48,26 @@ class Command(BaseCommand):
 
         # random view
         # adjust timestamp
+
+
+
+
+    @staticmethod
+    def load_index(wipe_out=False):
+        es = Elasticsearch(
+            [{'host': settings.ES_HOST, 'port': settings.ES_PORT}],
+            index="cases"
+        )
+        cases_index = Index('cases', using='default')
+        cases_index.document(CaseDoc)  # doc_type has been deprecated
+        if wipe_out and cases_index.exists():
+            cases_index.delete()
+            logger.warning("Deleted Cases Index.")
+        CaseDoc.init()
+
+        result = bulk(
+            client=es,
+            actions=(case.indexing() for case in Case.objects.all().iterator() if case.state == 'published')
+        )
+
+        logger.info("Indexed cases: %s" % str(result))

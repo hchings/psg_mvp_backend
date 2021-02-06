@@ -55,6 +55,8 @@ def action_update(sender, instance, **kwargs):
     ############################
 
     # invalidate case detail cache -- only non edit mode
-    invalidate_cached_data('case_detail_%s' % instance.action_object.case_id)
+    # print("action object", instance.action_object, type(instance.action_object))
+    invalidate_cached_data('case_detail_%s' % instance.action_object.uuid)
+    # invalidate_cached_data('case_detail_%s' % instance.action_object.case_id)
     # delete all case search keys
     invalidate_cached_data('', True)

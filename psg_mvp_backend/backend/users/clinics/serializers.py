@@ -3,7 +3,6 @@ DRF Serializers for clinics.
 
 """
 
-import json
 import ast
 from random import randint
 

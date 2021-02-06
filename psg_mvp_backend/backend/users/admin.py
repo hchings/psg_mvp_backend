@@ -30,7 +30,7 @@ class ClinicProfileAdmin(admin.ModelAdmin):
     list_display = ('display_name', 'user_id', 'uuid', 'logo_img', 'all_doctors_loaded', 'first_check')
     list_filter = ('first_check', 'all_doctors_loaded', 'is_oob')
     search_fields = ['display_name']
-    readonly_fields = ['services_raw']
+    readonly_fields = ['services_raw', 'services']
 
     @mark_safe
     def logo_img(self, obj):

@@ -7,18 +7,20 @@ from rest_framework import serializers, exceptions
 from rest_auth.registration.serializers import RegisterSerializer
 # from rest_auth.serializers import LoginSerializer
 from rest_auth.models import TokenModel
+from rest_auth.serializers import PasswordResetSerializer
 
 # from taggit_serializer.serializers import TagListSerializerField, \
 #     TaggitSerializer
 
-from django.contrib.auth import authenticate
-from django.utils.translation import ugettext_lazy as _
+# from django.contrib.auth import authenticate
+# from django.utils.translation import ugettext_lazy as _
 # from django.urls import reverse_lazy
 
 # from tags.serializer_fields import NestedTagListSerializerField
 
 # from backend.shared.drf.custom_fields import Base64ImageField
 from .models import User
+# from .tasks import send_forget_pw_reset
 
 # from .profile_models import ClinicBranch
 
@@ -78,6 +80,23 @@ class TokenSerializerEx(serializers.ModelSerializer):
     class Meta:
         model = TokenModel
         fields = ('key', 'uuid', 'username', 'stf')
+
+
+# reset password
+class CustomPasswordResetSerializer(PasswordResetSerializer):
+    """
+    Customize django-rest-auth email. See stackoverflow.
+    """
+    def get_email_options(self):
+        return {
+            'subject_template_name': 'registration/custom_password_reset_subject.txt',
+            'email_template_name': 'registration/custom_password_reset_email.html',
+            'domain_override': 'surgi.fyi'
+            # 'html_email_template_name': 'registration/'
+            #                             'password_reset_message.html',
+            # 'extra_email_context': {
+            #     'pass_reset_obj': self.your_extra_reset_obj
+        }
 
 # class UserSerializer(serializers.HyperlinkedModelSerializer):
 #     """
