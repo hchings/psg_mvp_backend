@@ -26,6 +26,7 @@ from comments.serializers import CommentSerializer
 from comments.views import COMMENT_PAGE_SIZE
 from users.clinics.models import ClinicProfile
 
+# from users.clinics.serializers import ClinicLogoSerializer
 # COMMENT_PAGE_SIZE
 
 # from rest_framework.exceptions import ErrorDetail, ValidationError
@@ -39,6 +40,19 @@ from users.clinics.models import ClinicProfile
 # Create a logger
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
+
+
+class ClinicLogoSerializer(serializers.HyperlinkedModelSerializer):
+    logo_thumbnail_small = serializers.ImageField(max_length=None,
+                                                  use_url=True,
+                                                  required=False)
+
+    # too large the payload
+    # logo_thumbnail_small = Base64ImageField()
+
+    class Meta:
+        model = ClinicProfile
+        fields = ('uuid', 'logo_thumbnail_small')
 
 
 #########################################################
@@ -108,6 +122,43 @@ class SurgeryTagSerializer(serializers.Serializer):
 #     Card-view (brief) Serializers
 ######################################
 
+class CaseStatsSerializer(serializers.ModelSerializer):
+    # number
+    like_num = serializers.SerializerMethodField(required=False)
+
+    view_num = serializers.SerializerMethodField(required=False)
+
+    class Meta:
+        model = Case
+        fields = ('like_num', 'view_num', 'uuid')
+
+    def get_like_num(self, obj):
+        """
+        Return how many distinct users liked this case.
+
+        :param obj:
+        :return:
+        """
+        try:
+            return len(obj.action_object_actions.filter(verb='like'))
+        except Exception as e:
+            print("errir get liked num", obj.uuid)
+            return 0
+
+    def get_view_num(self, obj):
+
+        try:
+            hitcount_obj = get_object_or_None(HitCount, object_pk=obj.uuid)
+        except HitCount.MultipleObjectsReturned:
+            # TODO: not sure yet why multiple HitCount could be created.
+            hitcount_obj = HitCount.objects.filter(object_pk=obj.uuid)[0]
+            logger.error("Multiple object returned in get_view_num: case uuid %s" % obj.uuid)
+
+        if not hitcount_obj:
+            return 0
+        else:
+            return hitcount_obj.hits or 0
+
 
 class CaseCardSerializer(serializers.ModelSerializer):
     # read-only, so using methodField is sufficient.
@@ -130,19 +181,18 @@ class CaseCardSerializer(serializers.ModelSerializer):
     surgeries = serializers.SerializerMethodField()
 
     # boolean
-    saved_by_user = serializers.SerializerMethodField(required=False)
-    liked_by_user = serializers.SerializerMethodField(required=False)
+    # saved_by_user = serializers.SerializerMethodField(required=False)
+    # liked_by_user = serializers.SerializerMethodField(required=False)
 
     # number
-    like_num = serializers.SerializerMethodField(required=False)
+    # like_num = serializers.SerializerMethodField(required=False)
+    # view_num = serializers.SerializerMethodField(required=False)
 
-    view_num = serializers.SerializerMethodField(required=False)
-
+    # 'saved_by_user', 'liked_by_user',
     class Meta:
         model = Case
         fields = ('uuid', 'is_official', 'title', 'af_img_thumb', 'surgeries',
-                  'author', 'clinic', 'view_num', 'like_num',
-                  'saved_by_user', 'liked_by_user', 'failed')
+                  'author', 'clinic', 'failed')
 
     def __init__(self, *args, **kwargs):
         """
@@ -154,20 +204,33 @@ class CaseCardSerializer(serializers.ModelSerializer):
         # is search_view
         self.search_view = kwargs.get("search_view", False)
 
+        # is on saved page
+        self.saved_page = kwargs.get("saved_page", False)
+
         if self.search_view:
             # downstream can't accept this keyword
             kwargs.pop('search_view')
+
+        if self.saved_page:
+            # downstream can't accept this keyword
+            kwargs.pop('saved_page')
 
         super(CaseCardSerializer, self).__init__(*args, **kwargs)
 
         try:
             if self.search_view:
-                self.fields['like_num'] = serializers.SerializerMethodField()
                 self.fields['bf_img_thumb'] = serializers.ImageField(max_length=None,
                                                                      use_url=True,
                                                                      required=False)
                 self.fields['author'] = serializers.SerializerMethodField()
+                # self.fields['logo'] = serializers.SerializerMethodField()
                 self.fields['posted'] = serializers.SerializerMethodField(required=False)  # tODO: WIP
+                # print("search view-----")
+
+                # if self.saved_page:
+                #     self.fields['like_num'] = serializers.SerializerMethodField()
+                #     self.fields['view_num'] = serializers.SerializerMethodField()
+
             else:
                 # manage-case or edit mode etc
                 self.fields['photo_num'] = serializers.SerializerMethodField()
@@ -254,70 +317,66 @@ class CaseCardSerializer(serializers.ModelSerializer):
         else:
             return ''
 
-    def get_saved_by_user(self, obj):
+    # def get_saved_by_user(self, obj):
+    #     """
+    #     Return a boolean flag indicating whether the user
+    #     in the request saved the current case.
+    #
+    #     For unauthorized users, it will always be false.
+    #
+    #     :param obj: the comment object
+    #     :return (boolean):
+    #     """
+    #     return False
+    #
+    #     request = self.context.get('request', None)
+    #
+    #     # for unlogin user
+    #     if not request or request.user.is_anonymous:
+    #         return False
+    #
+    #     # it should only have one obj if it's saved
+    #     action_objs = obj.action_object_actions.filter(actor_object_id=request.user._id, verb='save')
+    #     # logger.info("action_objs in serializer %s" % action_objs)
+    #
+    #     return False if not action_objs else True
+
+    # def get_liked_by_user(self, obj):
+    #     """
+    #     Return a boolean flag indicating whether the user
+    #     in the request liked the current case.
+    #
+    #     For unauthorized users, it will always be false.
+    #
+    #     :param obj: the comment object
+    #     :return (boolean):
+    #     """
+    #     return False
+    #
+    #     request = self.context.get('request', None)
+    #
+    #     # for unlogin user
+    #     if not request or request.user.is_anonymous:
+    #         return False
+    #
+    #     # it should only have one obj if it's liked
+    #     action_objs = obj.action_object_actions.filter(actor_object_id=request.user._id, verb='like')
+    #
+    #     return False if not action_objs else True
+
+    def get_logo(self, obj):
         """
-        Return a boolean flag indicating whether the user
-        in the request saved the current case.
-
-        For unauthorized users, it will always be false.
-
-        :param obj: the comment object
-        :return (boolean):
-        """
-        request = self.context.get('request', None)
-
-        # for unlogin user
-        if not request or request.user.is_anonymous:
-            return False
-
-        # it should only have one obj if it's saved
-        action_objs = obj.action_object_actions.filter(actor_object_id=request.user._id, verb='save')
-        # logger.info("action_objs in serializer %s" % action_objs)
-
-        return False if not action_objs else True
-
-    def get_liked_by_user(self, obj):
-        """
-        Return a boolean flag indicating whether the user
-        in the request liked the current case.
-
-        For unauthorized users, it will always be false.
-
-        :param obj: the comment object
-        :return (boolean):
-        """
-        request = self.context.get('request', None)
-
-        # for unlogin user
-        if not request or request.user.is_anonymous:
-            return False
-
-        # it should only have one obj if it's liked
-        action_objs = obj.action_object_actions.filter(actor_object_id=request.user._id, verb='like')
-
-        return False if not action_objs else True
-
-    def get_like_num(self, obj):
-        """
-        Return how many distinct users liked this case.
-
+        Not using
         :param obj:
         :return:
         """
-        return len(obj.action_object_actions.filter(verb='like'))
+        clinic_obj = get_object_or_None(ClinicProfile, uuid=obj.clinic.uuid)
 
-    def get_view_num(self, obj):
-        try:
-            hitcount_obj = get_object_or_None(HitCount, object_pk=obj.uuid)
-        except HitCount.MultipleObjectsReturned:
-            # TODO: not sure yet why multiple HitCount could be created.
-            hitcount_obj = HitCount.objects.filter(object_pk=obj.uuid)[0]
-            logger.error("Multiple object returned in get_view_num: case uuid %s" % obj.uuid)
+        if not clinic_obj:
+            return ''
 
-        if not hitcount_obj:
-            return 0
-        else:
-            return hitcount_obj.hits or 0
+        return ClinicLogoSerializer(clinic_obj).data['logo_thumbnail_small']
+
 
 ######################################
 #      Detail CRUD Serializers
@@ -406,16 +465,9 @@ class CaseDetailSerializer(serializers.ModelSerializer):
 
     surgery_meta = SurgeryMetaSerializer(required=False)
 
-    # need to set required=False for post.
-    bf_img = serializers.ImageField(max_length=None,
-                                    use_url=True,
-                                    required=False)
     # from extra field package. handy. can post base64 directly.
     bf_img_cropped = Base64ImageField(required=False)
 
-    af_img = serializers.ImageField(max_length=None,
-                                    use_url=True,
-                                    required=False)
     af_img_cropped = Base64ImageField(required=False)
 
     # other_imgs = CaseImagesSerializer(required=False)   # many = True
@@ -444,8 +496,8 @@ class CaseDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Case
         # fields = "__all__"
-        fields = ('uuid', 'is_official', 'title', 'bf_img', 'bf_img_cropped', 'bf_cap',
-                  'af_img', 'af_img_cropped', 'af_cap', 'surgeries', 'author', 'state', 'other_imgs',
+        fields = ('uuid', 'is_official', 'title', 'bf_img_cropped', 'bf_cap',
+                  'af_img_cropped', 'af_cap', 'surgeries', 'author', 'state', 'other_imgs',
                   'body', 'surgery_meta', 'rating', 'bf_img_cropped', 'posted',
                   'recovery_time', 'anesthesia', 'scp_user_pic', 'positive_exp', 'side_effects', 'pain_points',
                   'ori_url', 'comment_num', 'comments', 'failed')
@@ -484,6 +536,15 @@ class CaseDetailSerializer(serializers.ModelSerializer):
 
         try:
             if self.context['request'].method in ['POST', 'PUT', 'PATCH']:
+                # need to set required=False for post.
+                self.fields['bf_img'] = serializers.ImageField(max_length=None,
+                                                               use_url=True,
+                                                               required=False)
+
+                self.fields['af_img'] = serializers.ImageField(max_length=None,
+                                                               use_url=True,
+                                                               required=False)
+
                 self.fields['surgeries'] = SurgeryTagSerializer(many=True)
                 self.fields['scp_user_pic'] = serializers.ImageField(max_length=None,
                                                                      use_url=True,
@@ -513,6 +574,13 @@ class CaseDetailSerializer(serializers.ModelSerializer):
                     self.fields['scp_user_pic'] = serializers.ImageField(max_length=None,
                                                                          use_url=True,
                                                                          required=False)
+                    self.fields['bf_img'] = serializers.ImageField(max_length=None,
+                                                                   use_url=True,
+                                                                   required=False)
+
+                    self.fields['af_img'] = serializers.ImageField(max_length=None,
+                                                                   use_url=True,
+                                                                   required=False)
                 else:
                     # return thumbnail base64 if it's read-only GET
                     self.fields['scp_user_pic'] = serializers.SerializerMethodField(required=False)

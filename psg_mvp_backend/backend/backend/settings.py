@@ -246,7 +246,8 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = 'Surgi.fyi'
 EMAIL_USE_SSL = False
-
+# self defined
+EMAIL_WITH_DISPLAY_NAME = 'Surgi <%s>' % EMAIL_HOST_USER
 ###################################
 #     django-alluth seetings
 ###################################
@@ -367,3 +368,6 @@ SOCIALACCOUNT_PROVIDERS = {
         }
     }
 }
+
+# frontend
+URL_FRONT = 'surgi.fyi'
