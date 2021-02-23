@@ -22,6 +22,7 @@ from elasticsearch_dsl import Q
 import coloredlogs, logging
 from django.contrib.contenttypes.models import ContentType
 from django.core.cache import cache
+from django.contrib.auth import get_user_model
 # from django.db.models import When
 
 from backend.settings import ES_PAGE_SIZE
@@ -36,8 +37,8 @@ from .serializers import CaseDetailSerializer, CaseCardSerializer, CaseStatsSeri
 from .doc_type import CaseDoc
 from .tasks import send_case_invite
 from cases.management.commands.index_cases import Command
+from backend.shared.utils import make_id
 
-from django.contrib.auth import get_user_model
 
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
@@ -174,7 +175,7 @@ class CaseDetailView(UpdateConciseResponseMixin,
 
     def get_context_data(self, **kwargs):
         context = super(HitCountDetailView, self).get_context_data(**kwargs)
-        # print("~~~~~~~~~~get_context_data------------", context)
+        logger.info("get_context_data: %s" % context)
         if self.object:
             # print("------object", self.object)
 
@@ -185,10 +186,24 @@ class CaseDetailView(UpdateConciseResponseMixin,
             #         content_type=ctype, object_pk=obj.pk)
             #     return hit_count
 
-            hit_count, created = get_hitcount_model().objects.get_or_create(content_type=ctype,
-                                                                            object_pk=self.object.uuid)
+            hitCountModel = get_hitcount_model()
+
+            # force assign pk to numeric.
+            # Otherwise, mongo will assign it ObjectId and it won't work
+            # with the hitcount package.
+            try:
+                hit_count = hitCountModel.objects.get(content_type=ctype, object_pk=self.object.uuid)
+                created = False
+            except:
+                hit_count = hitCountModel(pk=make_id(), content_type=ctype, object_pk=self.object.uuid)
+                hit_count.save()
+                created = True
+
+            # hit_count, created = get_hitcount_model().objects.get_or_create(content_type=ctype,
+            #                                                                 object_pk=self.object.uuid)
+
             # hit_count = get_hitcount_model().objects.get(object_pk=self.object.uuid)
-            # print("hit_count, created", hit_count, created)
+            logger.info("hit_count, created: %s, %s, %s" % (hit_count, created, hit_count.pk))
             hits = hit_count.hits
             context['hitcount'] = {'pk': hit_count.pk}
 

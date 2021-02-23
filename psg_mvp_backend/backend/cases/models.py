@@ -524,7 +524,8 @@ class Case(models.Model, HitCountMixin):
     anesthesia = models.CharField(
         max_length=20,
         choices=ANESTHESIA,
-        default='undefined'
+        default='undefined',
+        blank=True
     )
 
     positive_exp = MultiSelectField(choices=POSITIVE_EXP_CHOICES,
@@ -542,7 +543,9 @@ class Case(models.Model, HitCountMixin):
     skip_reason = models.CharField(
         max_length=30,
         choices=SKIP_REASONS,
-        default='undefined'
+        default='undefined',
+        blank=True,
+        null=True
     )
 
     def __str__(self):
