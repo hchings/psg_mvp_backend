@@ -9,7 +9,8 @@ from datetime import timedelta
 
 from allauth.socialaccount.providers.facebook.views import FacebookOAuth2Adapter
 from rest_auth.registration.views import SocialLoginView
-
+from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
+from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 # import pytz
 
 from django.utils import timezone
@@ -270,6 +271,24 @@ class UserInfoView(generics.RetrieveUpdateAPIView):
 
         return  Response({}, status.HTTP_204_NO_CONTENT)
 
+
+class UserObjView(generics.RetrieveAPIView):
+    name = 'user-obj'
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        :param request:
+        :return:
+        """
+        user = request.user
+        # print("====user uuid", user.uuid)
+
+        return Response({'uuid': user.uuid,
+                         'username': user.username}, status.HTTP_200_OK)
+
+
+
 # # --- User ---
 # class UserList(generics.ListAPIView):
 #     """
@@ -307,6 +326,10 @@ class MyPasswordChangeView(PasswordChangeView):
 
 class FacebookLogin(SocialLoginView):
     adapter_class = FacebookOAuth2Adapter
+
+class GoogleLogin(SocialLoginView):
+    adapter_class = GoogleOAuth2Adapter
+    client_class = OAuth2Client
 
 
 class CustomPasswordResetView(GenericAPIView):

@@ -134,14 +134,14 @@ class MyHitCountMixin(object):
                     False, 'Not counted: hits per IP address limit reached')
 
         # create a generic Hit object with request data
-        hit = Hit(session=session_key, hitcount=hitcount.pk, ip=get_ip(request),
+        hit = Hit(session=session_key, hitcount=str(hitcount.pk), ip=get_ip(request),
                   user_agent=request.META.get('HTTP_USER_AGENT', '')[:255],)
 
         # print(".....hit", hit)
 
         # first, use a user's authentication to see if they made an earlier hit
         if is_authenticated_user:
-            if not qs.filter(user=str(user.uuid), hitcount=hitcount.pk):
+            if not qs.filter(user=str(user.uuid), hitcount=str(hitcount.pk)):
                 hit.user = str(user.uuid)  # associate this hit with a user
                 hit.save()
                 # print("---hit counted, auth user", user.username)
@@ -153,7 +153,7 @@ class MyHitCountMixin(object):
 
         # if not authenticated, see if we have a repeat session
         else:
-            if not qs.filter(session=session_key, hitcount=hitcount.pk):
+            if not qs.filter(session=session_key, hitcount=str(hitcount.pk)):
                 hit.save()
                 # print("---hit counted, session", session_key)
                 response = UpdateHitCountResponse(

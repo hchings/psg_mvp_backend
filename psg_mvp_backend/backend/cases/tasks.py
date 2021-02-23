@@ -18,8 +18,8 @@ from backend.settings import EMAIL_WITH_DISPLAY_NAME
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
 
-
 User = get_user_model()
+
 
 #  TODO: WIP
 @shared_task
@@ -54,9 +54,10 @@ def send_case_in_review_confirmed(user_uuid, first_tag, title, case_id):
 
     try:
         send_mail(subject, msg_text, EMAIL_WITH_DISPLAY_NAME,
-                [email], html_message=msg_html)
+                  [email], html_message=msg_html)
     except Exception as e:
         logger.error("[Error] send_case_in_review_confirmed 2: %s" % str(e))
+
 
 @shared_task
 def send_case_published_notice(user_uuid, first_tag, title, case_id):
@@ -97,11 +98,15 @@ def send_case_published_notice(user_uuid, first_tag, title, case_id):
 # TODO: WIP
 @shared_task
 def send_case_invite(username, invitee_email, invite_url):
-    subject = "%s 邀請你" % username
-    msg_html = render_to_string('beefree.html', {'WTF': invite_url})
+    logger.info("send_case_invite: %s, %s, %s" % (username, invitee_email, invite_url) )
+    subject = "%s 邀請你分享整型經驗" % username
+    msg_html = render_to_string('cases/case_invite.html', {'username': username,
+                                                           'invite_url': invite_url})
+
+    msg_text = html2text.html2text(msg_html)
 
     try:
-        send_mail(subject, invite_url, EMAIL_WITH_DISPLAY_NAME,
-                [invitee_email], html_message=msg_html)
+        send_mail(subject, msg_text, EMAIL_WITH_DISPLAY_NAME,
+                  [invitee_email], html_message=msg_html)
     except Exception as e:
-        logger.error("[Error] send_case_in_review_confirmed: %s" % str(e))
+        logger.error("[Error] send_case_invite: %s" % str(e))
