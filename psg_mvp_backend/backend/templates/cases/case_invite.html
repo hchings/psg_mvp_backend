@@ -1,0 +1,20 @@
+{% load i18n %}{% autoescape off %}
+
+<p>Hi👋,</p>
+<p>{% block username %}{{username}}{% endblock %}邀請你到Surgi分享你的整形心路歷程：</p>
+
+{% block invite_url %}
+<a href="{{invite_url}}">{{invite_url}}</a>
+{% endblock %}
+
+<br>
+<p>進入連結後，點擊頁面右上角的"寫案例"開始撰文。</p>
+<p>一般撰文僅需10分鐘。你可以留下診所評價並分享術後恢復過程等有用資訊。</p>
+<p>💡小撇步: 上傳吸睛的術後照片作為封面能吸引更多人瀏覽你的案例！</p>
+<br>
+<a href="https://surgi.fyi/how-does-it-work">更多資訊</a> 👈🏻 👈🏻
+<br>
+<br>
+<p>Surgi團隊  敬上</p>
+<a href="https://surgi.fyi">https://surgi.fyi</a>
+{% endautoescape %}

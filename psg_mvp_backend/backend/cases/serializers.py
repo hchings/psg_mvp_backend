@@ -2,7 +2,7 @@
 REST Framework Serializers for Case app.
 
 """
-import ast
+import ast, os, json
 from rest_framework import serializers, exceptions
 from drf_extra_fields.fields import Base64ImageField
 from bson import ObjectId
@@ -11,6 +11,7 @@ import coloredlogs, logging
 from hitcount.models import HitCount
 
 from django.db.models import Q
+from backend.settings import FIXTURE_ROOT
 
 from backend.shared.fields import embedded_model_method
 from backend.shared.serializers import AuthorSerializer
@@ -40,6 +41,16 @@ from users.clinics.models import ClinicProfile
 # Create a logger
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
+
+# hitcount random seed file
+HITCOUNT_FILE = os.path.join(FIXTURE_ROOT, 'hitcount.json')
+
+hitcount_dict = {}
+try:
+    with open(HITCOUNT_FILE) as json_file:
+        hitcount_dict = json.load(json_file)
+except FileNotFoundError:
+    logger.info('hitcount file not found at %s, empty.' % HITCOUNT_FILE)
 
 
 class ClinicLogoSerializer(serializers.HyperlinkedModelSerializer):
@@ -154,10 +165,13 @@ class CaseStatsSerializer(serializers.ModelSerializer):
             hitcount_obj = HitCount.objects.filter(object_pk=obj.uuid)[0]
             logger.error("Multiple object returned in get_view_num: case uuid %s" % obj.uuid)
 
+        hitcount_seed = hitcount_dict.get(str(obj.uuid), 0)
+
         if not hitcount_obj:
-            return 0
+            return hitcount_seed
         else:
-            return hitcount_obj.hits or 0
+            # print("seed...", obj.uuid, hitcount_seed)
+            return hitcount_obj.hits + hitcount_seed or 0
 
 
 class CaseCardSerializer(serializers.ModelSerializer):
@@ -234,6 +248,7 @@ class CaseCardSerializer(serializers.ModelSerializer):
             else:
                 # manage-case or edit mode etc
                 self.fields['photo_num'] = serializers.SerializerMethodField()
+                self.fields['interest'] = serializers.FloatField(required=False)  # interestingness
                 self.fields['state'] = serializers.CharField(required=False)
                 self.fields['author'] = serializers.SerializerMethodField()  # detail author
                 self.fields['posted'] = serializers.CharField(required=False)

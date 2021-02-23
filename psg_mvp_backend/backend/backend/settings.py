@@ -78,7 +78,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount',
     # ... include the providers you want to enable:
     'allauth.socialaccount.providers.facebook',
-    # 'allauth.socialaccount.providers.google',
+    'allauth.socialaccount.providers.google',
     # --- django imagekit package ---
     'imagekit',
     # --- django fileField auto clean up ---
@@ -355,6 +355,9 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {
 }
 
 
+######################################
+#        Django Social Auth
+######################################
 # Provider specific settings
 SOCIALACCOUNT_PROVIDERS = {
     'facebook': {
@@ -362,12 +365,24 @@ SOCIALACCOUNT_PROVIDERS = {
         # (``socialaccount`` app) containing the required client
         # credentials, or list them here:
         'APP': {
-            'client_id': '149950582283786',
-            'secret': 'ef6856eaf0a5b9ccee879f5b70787e5c',
+            'client_id': '121687132886949',
+            'secret': '28add9a23fb07d0021f13cc0f5cf0593',
+            'key': ''
+        }
+    },
+    'google': {
+        # For each OAuth based provider, either add a ``SocialApp``
+        # (``socialaccount`` app) containing the required client
+        # credentials, or list them here:
+        'APP': {
+            'client_id': '232549874732-20604rkt81d9rkkt6u57rhi1rmurv3b0.apps.googleusercontent.com',
+            'secret': 'h7Z-XHmxvgfTS1peo9gitWLV',
             'key': ''
         }
     }
 }
+
+ACCOUNT_EMAIL_REQUIRED = True
 
 # frontend
 URL_FRONT = 'surgi.fyi'

@@ -13,8 +13,8 @@ from django.conf.urls import url, include
 from django.views.generic import TemplateView
 
 from .views import RegisterViewEx, LoginViewEx, verify_username_view, \
-    UserInfoView, FacebookLogin, MyPasswordChangeView, CustomPasswordResetView
-
+    UserInfoView, FacebookLogin, GoogleLogin, MyPasswordChangeView, CustomPasswordResetView, \
+    UserObjView
 
 urlpatterns = [
     # exclude default user and login APIs from django-rest-auth package
@@ -32,7 +32,10 @@ urlpatterns = [
     url(r'^registration/verify-username/$', verify_username_view, name='verity_username'),
     url(r'^password/change/$', MyPasswordChangeView.as_view(), name='rest_password_change'),
     url(r'^user-info/$', UserInfoView.as_view(), name=UserInfoView.name),
-    url(r'^facebook/$', FacebookLogin.as_view(), name='fb_login')
+    url(r'^user-obj/$', UserObjView.as_view(), name=UserObjView.name),
+    url(r'^facebook/$', FacebookLogin.as_view(), name='fb_login'),
+    url(r'^google/$', GoogleLogin.as_view(), name='google_login'),
+
     # url(r'^users/$', UserList.as_view(), name=UserList.name),
     # url(r'^users/(?P<pk>[0-9]+)$', UserDetail.as_view(), name=UserDetail.name),
 ]
