@@ -567,6 +567,8 @@ class Case(models.Model, HitCountMixin):
             gender=self.gender,
             is_official=self.is_official,
             interest=self.interest,
+            posted=self.author_posted or self.posted,
+            skip=self.skip or False,
             categories = [sub_cate_to_cate[item.name] for item in self.surgeries if item.name in sub_cate_to_cate] if self.surgeries else [],
             surgeries=[item.name for item in self.surgeries] if self.surgeries else [],
             id=str(self.uuid)  # uuid of case

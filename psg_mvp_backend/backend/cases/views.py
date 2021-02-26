@@ -352,6 +352,8 @@ class CaseSearchView(APIView):
             # print('check cache Time: %4f, has cache: %s' % (time.time() - start, True if cached_data else False))
             # cached_data = None # no this thing
             # TODO: open
+            logger.info("case search cache_key: %s" % cache_key)
+
             if cached_data and cached_data.get('response', {}):
                 return Response(cached_data.get('response', {}))
 
@@ -431,6 +433,20 @@ class CaseSearchView(APIView):
 
                 if req_body.get('gender', ''):
                     s = s.filter('term', gender=req_body['gender'])
+
+                #############################
+                #    Common stuff
+                #############################
+                # skip cases that are marked as skipped
+                s = s.filter('term', skip=False)
+
+                sorting_method = req_body.get('sorting', '')
+                if sorting_method == 'time':
+                    # sort by time first
+                    s = s.sort('-posted', '-interest')
+                else:
+                    # sort by interest (0-10) first
+                    s = s.sort('-interest', '-posted')
 
                 cnt = s.count()  # get number of hits
                 total_page = cnt // ES_PAGE_SIZE + 1
