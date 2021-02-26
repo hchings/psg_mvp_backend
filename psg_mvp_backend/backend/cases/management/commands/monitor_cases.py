@@ -40,7 +40,7 @@ class Command(BaseCommand):
             if not clinic_id and display_name and display_name not in missing_clinic_profile:
                 # print
                 missing_clinic_profile.add(display_name)
-                print("Case %s is missing clinic profile: %s" % display_name)
+                print("Case [%s] is missing clinic profile: %s" % (case.title, display_name))
 
             if clinic_id:
                 clinic_profile = ClinicProfile.objects.get(uuid=case.clinic.uuid)
