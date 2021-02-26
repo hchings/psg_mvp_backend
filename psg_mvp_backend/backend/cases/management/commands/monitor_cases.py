@@ -6,16 +6,11 @@ To run:
 
 """
 
-from elasticsearch_dsl import Search, Index, connections
-from elasticsearch.helpers import bulk
-from elasticsearch import Elasticsearch
 import coloredlogs, logging
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from cases.models import Case
-from cases.doc_type import CaseDoc
 from users.clinics.models import ClinicProfile
 
 
@@ -45,13 +40,13 @@ class Command(BaseCommand):
             if not clinic_id and display_name and display_name not in missing_clinic_profile:
                 # print
                 missing_clinic_profile.add(display_name)
-                print("Missing clinic profile: %s" % display_name)
+                print("Case %s is missing clinic profile: %s" % display_name)
 
             if clinic_id:
                 clinic_profile = ClinicProfile.objects.get(uuid=case.clinic.uuid)
                 if clinic_id not in missing_logo and not clinic_profile.logo:
                     missing_logo.add(clinic_id)
-                    print("Missing: logo", clinic_profile.display_name)
+                    print("Missing logo: %s" % clinic_profile.display_name)
 
         # clinic no logo
         # clinic name 未知
