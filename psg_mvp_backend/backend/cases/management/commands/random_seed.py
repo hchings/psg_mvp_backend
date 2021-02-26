@@ -40,16 +40,15 @@ class Command(BaseCommand):
     update_time = False
 
     def add_arguments(self, parser):
-        parser.add_argument('--overwrite', default=False)
-
-    def add_arguments(self, parser):
+        # TODO: not working
         parser.add_argument('--update-time', default=False)
+        parser.add_argument('--overwrite', default=False)
 
     def handle(self, *args, **options):
         self.overwrite = options.get('overwrite', False)
         self.update_time = options.get('update-time', False)
 
-        if not self.update_post_time:
+        if not self.update_time:
             logger.info('overwrite mode: %s' % self.overwrite)
             self.initialize_hit_count()
         else:
@@ -122,10 +121,9 @@ class Command(BaseCommand):
                 else:
                     case.author_posted = case.author_posted + mon_rel_3
             else:
-                if int(case.author_posted.month) < 6:
+                if int(case.posted.month) < 6:
                     case.posted = case.posted + mon_rel_6
                 else:
                     case.posted = case.posted + mon_rel_3
 
             case.save()
-

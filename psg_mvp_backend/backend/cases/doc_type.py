@@ -9,7 +9,7 @@ Ref: https://www.freshconsulting.com/how-to-create-a-fuzzy-search-as-you-type-fe
 
 """
 from elasticsearch_dsl import DocType, Text, \
-        analyzer, tokenizer, HalfFloat, Boolean, Keyword
+        analyzer, tokenizer, HalfFloat, Boolean, Keyword, Date
 
 analyzer_standard = analyzer(
     'standard',
@@ -50,6 +50,8 @@ class CaseDoc(DocType):
     interest = HalfFloat()  # interestingness
     categories = Keyword()
     surgeries = Text(analyzer=analyzer_cn, multi=True)  # unsure?
+    skip = Boolean()
+    posted = Date()
 
     # not query this, so no need analyzer
     id = Text()  # TODO: maybe a number or a more suitable field?
