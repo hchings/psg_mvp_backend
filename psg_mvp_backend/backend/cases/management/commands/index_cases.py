@@ -19,6 +19,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 from cases.models import Case
 from cases.doc_type import CaseDoc
+from cases.cache_signals import warmup_cache
 
 
 # Create a logger
@@ -36,6 +37,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.load_index(wipe_out=True)
+        # send out warm up signal
+        logger.info("Sending cache warmup signal..")
+        warmup_cache.send(sender=self.__class__)
 
     @staticmethod
     def load_index(wipe_out=False):
