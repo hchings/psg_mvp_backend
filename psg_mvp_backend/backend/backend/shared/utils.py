@@ -4,16 +4,21 @@ Fields Utilities
 """
 
 from time import time
+from datetime import datetime
+from datetime import date
 from random import SystemRandom
 import os, json
 import base64
 import hashlib
 from random import randint
+import coloredlogs, logging
 
 from django.conf import settings
 from django.core.cache import cache
 
 from backend.settings import FIXTURE_ROOT
+# global signal
+from cases.cache_signals import warmup_cache
 
 # an arbitrary start time for make_id()
 _START_TIME = 1529056153044
@@ -28,6 +33,10 @@ CATALOG_FILE = os.path.join(FIXTURE_ROOT, 'catalog.json')
 surgery_mat_list = []
 sub_cate = {}
 sub_cate_to_cate = {} # sub category to 1-st layer category
+
+# Create a logger
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG', logger=logger)
 
 
 def make_id():
@@ -182,6 +191,9 @@ def invalidate_cached_data(cache_key, case_search_wildcard=False):
 
         # wipe out the whole CASE_SEARCH_CACHE_KEYS
         CASE_SEARCH_CACHE_KEYS = set()
+
+        # warm up cache
+        warmup_cache.send(sender=__name__)
     else:
         # print("=====invalid cache key:", cache_key)
         cache.delete(cache_key)
@@ -199,3 +211,73 @@ def add_to_cache(cache_key, data, store_key=True):
     cache.set(cache_key, data)
     if store_key:
         CASE_SEARCH_CACHE_KEYS.add(cache_key)
+
+
+#######################################
+#    Engagement -- Randomized Search
+#######################################
+
+# The last date we got a random base
+LAST_BASE_DATE = 1
+PREV_BASE = 0
+
+# The last hr we shuffle the case. TW time.
+LAST_SHUFFLE_HOUR = 8
+PREV_RANDOM_SEED = 0 # seed to shuffle
+
+
+def get_randomize_seed(cache_key):
+    """
+    Get random seeds to shuffle cases order in case search api.
+
+    :param cache_key: current search key
+    :return:
+        shuffle? (boolean): if true, you need to shuffle case
+        seed (int): random seed for shuffle
+        base (int): add this base to your ES search
+    """
+    # initialize
+    shuffle, seed, base = False, 0, 0
+    clear_cache = False
+
+    global PREV_BASE
+    global LAST_SHUFFLE_HOUR
+    global LAST_BASE_DATE
+    global PREV_RANDOM_SEED
+
+    # generate a new shuffle
+    now = datetime.now()
+    current_hr = int(now.strftime("%H"))
+
+    # logger.info("[Random Seed]: current_hr=%s, last_shuffle_hr=%s" % (current_hr, LAST_SHUFFLE_HOUR))
+
+    if abs(current_hr - int(LAST_SHUFFLE_HOUR)) > 4:
+        shuffle = True
+        LAST_SHUFFLE_HOUR = current_hr
+        seed = randint(0, 10)
+        PREV_RANDOM_SEED = seed
+        clear_cache = True
+    else:
+        # use the original seed
+        seed = PREV_RANDOM_SEED
+
+    # generate a new base when a new day coming
+    today = date.today()
+    current_day = int(today.day)
+
+    # logger.info("[Random Seed]: current_day=%s, LAST_BASE_DATE=%s" % (current_day, LAST_BASE_DATE))
+
+    if current_day != LAST_BASE_DATE:
+        base = randint(0, 7)
+        LAST_BASE_DATE = current_day
+        PREV_BASE = base
+        clear_cache = True
+    else:
+        base = PREV_BASE
+
+    # clear cache
+    if clear_cache:
+        logger.info("Detect random seed changes... clearing cache.")
+        invalidate_cached_data(cache_key, True)
+
+    return shuffle, seed, base
