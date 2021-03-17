@@ -14,6 +14,7 @@ Install [docker](https://docs.docker.com/) on your local environment.
 
 ## B. To Run
 ### B.1 Development
+#### B.1.1 Local Setup
 1. Clone to code to your local env
 2. Run the following command, which will start all the instances.
 ```sh
@@ -37,6 +38,25 @@ $ docker-compose build web
 ```
 
 When running, the **Admin page** of the backend by default will be served at: `http://localhost:8000/admin`, and the Swagger Doc (Interactive API Doc) is at `http://localhost:8000`.
+
+#### B.1.2 To Restore Data into MongoDB
+First, put two given unzipped folder into the corresponding place:
+1. Put `dump/` under the top folder (the folder where README.md resides)
+2. Put `media/` under **psg_mvp_backend/** (in parallele to **fixtures/**)
+
+Then, run the backend (if you haven't, please refer to B.1.1) and step into mongoDB container to run the following commands:
+```
+$ mongorestore dump/
+```
+If your local mongoDB already have data, you'll need to run this first:
+```
+$ mongo
+$ use core_db
+$ db.dropDatabase()
+```
+
+
+
 
 ### B.2 Production
 #### B.2.1 To Run

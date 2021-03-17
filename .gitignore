@@ -92,3 +92,7 @@ psg_mvp_backend/backend/tags/migrations/__pycache__/
 psg_mvp_backend/backend/tags/migrations/
 
 psg_mvp_backend/nginx_logs/
+
+psg_mvp_backend/backend/htmlcov/
+
+psg_mvp_backend/backend/users/tests/__pycache__/

@@ -599,6 +599,7 @@ class CaseDetailSerializer(serializers.ModelSerializer):
                 else:
                     # return thumbnail base64 if it's read-only GET
                     self.fields['scp_user_pic'] = serializers.SerializerMethodField(required=False)
+                    self.fields['is_scp'] = serializers.SerializerMethodField()
         except KeyError:
             pass
 
@@ -871,6 +872,20 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         else:
             return embedded_model_method(obj, self.Meta.model, 'author',
                                          included_fields=['name', 'scp', 'scp_username'])
+
+    def get_is_scp(self, obj):
+        """
+        Return true if this case is scraped.
+
+        :param obj:
+        :return (boolean): true if is scp
+        """
+        try:
+            return obj.author.scp or False
+        except Exception as e:
+            logger.error("[Error] CaseDetailSerializer: %s" % str(e))
+            return False
+
 
     def get_posted(self, obj):
         """

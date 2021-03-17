@@ -5,6 +5,8 @@ API Views for Cases app.
 
 from collections import OrderedDict
 import time, sys
+import random
+from datetime import datetime
 
 from annoying.functions import get_object_or_None
 from actstream import actions, action
@@ -18,7 +20,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.pagination import PageNumberPagination
-from elasticsearch_dsl import Q
+from elasticsearch_dsl import Q, SF
 import coloredlogs, logging
 from django.contrib.contenttypes.models import ContentType
 from django.core.cache import cache
@@ -37,7 +39,7 @@ from .serializers import CaseDetailSerializer, CaseCardSerializer, CaseStatsSeri
 from .doc_type import CaseDoc
 from .tasks import send_case_invite
 from cases.management.commands.index_cases import Command
-from backend.shared.utils import make_id
+from backend.shared.utils import make_id, get_randomize_seed
 
 
 logger = logging.getLogger(__name__)
@@ -115,6 +117,7 @@ class CaseDetailView(UpdateConciseResponseMixin,
     # set to True to count the hit
     count_hit = True
     object = None
+    uuid = '' # so that we can pass it in with as_view()
 
     def retrieve(self, request, *args, **kwargs):
         """
@@ -134,13 +137,14 @@ class CaseDetailView(UpdateConciseResponseMixin,
 
         data = cache.get(cache_key)
 
+        if data:
+            # TODO: should open
+            logger.info("[Case Detail] - cache found: %s" % cache_key)
+            return Response(data)
+
         instance = self.get_object()
         self.object = instance
         self.get_context_data()
-        if data:
-            # TODO: should open
-            # pass
-            return Response(data)
 
         instance = self.get_object()
         serializer = self.get_serializer(instance)
@@ -175,7 +179,7 @@ class CaseDetailView(UpdateConciseResponseMixin,
 
     def get_context_data(self, **kwargs):
         context = super(HitCountDetailView, self).get_context_data(**kwargs)
-        logger.info("get_context_data: %s" % context)
+        # logger.info("get_context_data: %s" % context)
         if self.object:
             # print("------object", self.object)
 
@@ -203,7 +207,7 @@ class CaseDetailView(UpdateConciseResponseMixin,
             #                                                                 object_pk=self.object.uuid)
 
             # hit_count = get_hitcount_model().objects.get(object_pk=self.object.uuid)
-            logger.info("hit_count, created: %s, %s, %s" % (hit_count, created, hit_count.pk))
+            # logger.info("hit_count, created: %s, %s, %s" % (hit_count, created, hit_count.pk))
             hits = hit_count.hits
             context['hitcount'] = {'pk': hit_count.pk}
 
@@ -274,7 +278,7 @@ class CaseStatsView(APIView):
 
         cache_key = '_'.join(['case_search', str(sorted(req_body.items())), str(page)]).replace(" ", "")
         # cache_key = 'case_search_[]_0'
-        logger.info("cache key: %s" % cache_key)
+        # logger.info("cache key: %s" % cache_key)
         cached_data = cache.get(cache_key)  # should open
 
         ids = [] if not cached_data else cached_data.get('ids', [])
@@ -329,11 +333,10 @@ class CaseSearchView(APIView):
 
         # since this class does not inherit DRF's generics classes,
         # we need to prepare for the response data ourselves.
-        response = OrderedDict({})
+        response = OrderedDict()
 
         # ----- parse request body -----
         req_body = request.data
-        # print("request body for case search", req_body)
 
         try:
             # get page num from url para.
@@ -346,21 +349,24 @@ class CaseSearchView(APIView):
             # start = time.time()
             # start_all = time.time()
             cache_key = '_'.join(['case_search', str(sorted(req_body.items())), str(page)]).replace(" ", "")
-            logger.info("cache key: %s" % cache_key)
+
+            # check randomize
+            shuffle, seed, base = get_randomize_seed(cache_key)
+            logger.info("shuffle=%s, seed=%s, base=%s" % (shuffle, seed, base))
+
             cached_data = cache.get(cache_key)  # should open
 
             # print('check cache Time: %4f, has cache: %s' % (time.time() - start, True if cached_data else False))
             # cached_data = None # no this thing
             # TODO: open
-            logger.info("case search cache_key: %s" % cache_key)
-
             if cached_data and cached_data.get('response', {}):
+                logger.info("[Case Search] Found %s in cache" % cache_key)
                 return Response(cached_data.get('response', {}))
 
             # if no cache case ids
             # start = time.time()
             if not cached_data or not cached_data['ids']:
-                # print("no cache found!!!!")
+                logger.info("[Case Search] No cache found: %s" % cache_key)
                 q_combined = None
                 if req_body:
                     # 1. check surgeries col
@@ -415,6 +421,19 @@ class CaseSearchView(APIView):
                 if q_combined is None:
                     q_combined = Q({"match_all": {}})
 
+                # this can't do per page randomness
+                # q_combined &
+                # q_combined = Q(
+                #     "function_score",
+                #     query=q_combined,
+                #     functions=[
+                #         SF("random_score",
+                #            seed=52,
+                #            # field="_seq_no"
+                #         )
+                #     ],
+                # )
+
                 # check
                 if page == 0 and not req_body:
                     # worst case
@@ -423,7 +442,6 @@ class CaseSearchView(APIView):
                         CaseDoc.init()
 
                 s = CaseDoc.search(index='cases')  # specify search DocType
-
                 # add ES query, and only return the id field
                 s = s.query(q_combined).source(includes=['id'])
 
@@ -455,7 +473,7 @@ class CaseSearchView(APIView):
                     return Response({'error': 'exceeds page num.'})
 
                 # Only take minimum number of records that you need for this page from ES by slicing
-                res = s[page * ES_PAGE_SIZE: min((page + 1) * ES_PAGE_SIZE, cnt)].execute()
+                res = s[((page + base) % total_page) * ES_PAGE_SIZE: min((((page + base) % total_page) + 1) * ES_PAGE_SIZE, cnt)].execute()
                 response_dict = res.to_dict()
 
                 # print("get result", response_dict)
@@ -482,7 +500,7 @@ class CaseSearchView(APIView):
             # get the corresponding objects from mongo.
             # however, Django ORM returns the results in a different order,
             # but it doesn't matter as I only need to get the logos.
-            start = time.time()
+            # start = time.time()
 
             # queryset = Case.objects.filter(uuid__in=ids)
             #
@@ -511,6 +529,10 @@ class CaseSearchView(APIView):
 
             # case_list.sort(key=lambda case: ids.index(case.uuid))
             case_list = [tmp_dict[id] for id in ids]
+
+            if shuffle:
+                random.seed(seed)
+                random.shuffle(case_list)
 
             # print('Sort Time: %4f' % (time.time() - start))
 
@@ -542,6 +564,8 @@ class CaseSearchView(APIView):
                 serializer_logo = ClinicLogoSerializer(queryset_logos, many=True, context={'request': request})
                 # add back info that are not stored in ES engine.
                 # since there are only a few fields. It's faster to skip serializer.
+                print(request, request.META)
+
                 logo_dict = {item['uuid']: item['logo_thumbnail_small'] for item in serializer_logo.data}
 
                 # print('Logo dict Time 1.2: %4f' % (time.time() - start2))
@@ -591,7 +615,7 @@ class CaseSearchView(APIView):
             filename = f.f_code.co_filename
 
             logger.error("ES Failed on search cases with query %s: %s on line %s in %s"
-                         % (req_body, e, sys.exc_info()[-1].tb_lineno, filename))
+                         % (req_body, str(e), sys.exc_info()[-1].tb_lineno, filename))
 
             # cases = Case.objects.all()
             # serializer = CaseCardSerializer(cases, many=True,

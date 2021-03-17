@@ -251,6 +251,7 @@ DEFAULT_FROM_EMAIL = 'Surgi.fyi'
 EMAIL_USE_SSL = False
 # self defined
 EMAIL_WITH_DISPLAY_NAME = 'Surgi <%s>' % EMAIL_HOST_USER
+BCC_EMAIL = 'nancy@surgi.fyi'
 ###################################
 #     django-alluth seetings
 ###################################
@@ -370,7 +371,6 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {
     'interval_step': 0.5,
     'interval_max': 3,
 }
-
 
 ######################################
 #        Django Social Auth

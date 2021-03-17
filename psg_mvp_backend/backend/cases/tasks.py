@@ -11,9 +11,10 @@ import html2text
 from django.template.loader import render_to_string
 # from django.utils.html import strip_tags
 from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives # the underlying class of send_mail
 from django.contrib.auth import get_user_model
 
-from backend.settings import EMAIL_WITH_DISPLAY_NAME
+from backend.settings import EMAIL_WITH_DISPLAY_NAME, BCC_EMAIL
 
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
@@ -53,8 +54,21 @@ def send_case_in_review_confirmed(user_uuid, first_tag, title, case_id):
     subject = "🚀 Surgi正在檢閱你的%s整型案例" % first_tag
 
     try:
-        send_mail(subject, msg_text, EMAIL_WITH_DISPLAY_NAME,
-                  [email], html_message=msg_html)
+        # send_mail(subject, msg_text, EMAIL_WITH_DISPLAY_NAME,
+        #           [email], html_message=msg_html)
+
+        # send_mail does not support BCC,
+        # need to use this class instead.
+        email = EmailMultiAlternatives(
+            subject,
+            msg_text,
+            EMAIL_WITH_DISPLAY_NAME,
+            [email],
+            [BCC_EMAIL],
+            reply_to=[BCC_EMAIL]
+        )
+        email.attach_alternative(msg_html, "text/html")
+        email.send(fail_silently=False)
     except Exception as e:
         logger.error("[Error] send_case_in_review_confirmed 2: %s" % str(e))
 
