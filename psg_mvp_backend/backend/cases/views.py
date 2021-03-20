@@ -46,9 +46,6 @@ from backend.shared.utils import make_id, get_randomize_seed
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
 
-# for getting actions
-case_content_type = ContentType.objects.get(model='case')
-
 # TODO: WIP
 # _prep_subcate()
 
@@ -243,7 +240,10 @@ class CaseUserActionView(APIView):
 
         response = OrderedDict({})
 
-            # get list of saved actions, shouldn't have duplicate
+        # for getting actions
+        case_content_type = ContentType.objects.get(model='case')
+
+        # get list of saved actions, shouldn't have duplicate
 
         liked_cases = user.actor_actions.filter(action_object_content_type=case_content_type,
                                                 verb='like') or []
@@ -696,6 +696,9 @@ class CaseActionList(generics.ListAPIView):
 
         if not user:
             return []
+
+        # for getting actions
+        case_content_type = ContentType.objects.get(model='case')
 
         # get list of saved actions, shouldn't have duplicate
         saved_cases = user.actor_actions.filter(action_object_content_type=case_content_type,

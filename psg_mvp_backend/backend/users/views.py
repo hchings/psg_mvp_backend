@@ -51,8 +51,6 @@ coloredlogs.install(level='DEBUG', logger=logger)
 # fixed otp length
 OTP_LENGTH = 6
 
-# for getting actions
-case_content_type = ContentType.objects.get(model='case')
 
 
 # --- Auth ---
@@ -204,6 +202,7 @@ class UserInfoView(generics.RetrieveUpdateAPIView):
 
         # 1. get saved cnt
         user = request.user
+        case_content_type = ContentType.objects.get(model='case')
         saved_cases = user.actor_actions.filter(action_object_content_type=case_content_type,
                                                 verb='save')
 

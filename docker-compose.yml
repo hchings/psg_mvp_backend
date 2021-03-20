@@ -17,7 +17,7 @@ services:
       - "27017:27017"
   web:
     build: ./psg_mvp_backend
-    # command: python3 ./backend/manage.py runserver 0.0.0.0:8000
+#    command: python3 ./backend/manage.py runserver 0.0.0.0:8000
     command: [sh, -c, "python3 ./backend/manage.py makemigrations && \
                        python3 ./backend/manage.py migrate && \
                        python3 ./backend/manage.py runserver 0.0.0.0:8000 && \
@@ -67,9 +67,9 @@ services:
       - ./psg_mvp_backend:/code
     environment:
 #       - CELERY_BROKER_URL=redis://:p6fd93ffd394f708a7a39d4b61715309ae6d6625e42ce95d3e8771507e2ede6a3@ec2-54-243-217-95.compute-1.amazonaws.com:22449
-      - CELERY_BROKER_URL =redis://redis:6379/0'
-      - CELERY_ACCEPT_CONTENT = ['json']
-      - CELERY_TASK_SERIALIZER = 'json'
+      - CELERY_BROKER_URL=redis://redis:6379/0'
+      - CELERY_ACCEPT_CONTENT=['json']
+      - CELERY_TASK_SERIALIZER='json'
     links:
       - redis
     depends_on:
