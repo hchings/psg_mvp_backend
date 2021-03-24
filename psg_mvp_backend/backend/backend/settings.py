@@ -433,3 +433,9 @@ ACCOUNT_EMAIL_REQUIRED = True
 
 # frontend
 URL_FRONT = 'surgi.fyi'
+
+
+########################
+#   Hit Count Config
+########################
+HITCOUNT_KEEP_HIT_ACTIVE = { 'minutes': 3 }
