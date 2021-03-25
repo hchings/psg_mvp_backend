@@ -26,7 +26,7 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: backend.settings
     volumes:
-      - ./psg_mvp_backend:/code
+      - ./psg_mvp_backend:/project
     ports:
       - "8000:8000"
     depends_on:
@@ -64,7 +64,7 @@ services:
     command: [sh, -c, "cd ./backend && \
                        celery -A backend worker -l info"]
     volumes:
-      - ./psg_mvp_backend:/code
+      - ./psg_mvp_backend:/project
     environment:
 #       - CELERY_BROKER_URL=redis://:p6fd93ffd394f708a7a39d4b61715309ae6d6625e42ce95d3e8771507e2ede6a3@ec2-54-243-217-95.compute-1.amazonaws.com:22449
       - CELERY_BROKER_URL=redis://redis:6379/0'
