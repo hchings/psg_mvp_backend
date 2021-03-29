@@ -878,3 +878,44 @@ class CaseSendInvite(generics.ListCreateAPIView):
 
         return Response({'succeed': 'invite email sent'}, status.HTTP_201_CREATED)
 
+
+#######################
+#    For Scully
+#######################
+
+class CaseSignatureView(generics.RetrieveAPIView):
+    """
+    For Scully route scrapping, return a list of case signatures for published cases.
+
+    """
+    name = 'case-signature'
+    max_token_length = 2
+
+    def _gen_siganture(self, case):
+        surgeries = case.surgeries
+
+        if not surgeries:
+            return str(case.uuid)
+
+        surgeries = surgeries[:min(len(surgeries), self.max_token_length)]
+        signature = ''
+        for item in surgeries:
+            signature += item.name.strip()
+
+        signature += str(case.uuid)
+
+        return signature
+
+    def get(self, request):
+        """
+        :param request:
+        :return(list of dict):  [{'id': '隆乳-2396002630723417'}]
+        """
+        cases = Case.objects.filter(state='published')
+
+        signatures = []
+
+        for case in cases:
+            signatures.append({'id': self._gen_siganture(case)})
+
+        return Response(signatures, status.HTTP_200_OK)
