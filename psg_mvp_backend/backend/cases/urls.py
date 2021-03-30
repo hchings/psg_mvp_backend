@@ -9,7 +9,7 @@ from django.conf.urls import url
 from .views import CaseDetailView, CaseList, CaseSearchView, \
     CaseManageListView, CaseActionList, like_unlike_case, \
     CaseInviteTokenGenView, CaseInviteInfoDetail, CaseSendInvite, CaseStatsView, \
-    CaseUserActionView
+    CaseUserActionView, CaseSignatureView
 
 urlpatterns = [
     url(r'^$', CaseList.as_view(), name=CaseList.name),
@@ -34,4 +34,5 @@ urlpatterns = [
     url(r'^invite-gen/$', CaseInviteTokenGenView.as_view(), name=CaseInviteTokenGenView.name),
     url(r'^invite-info/$', CaseInviteInfoDetail.as_view(), name=CaseInviteInfoDetail.name),
     url(r'^send-invite/$', CaseSendInvite.as_view(), name=CaseSendInvite.name),
+    url(r'^signatures/$', CaseSignatureView.as_view(), name=CaseSignatureView.name),
 ]
