@@ -1,6 +1,6 @@
 import factory
 
-from cases.models import Case, UserInfo
+from cases.models import Case, UserInfo, ClinicInfo
 
 
 class CaseFactory(factory.django.DjangoModelFactory):
@@ -15,4 +15,5 @@ class CaseFactory(factory.django.DjangoModelFactory):
     title = 'testtitle'
     author = factory.LazyAttribute(lambda params: UserInfo(name=params.username, uuid=params.uuid))
     state = factory.LazyAttribute(lambda params: params.state_choice)
+    clinic = ClinicInfo()
 
