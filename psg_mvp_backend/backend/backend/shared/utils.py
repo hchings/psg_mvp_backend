@@ -226,11 +226,14 @@ LAST_SHUFFLE_HOUR = 8
 PREV_RANDOM_SEED = 0 # seed to shuffle
 
 
-def get_randomize_seed(cache_key):
+def get_randomize_seed(cache_key, ignore_base=False):
     """
     Get random seeds to shuffle cases order in case search api.
 
-    :param cache_key: current search key
+    :param
+        cache_key(str): current search key
+        ignore_base(boolean): set to true to always get 0 as base.
+                              This can be used when you don't want to minimize the random affect.
     :return:
         shuffle? (boolean): if true, you need to shuffle case
         seed (int): random seed for shuffle
@@ -262,18 +265,22 @@ def get_randomize_seed(cache_key):
         seed = PREV_RANDOM_SEED
 
     # generate a new base when a new day coming
-    today = date.today()
-    current_day = int(today.day)
-
-    # logger.info("[Random Seed]: current_day=%s, LAST_BASE_DATE=%s" % (current_day, LAST_BASE_DATE))
-
-    if current_day != LAST_BASE_DATE:
-        base = randint(0, 7)
-        LAST_BASE_DATE = current_day
+    if ignore_base:
+        base = 0
         PREV_BASE = base
-        clear_cache = True
     else:
-        base = PREV_BASE
+        today = date.today()
+        current_day = int(today.day)
+
+        # logger.info("[Random Seed]: current_day=%s, LAST_BASE_DATE=%s" % (current_day, LAST_BASE_DATE))
+
+        if current_day != LAST_BASE_DATE:
+            base = randint(0, 7)
+            LAST_BASE_DATE = current_day
+            PREV_BASE = base
+            clear_cache = True
+        else:
+            base = PREV_BASE
 
     # clear cache
     if clear_cache:
