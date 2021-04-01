@@ -6,7 +6,8 @@ API Views for Cases app.
 from collections import OrderedDict
 import time, sys
 import random
-from datetime import datetime
+from urllib.parse import quote
+# from datetime import datetime
 
 from annoying.functions import get_object_or_None
 from actstream import actions, action
@@ -250,10 +251,6 @@ class CaseUserActionView(APIView):
         saved_cases = user.actor_actions.filter(action_object_content_type=case_content_type,
                                                 verb='save') or []
 
-        print("liked_cases", liked_cases)
-        print("saved_cases", saved_cases)
-
-
         response['liked'] = {item.action_object.uuid: True for item in liked_cases if hasattr(item.action_object, 'uuid')}
         response['saved'] = {item.action_object.uuid: True for item in saved_cases if hasattr(item.action_object, 'uuid')}
         return Response(response, status.HTTP_200_OK)
@@ -350,10 +347,6 @@ class CaseSearchView(APIView):
             # start_all = time.time()
             cache_key = '_'.join(['case_search', str(sorted(req_body.items())), str(page)]).replace(" ", "")
 
-            # check randomize
-            shuffle, seed, base = get_randomize_seed(cache_key)
-            logger.info("shuffle=%s, seed=%s, base=%s" % (shuffle, seed, base))
-
             cached_data = cache.get(cache_key)  # should open
 
             # print('check cache Time: %4f, has cache: %s' % (time.time() - start, True if cached_data else False))
@@ -365,99 +358,103 @@ class CaseSearchView(APIView):
 
             # if no cache case ids
             # start = time.time()
-            if not cached_data or not cached_data['ids']:
-                logger.info("[Case Search] No cache found: %s" % cache_key)
-                q_combined = None
-                if req_body:
-                    # 1. check surgeries col
-                    surgeries = req_body.get('surgeries', [])
-                    # If it's a defined surgery tag, we don't search on clinic name
-                    if surgeries:
-                        q_surgeries = None
-                        for item in surgeries:
-                            # give more weight on 'surgeries' field
-                            # hard-coded words that I don't want to trigger in search
-                            q_new = Q("match_phrase",
-                                      surgeries=item)
-                            if '唇' in item:
-                                # TODO: this is a bad hacky way to not show 豐唇 and 縮唇 in the same result
-                                q_new_2 = Q("match_phrase",
-                                            title=item)
-                            else:
-                                item_cleaned = item
-                                for word in self.generic_terms:
-                                    item_cleaned = item_cleaned.replace(word, '')
+            logger.info("[Case Search] No cache found: %s" % cache_key)
+            q_combined = None
+            if req_body:
+                # 1. check surgeries col
+                surgeries = req_body.get('surgeries', [])
+                # If it's a defined surgery tag, we don't search on clinic name
+                if surgeries:
+                    q_surgeries = None
+                    for item in surgeries:
+                        # give more weight on 'surgeries' field
+                        # hard-coded words that I don't want to trigger in search
+                        q_new = Q("match_phrase",
+                                  surgeries=item)
+                        if '唇' in item:
+                            # TODO: this is a bad hacky way to not show 豐唇 and 縮唇 in the same result
+                            q_new_2 = Q("match_phrase",
+                                        title=item)
+                        else:
+                            item_cleaned = item
+                            for word in self.generic_terms:
+                                item_cleaned = item_cleaned.replace(word, '')
 
-                                # expand the search on title fields
-                                q_new_2 = Q("multi_match",
-                                            query=item_cleaned,
-                                            fields=["surgeries^2", "title"])
-                            q_surgeries = (q_new | q_new_2) if not q_surgeries else q_surgeries | q_new | q_new_2
+                            # expand the search on title fields
+                            q_new_2 = Q("multi_match",
+                                        query=item_cleaned,
+                                        fields=["surgeries^2", "title"])
+                        q_surgeries = (q_new | q_new_2) if not q_surgeries else q_surgeries | q_new | q_new_2
 
-                        q_combined = q_surgeries
+                    q_combined = q_surgeries
 
-                    # 2. check other col, which stores undefined tags (free-text)
-                    frees = req_body.get('frees', [])
-                    # OR on all other search query
-                    # TODO: WIP
-                    if frees:
-                        q_free = None
-                        for item in frees:
-                            # give more weight on 'surgeries' field
-                            q_new = Q("multi_match",
-                                      query=item,
-                                      fields=["surgeries^2", "title", "clinic_name"])
-                            q_free = q_new if not q_free else q_free | q_new
-                            # print("chain oth, ", q_new)
+                # 2. check other col, which stores undefined tags (free-text)
+                frees = req_body.get('frees', [])
+                # OR on all other search query
+                # TODO: WIP
+                if frees:
+                    q_free = None
+                    for item in frees:
+                        # give more weight on 'surgeries' field
+                        # Can add ^2 to surgeries.
+                        q_new = Q("multi_match",
+                                  query=item,
+                                  fields=["surgeries", "title", "clinic_name"])
+                        q_free = q_new if not q_free else q_free | q_new
+                        # print("chain oth, ", q_new)
 
-                        q_combined = q_free if not q_combined else q_combined | q_free
+                    q_combined = q_free if not q_combined else q_combined | q_free
 
-                    others = req_body.get('others', [])
-                    if others:
-                        # q_new = Search(index='cases').query('terms', categories=others)
-                        q_new = Q("terms", categories=others)
-                        q_combined = q_combined | q_new if q_combined else q_new
+                others = req_body.get('others', [])
+                if others:
+                    # q_new = Search(index='cases').query('terms', categories=others)
+                    q_new = Q("terms", categories=others)
+                    q_combined = q_combined | q_new if q_combined else q_new
 
-                if q_combined is None:
-                    q_combined = Q({"match_all": {}})
+            if q_combined is None:
+                q_combined = Q({"match_all": {}})
 
-                # this can't do per page randomness
-                # q_combined &
-                # q_combined = Q(
-                #     "function_score",
-                #     query=q_combined,
-                #     functions=[
-                #         SF("random_score",
-                #            seed=52,
-                #            # field="_seq_no"
-                #         )
-                #     ],
-                # )
+            # this can't do per page randomness
+            # q_combined &
+            # q_combined = Q(
+            #     "function_score",
+            #     query=q_combined,
+            #     functions=[
+            #         SF("random_score",
+            #            seed=52,
+            #            # field="_seq_no"
+            #         )
+            #     ],
+            # )
 
-                # check
-                if page == 0 and not req_body:
-                    # worst case
-                    if Command.ensure_index_exist():
-                        time.sleep(1)
-                        CaseDoc.init()
+            # check
+            if page == 0 and not req_body:
+                # worst case
+                if Command.ensure_index_exist():
+                    time.sleep(1)
+                    CaseDoc.init()
 
-                s = CaseDoc.search(index='cases')  # specify search DocType
-                # add ES query, and only return the id field
-                s = s.query(q_combined).source(includes=['id'])
+            s = CaseDoc.search(index='cases')  # specify search DocType
+            # add ES query, and only return the id field
+            s = s.query(q_combined).source(includes=['id'])
 
-                # add filters, note to use "term" instead of "match"
-                if 'is_official' in req_body:
-                    s = s.filter('term', is_official=req_body['is_official'] or False)
+            # add filters, note to use "term" instead of "match"
+            if 'is_official' in req_body:
+                s = s.filter('term', is_official=req_body['is_official'] or False)
 
-                if req_body.get('gender', ''):
-                    s = s.filter('term', gender=req_body['gender'])
+            if req_body.get('gender', ''):
+                s = s.filter('term', gender=req_body['gender'])
 
-                #############################
-                #    Common stuff
-                #############################
-                # skip cases that are marked as skipped
-                s = s.filter('term', skip=False)
+            #############################
+            #    Common stuff
+            #############################
+            # skip cases that are marked as skipped
+            s = s.filter('term', skip=False)
 
+            # a boolean to indicate whether the search is triggered by free type-in
+            has_free_search = True if req_body.get('frees', []) else False
+            # only do sort when there's no free search TODO: check this
+            if not has_free_search:
                 sorting_method = req_body.get('sorting', '')
                 if sorting_method == 'time':
                     # sort by time first
@@ -466,34 +463,38 @@ class CaseSearchView(APIView):
                     # sort by interest (0-10) first
                     s = s.sort('-interest', '-posted')
 
-                cnt = s.count()  # get number of hits
-                total_page = cnt // ES_PAGE_SIZE + 1
-
-                if page >= total_page:
-                    return Response({'error': 'exceeds page num.'})
-
-                # Only take minimum number of records that you need for this page from ES by slicing
-                res = s[((page + base) % total_page) * ES_PAGE_SIZE: min((((page + base) % total_page) + 1) * ES_PAGE_SIZE, cnt)].execute()
-                response_dict = res.to_dict()
-
-                # print("get result", response_dict)
-
-                hits = response_dict['hits']['hits']
-
-                data, ids = [], []
-                data_dict = {}  # for storing an Q(1) mapping from id to source document
-                for hit in hits:
-                    hit['_source']['score'] = hit.get('_score', '')
-                    doc = hit['_source']
-                    # doc.pop('open_sunday')
-                    data.append(doc)
-                    ids.append(int(hit['_source']['id']))
-                    data_dict[hit['_source']['id']] = data[-1]
-
+                # check randomize
+                ignore_base = True if req_body else False
+                shuffle, seed, base = get_randomize_seed(cache_key, ignore_base=ignore_base)
+                logger.info("shuffle=%s, seed=%s, base=%s" % (shuffle, seed, base))
             else:
-                # use cached value
-                # ids = cached_data['ids']
-                pass
+                # no suffle. seed is irrelevant when shuffle set to false
+                shuffle, seed, base = False, 0, 0
+
+            cnt = s.count()  # get number of hits
+            total_page = cnt // ES_PAGE_SIZE + 1
+
+            if page >= total_page:
+                return Response({'error': 'exceeds page num.'})
+
+            # Only take minimum number of records that you need for this page from ES by slicing
+            res = s[((page + base) % total_page) * ES_PAGE_SIZE: min((((page + base) % total_page) + 1) * ES_PAGE_SIZE, cnt)].execute()
+            response_dict = res.to_dict()
+
+            # print("get result", response_dict)
+
+            hits = response_dict['hits']['hits']
+
+            data, ids = [], []
+            data_dict = {}  # for storing an Q(1) mapping from id to source document
+            for hit in hits:
+                hit['_source']['score'] = hit.get('_score', '')
+                doc = hit['_source']
+                # doc.pop('open_sunday')
+                data.append(doc)
+                ids.append(int(hit['_source']['id']))
+                data_dict[hit['_source']['id']] = data[-1]
+
 
             # print('ES Time: %4f' % (time.time() - start))
 
@@ -564,7 +565,6 @@ class CaseSearchView(APIView):
                 serializer_logo = ClinicLogoSerializer(queryset_logos, many=True, context={'request': request})
                 # add back info that are not stored in ES engine.
                 # since there are only a few fields. It's faster to skip serializer.
-                print(request, request.META)
 
                 logo_dict = {item['uuid']: item['logo_thumbnail_small'] for item in serializer_logo.data}
 
@@ -902,7 +902,9 @@ class CaseSignatureView(generics.RetrieveAPIView):
         for item in surgeries:
             signature += item.name.strip()
 
-        signature += str(case.uuid)
+        # Scully Puppteer will have issue if the url is not percent encoded
+        # so we ensure the return case signatures are all encoded here.
+        signature = quote(signature) + '-' + str(case.uuid)
 
         return signature
 
