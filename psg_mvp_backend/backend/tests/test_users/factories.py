@@ -4,6 +4,10 @@ from users.models import User
 
 
 class UserFactory(factory.django.DjangoModelFactory):
+    """
+    Factory class to create a test user object.
+    """
+
     class Meta:
         model = User
 
@@ -16,6 +20,10 @@ class UserFactory(factory.django.DjangoModelFactory):
 
 
 class AdminUserFactory(factory.django.DjangoModelFactory):
+    """
+    Factory class to create a test admin user object.
+    """
+
     class Meta:
         model = User
 
