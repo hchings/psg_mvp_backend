@@ -904,7 +904,9 @@ class CaseSignatureView(generics.RetrieveAPIView):
 
         # Scully Puppteer will have issue if the url is not percent encoded
         # so we ensure the return case signatures are all encoded here.
-        signature = quote(signature) + '-' + str(case.uuid)
+        # signature = quote(signature) + '-' + str(case.uuid)
+        # signature = signature + '-' + str(case.uuid)
+        signature = str(case.uuid)
 
         return signature
 
