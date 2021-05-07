@@ -40,8 +40,7 @@ from users.doctors.models import DoctorProfile
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
 
-# for getting actions
-clinic_content_type = ContentType.objects.get(model='clinicprofile')
+
 
 
 class ClinicPublicList(generics.ListAPIView):
@@ -298,6 +297,9 @@ class ClinicSavedList(generics.ListAPIView):
         if not user:
             return []
 
+        # for getting actions
+        clinic_content_type = ContentType.objects.get(model='clinicprofile')
+
         saved_clinics = user.actor_actions.filter(action_object_content_type=clinic_content_type,
                                                   verb='save')
         unsaved_clinics = user.actor_actions.filter(action_object_content_type=clinic_content_type,
@@ -339,6 +341,9 @@ class ClinicActionList(generics.ListAPIView):
 
         if not user:
             return []
+
+        # for getting actions
+        clinic_content_type = ContentType.objects.get(model='clinicprofile')
 
         # get list of saved actions, shouldn't have duplicate
         saved_cases = user.actor_actions.filter(action_object_content_type=clinic_content_type,

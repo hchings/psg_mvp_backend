@@ -38,6 +38,7 @@ djangorestframework==3.9.2
 djongo==1.2.32
 elasticsearch==7.0.2
 elasticsearch-dsl==7.0.0
+factory_boy==3.2.0
 googlemaps==3.0.2
 gunicorn==20.0.4
 hanziconv==0.3.2
