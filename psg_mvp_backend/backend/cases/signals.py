@@ -55,12 +55,11 @@ def fill_in_on_create(sender, instance, created, **kwargs):
         # Check whether author is staff (i.e., have access to admin site)
         # if yes, mark the case as scraped
 
-        # author_name = instance.author.name
-        #
-        # if author_name:
-        #     user = get_object_or_None(User, username=author_name)
-        #     if user and user.is_staff:
-        #         instance.author.scp = True
+        author_name = instance.author.name
+        if author_name:
+            user = get_object_or_None(User, username=author_name)
+            if user and user.is_staff:
+                instance.author.scp = True
         #
         # print("updated a p to ", instance.posted)
         # instance.author_posted = instance.posted

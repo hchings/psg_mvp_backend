@@ -105,7 +105,7 @@ class Command(BaseCommand):
         :return:
         """
         # TODO: temp hardcoded
-        d = datetime.date(2020, 11, 1)
+        d = datetime.date(2020, 12, 31)
         cases = Case.objects.filter(Q(posted__lte=d) | Q(author_posted__lte=d))
 
         logger.info('%s cases updated prior to %s, their author_posted or posted fields will be changed...' %
@@ -115,15 +115,14 @@ class Command(BaseCommand):
         mon_rel_6 = relativedelta(months=6)
 
         for case in cases:
+            timestamp = case.author_posted or case.posted
+            delta = mon_rel_6 if int(timestamp.month) < 9 else mon_rel_3
             if case.author_posted:
-                if int(case.author_posted.month) < 6:
-                    case.author_posted = case.author_posted + mon_rel_6
-                else:
-                    case.author_posted = case.author_posted + mon_rel_3
+                case.author_posted = case.author_posted + delta
             else:
-                if int(case.posted.month) < 6:
-                    case.posted = case.posted + mon_rel_6
-                else:
-                    case.posted = case.posted + mon_rel_3
+                case.posted = case.posted + delta
 
-            case.save()
+            logger.info("%s -> %s" %  (timestamp, case.author_posted or case.posted))
+
+            if self.overwrite:
+                case.save()

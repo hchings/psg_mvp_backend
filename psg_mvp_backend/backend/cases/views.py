@@ -13,6 +13,8 @@ from annoying.functions import get_object_or_None
 from actstream import actions, action
 from hitcount.views import HitCountDetailView
 from hitcount.utils import RemovedInHitCount13Warning, get_hitcount_model
+from elasticsearch_dsl import Q, SF
+import coloredlogs, logging
 
 from rest_framework import generics, permissions, status
 from rest_framework.decorators import api_view
@@ -21,26 +23,22 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.pagination import PageNumberPagination
-from elasticsearch_dsl import Q, SF
-import coloredlogs, logging
 from django.contrib.contenttypes.models import ContentType
 from django.core.cache import cache
 from django.contrib.auth import get_user_model
-# from django.db.models import When
 
+from utils.drf.custom_fields import Base64ImageField
 from backend.settings import ES_PAGE_SIZE
 from backend.shared.permissions import AdminCanGetAuthCanPost
-from backend.shared.utils import add_to_cache, _prep_subcate
+from backend.shared.utils import add_to_cache, _prep_subcate, make_id, get_randomize_seed
+from cases.management.commands.index_cases import Command
 from users.clinics.models import ClinicProfile
 from .serializers import ClinicLogoSerializer
-from utils.drf.custom_fields import Base64ImageField
 from .models import Case, CaseInviteToken
 from .mixins import UpdateConciseResponseMixin, MyHitCountMixin
 from .serializers import CaseDetailSerializer, CaseCardSerializer, CaseStatsSerializer
 from .doc_type import CaseDoc
 from .tasks import send_case_invite
-from cases.management.commands.index_cases import Command
-from backend.shared.utils import make_id, get_randomize_seed
 
 
 logger = logging.getLogger(__name__)
@@ -49,15 +47,10 @@ coloredlogs.install(level='DEBUG', logger=logger)
 # for getting actions
 case_content_type = ContentType.objects.get(model='case')
 
-# TODO: WIP
-# _prep_subcate()
-
 
 # -------------------------------------------------------
 #  For searching on cases or get a default list of cases
 # -------------------------------------------------------
-
-
 class CaseList(generics.ListCreateAPIView):
     """
     get: Return a list of posts with complete info.
@@ -93,8 +86,6 @@ class CaseList(generics.ListCreateAPIView):
 # -------------------------------------------------------
 #  For searching on cases or get a default list of cases
 # -------------------------------------------------------
-
-
 # Note the inherit order matters due to MRO.
 class CaseDetailView(UpdateConciseResponseMixin,
                      generics.RetrieveUpdateDestroyAPIView,
@@ -154,16 +145,13 @@ class CaseDetailView(UpdateConciseResponseMixin,
 
     def patch(self, request, *args, **kwargs):
         """
-        TODO: WIP
+        TODO: need revamp
         Customize Patch Response to send back:
         # 1) img url (if the patch request contains update in ImageField)
         # 2) Empty (else)
 
         """
-
-        # TODO: tmp, WIP
         other_imgs_list = []
-        # TODO: WIP. very bad hard coded number.
         keys = request.data.keys() or []
 
         for key in keys:
@@ -171,7 +159,6 @@ class CaseDetailView(UpdateConciseResponseMixin,
                 other_imgs_list.append({'img': request.data[key],
                                         'caption': ''})
 
-        # print("other_imgs_list", other_imgs_list)
         if other_imgs_list:
             request.data['other_imgs'] = other_imgs_list
 
@@ -182,15 +169,7 @@ class CaseDetailView(UpdateConciseResponseMixin,
         context = super(HitCountDetailView, self).get_context_data(**kwargs)
         # logger.info("get_context_data: %s" % context)
         if self.object:
-            # print("------object", self.object)
-
-            # def get_for_object(self, obj):
             ctype = ContentType.objects.get_for_model(self.object)
-            # print("======ctype", ctype)
-            #     hit_count, created = self.get_or_create(
-            #         content_type=ctype, object_pk=obj.pk)
-            #     return hit_count
-
             hitCountModel = get_hitcount_model()
 
             # force assign pk to numeric.
@@ -204,19 +183,12 @@ class CaseDetailView(UpdateConciseResponseMixin,
                 hit_count.save()
                 created = True
 
-            # hit_count, created = get_hitcount_model().objects.get_or_create(content_type=ctype,
-            #                                                                 object_pk=self.object.uuid)
-
-            # hit_count = get_hitcount_model().objects.get(object_pk=self.object.uuid)
             # logger.info("hit_count, created: %s, %s, %s" % (hit_count, created, hit_count.pk))
             hits = hit_count.hits
             context['hitcount'] = {'pk': hit_count.pk}
 
-            # print("~~~~~~~~~~hit---", hits, hit_count)
-
             if self.count_hit:
                 hit_count_response = self.hit_count_m(self.request, hit_count)
-                # print("hcr", hit_count_response, hit_count_response.hit_counted)
                 if hit_count_response.hit_counted:
                     hits = hits + 1
                 context['hitcount']['hit_counted'] = hit_count_response.hit_counted
@@ -234,7 +206,6 @@ class CaseUserActionView(APIView):
     name = 'case-user-action'
 
     def get(self, request):
-
         user = request.user
 
         # for unlogin user
@@ -242,20 +213,14 @@ class CaseUserActionView(APIView):
             return Response({}, status.HTTP_200_OK)
 
         response = OrderedDict({})
-
-            # get list of saved actions, shouldn't have duplicate
-
         liked_cases = user.actor_actions.filter(action_object_content_type=case_content_type,
                                                 verb='like') or []
-
         saved_cases = user.actor_actions.filter(action_object_content_type=case_content_type,
                                                 verb='save') or []
 
         response['liked'] = {item.action_object.uuid: True for item in liked_cases if hasattr(item.action_object, 'uuid')}
         response['saved'] = {item.action_object.uuid: True for item in saved_cases if hasattr(item.action_object, 'uuid')}
         return Response(response, status.HTTP_200_OK)
-
-    # {'liked': {'uuid': true},  'saved': {'uuid': true}}
 
 
 class CaseStatsView(APIView):
@@ -267,14 +232,16 @@ class CaseStatsView(APIView):
     def post(self, request):
         # get page num from url para.
         # page number starts from 0.
-        page = int(request.query_params.get('page', 0))
+        try:
+            page = int(request.query_params.get('page', 0))
+        except ValueError as e:
+            logger.error("case stats: %s" % str(e))
+            page = 0
 
         # ----- parse request body -----
         req_body = request.data
-        # print("request body for case search", req_body)
 
         cache_key = '_'.join(['case_search', str(sorted(req_body.items())), str(page)]).replace(" ", "")
-        # cache_key = 'case_search_[]_0'
         # logger.info("cache key: %s" % cache_key)
         cached_data = cache.get(cache_key)  # should open
 
@@ -303,8 +270,6 @@ class CaseSearchView(APIView):
             'gender': str
             'is_official': boolean
         }
-
-
     """
     name = 'case-search'
     # terms to remove from matc/multi-match query
@@ -340,18 +305,17 @@ class CaseSearchView(APIView):
             # page number starts from 0.
             page = int(request.query_params.get('page', 0))
 
-            # check cache
-            # use q combined + page number as cache key
-            # should open below five TODO
+            # check cache, use q combined + page number as cache key
             # start = time.time()
             # start_all = time.time()
             cache_key = '_'.join(['case_search', str(sorted(req_body.items())), str(page)]).replace(" ", "")
-
-            cached_data = cache.get(cache_key)  # should open
+            try:
+                cached_data = cache.get(cache_key)  # should open
+            except Exception as e:
+                cached_data = {}
+                logger.error("Get cache failed in Case Search %s" % str(e))
 
             # print('check cache Time: %4f, has cache: %s' % (time.time() - start, True if cached_data else False))
-            # cached_data = None # no this thing
-            # TODO: open
             if cached_data and cached_data.get('response', {}):
                 logger.info("[Case Search] Found %s in cache" % cache_key)
                 return Response(cached_data.get('response', {}))
@@ -390,42 +354,23 @@ class CaseSearchView(APIView):
 
                 # 2. check other col, which stores undefined tags (free-text)
                 frees = req_body.get('frees', [])
-                # OR on all other search query
-                # TODO: WIP
                 if frees:
                     q_free = None
                     for item in frees:
-                        # give more weight on 'surgeries' field
-                        # Can add ^2 to surgeries.
                         q_new = Q("multi_match",
                                   query=item,
                                   fields=["surgeries", "title", "clinic_name"])
                         q_free = q_new if not q_free else q_free | q_new
-                        # print("chain oth, ", q_new)
 
                     q_combined = q_free if not q_combined else q_combined | q_free
 
                 others = req_body.get('others', [])
                 if others:
-                    # q_new = Search(index='cases').query('terms', categories=others)
                     q_new = Q("terms", categories=others)
                     q_combined = q_combined | q_new if q_combined else q_new
 
             if q_combined is None:
                 q_combined = Q({"match_all": {}})
-
-            # this can't do per page randomness
-            # q_combined &
-            # q_combined = Q(
-            #     "function_score",
-            #     query=q_combined,
-            #     functions=[
-            #         SF("random_score",
-            #            seed=52,
-            #            # field="_seq_no"
-            #         )
-            #     ],
-            # )
 
             # check
             if page == 0 and not req_body:
@@ -434,7 +379,7 @@ class CaseSearchView(APIView):
                     time.sleep(1)
                     CaseDoc.init()
 
-            s = CaseDoc.search(index='cases')  # specify search DocType
+            s = CaseDoc.search(index='cases')
             # add ES query, and only return the id field
             s = s.query(q_combined).source(includes=['id'])
 
@@ -481,8 +426,6 @@ class CaseSearchView(APIView):
             res = s[((page + base) % total_page) * ES_PAGE_SIZE: min((((page + base) % total_page) + 1) * ES_PAGE_SIZE, cnt)].execute()
             response_dict = res.to_dict()
 
-            # print("get result", response_dict)
-
             hits = response_dict['hits']['hits']
 
             data, ids = [], []
@@ -495,7 +438,6 @@ class CaseSearchView(APIView):
                 ids.append(int(hit['_source']['id']))
                 data_dict[hit['_source']['id']] = data[-1]
 
-
             # print('ES Time: %4f' % (time.time() - start))
 
             # get the corresponding objects from mongo.
@@ -503,33 +445,10 @@ class CaseSearchView(APIView):
             # but it doesn't matter as I only need to get the logos.
             # start = time.time()
 
-            # queryset = Case.objects.filter(uuid__in=ids)
-            #
             tmp_dict = Case.objects.in_bulk(ids, field_name='uuid')
-            # tmp_dict = {}
-            # for item in queryset:
-            #     tmp_dict[item.uuid] = item
-
-            # tmp_dict =  {obj.uuid: obj
-            #              for obj in Case.objects.filter(uuid__in=ids)}
-
-            # .only('uuid', 'is_official', 'title', 'surgeries',
-            # 'author', 'clinic', 'failed')
-
-            # preserved = models.Case(*[When(uuid=uuid, then=pos) for pos, uuid in enumerate(ids)])
-            # print(preserved, type(preserved))
-            # # queryset = []
-            #
-            # queryset = Case.objects.filter(uuid__in=ids).order_by(preserved)
-
-            # print('Query Time: %4f' % (time.time() - start))
-
-            # ids = [hit['_source']['id'] for hit in hits]
-            # queryset = Skill.objects.filter(id__in=ids)
-            # start = time.time()
 
             # case_list.sort(key=lambda case: ids.index(case.uuid))
-            case_list = [tmp_dict[id] for id in ids]
+            case_list = [tmp_dict[id] for id in ids if id in tmp_dict]
 
             if shuffle:
                 random.seed(seed)
@@ -559,7 +478,6 @@ class CaseSearchView(APIView):
                 queryset_logos = ClinicProfile.objects.filter(uuid__in=clinic_ids).only('logo')
 
                 # print('Logo dict Time 1.1: %4f' % (time.time() - start1))
-
                 # start2 = time.time()
 
                 serializer_logo = ClinicLogoSerializer(queryset_logos, many=True, context={'request': request})
@@ -567,14 +485,7 @@ class CaseSearchView(APIView):
                 # since there are only a few fields. It's faster to skip serializer.
 
                 logo_dict = {item['uuid']: item['logo_thumbnail_small'] for item in serializer_logo.data}
-
                 # print('Logo dict Time 1.2: %4f' % (time.time() - start2))
-            else:
-                # print("use cached logo dict!!!!")
-                # logo_dict = cached_data['logo_dict']
-                # cnt = cached_data['count']
-                # total_page = cached_data['total_page']
-                pass
 
             # print('Logo dict Time: %4f' % (time.time() - start))
 
@@ -598,9 +509,6 @@ class CaseSearchView(APIView):
                 to_cache = {
                     'ids': ids,   # need this for case status
                     'response': response
-                    # 'count': cnt,
-                    # 'total_page': total_page,
-                    # 'logo_dict': logo_dict
                 }
 
                 add_to_cache(cache_key, to_cache, True)
@@ -619,7 +527,7 @@ class CaseSearchView(APIView):
 
             # cases = Case.objects.all()
             # serializer = CaseCardSerializer(cases, many=True,
-            #                                 search_view=True)  # TODO: WIP. need better error handling.
+            #                                 search_view=True)
 
             # TODO: WIP
             # response['count'] = cnt
@@ -633,8 +541,6 @@ class CaseSearchView(APIView):
             # response['results'] = serializer.data
             # response['logos'] = logo_dict
 
-
-            # TODO: WIP
             return Response({})
 
         return Response(response)
@@ -643,7 +549,6 @@ class CaseSearchView(APIView):
 # -------------------------------------------------------------------
 #  Case Manage - for getting a list of cases of authenticated users.
 # -------------------------------------------------------------------
-
 class CaseManageListView(generics.ListAPIView):
     """
     get: Return a list of all cases of an authenticated user with brief info.
@@ -693,9 +598,11 @@ class CaseActionList(generics.ListAPIView):
         :return:
         """
         user = self.request.user
-
         if not user:
             return []
+
+        # for getting actions
+        case_content_type = ContentType.objects.get(model='case')
 
         # get list of saved actions, shouldn't have duplicate
         saved_cases = user.actor_actions.filter(action_object_content_type=case_content_type,
@@ -721,7 +628,6 @@ class CaseActionList(generics.ListAPIView):
         queryset = self.filter_queryset(self.get_queryset())
 
         page = self.paginate_queryset(queryset)
-        # print("page", page)
         # pass extra parameter when creating the serializer instance.
         # The search_view param will decide which fields to return
         serializer = self.get_serializer(page, many=True, search_view=True, saved_page=True)
@@ -743,7 +649,6 @@ class CaseActionList(generics.ListAPIView):
         final_response = self.get_paginated_response(serializer.data)
         final_response.data['logos'] = logo_dict
 
-        # TODO: else part
         return final_response
 
 
@@ -765,7 +670,6 @@ def like_unlike_case(request, case_uuid, flag='', do_like=True, actor_only=False
     :param save_unsave: boolean, determine like/unlike mode or save/unsave
     :return:
     """
-
     if not request.user.is_authenticated:
         logger.error('Unauthenticated user using like/unlike API.')
         # TODO: find default msg, think how to handle at client is more convenient
@@ -785,7 +689,6 @@ def like_unlike_case(request, case_uuid, flag='', do_like=True, actor_only=False
         if res:
             return Response({'succeed': 'duplicated %s action is ignored.' % verb}, status.HTTP_201_CREATED)
 
-        # else
         if len(res) >= 2:
             # negative index not supported
             res[1:].delete()
@@ -801,8 +704,6 @@ def like_unlike_case(request, case_uuid, flag='', do_like=True, actor_only=False
 # -------------------------------------------------------------------
 #  Case Invite - for inviting other users to write case TODO: WIP
 # -------------------------------------------------------------------
-
-
 class CaseInviteTokenGenView(generics.RetrieveAPIView):
     name = 'case-invite-gen'
     permission_classes = [IsAuthenticated]
@@ -816,11 +717,9 @@ class CaseInviteTokenGenView(generics.RetrieveAPIView):
             username = request.user.username
 
             if not username:
-                # TODO: bad
                 username = request.user.email.split('@')[0]
 
             username = username.lower().replace(' ', '') + str(request.user.uuid)[:3]
-
             token = CaseInviteToken(user_code=username, user_uuid=request.user.uuid)
             token.save()
 
@@ -862,7 +761,6 @@ class CaseSendInvite(generics.ListCreateAPIView):
     """
     Send out invite write case email
     """
-
     name = 'case-send-invite'
     permission_classes = [IsAuthenticated]
 
@@ -882,7 +780,6 @@ class CaseSendInvite(generics.ListCreateAPIView):
 #######################
 #    For Scully
 #######################
-
 class CaseSignatureView(generics.RetrieveAPIView):
     """
     For Scully route scrapping, return a list of case signatures for published cases.
