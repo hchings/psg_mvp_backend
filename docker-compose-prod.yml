@@ -24,7 +24,7 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: backend.settings
     volumes:
-      - ./psg_mvp_backend:/project
+      - ./psg_mvp_backend:/code
     links:
       - elasticsearch
     depends_on:
@@ -78,7 +78,7 @@ services:
     command: [sh, -c, "cd ./backend && \
                        celery -A backend worker -l info"]
     volumes:
-      - ./psg_mvp_backend:/project
+      - ./psg_mvp_backend:/code
     environment:
       - CELERY_BROKER_URL =redis://redis:6379/0'
       - CELERY_ACCEPT_CONTENT = ['json']
