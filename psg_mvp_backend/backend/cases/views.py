@@ -232,7 +232,11 @@ class CaseStatsView(APIView):
     def post(self, request):
         # get page num from url para.
         # page number starts from 0.
-        page = int(request.query_params.get('page', 0))
+        try:
+            page = int(request.query_params.get('page', 0))
+        except ValueError as e:
+            logger.error("case stats: %s" % str(e))
+            page = 0
 
         # ----- parse request body -----
         req_body = request.data
