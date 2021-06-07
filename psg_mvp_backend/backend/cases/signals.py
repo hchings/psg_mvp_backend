@@ -48,8 +48,6 @@ def fill_in_on_create(sender, instance, created, **kwargs):
     :param kwargs:
     :return:
     """
-    pass
-
     # if new obj got created
     if created:
         # Check whether author is staff (i.e., have access to admin site)
@@ -60,6 +58,7 @@ def fill_in_on_create(sender, instance, created, **kwargs):
             user = get_object_or_None(User, username=author_name)
             if user and user.is_staff:
                 instance.author.scp = True
+                instance.save()
         #
         # print("updated a p to ", instance.posted)
         # instance.author_posted = instance.posted
