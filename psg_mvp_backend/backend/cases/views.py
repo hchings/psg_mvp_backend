@@ -282,8 +282,6 @@ class CaseSearchView(APIView):
         Search query should be specified in request body.
         Tiny clinic logos will be returned in a deticated field 'logos'.
         An example of search query from frontend:
-        # TODO: add docstring. WIP
-
         {
             'title': 'some text',
             'is_official': True
