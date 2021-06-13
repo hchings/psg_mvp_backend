@@ -19,7 +19,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from users.clinics.models import ClinicProfile
-from users.doc_type import ClinicBranchDoc
+from users.doc_type import ClinicProfileDoc
 
 
 # Create a logger
@@ -36,11 +36,11 @@ class Command(BaseCommand):
             index="clinic_profile"
         )
         clinic_profile_index = Index('clinic_profile', using='default')
-        clinic_profile_index.document(ClinicBranchDoc)  # doc_type has been deprecated
+        clinic_profile_index.document(ClinicProfileDoc)  # doc_type has been deprecated
         if clinic_profile_index.exists():
             clinic_profile_index.delete()
             logger.warning("Deleted Clinic Profile Index.")
-        ClinicBranchDoc.init()
+        ClinicProfileDoc.init()
 
         # flatten the list
         data = list(itertools.chain.from_iterable([clinic_profile.indexing()

@@ -7,7 +7,7 @@ Ref: https://www.freshconsulting.com/how-to-create-a-fuzzy-search-as-you-type-fe
 
 """
 from elasticsearch_dsl import DocType, Text, Integer, \
-        analyzer, tokenizer, HalfFloat, Boolean
+        analyzer, tokenizer, HalfFloat, Boolean, Keyword
 
 analyzer_standard = analyzer(
     'standard',
@@ -33,12 +33,12 @@ class ClinicProfileDoc(DocType):
     #    ZH fields
     # --------------------
     display_name = Text(analyzer=analyzer_cn)
-    obsolete_name = Text(analyzer=analyzer_cn)
-
-    # --------------------
-    #    EN fields
-    # --------------------
-    english_name = Text(analyzer=analyzer_standard)
+    rating = HalfFloat()
+    services = Text(analyzer=analyzer_cn, multi=True)
+    regions = Keyword(multi=True)
+    num_cases = Integer()
+    num_reviews = Integer()
+    logo_thumbnail = Text()
 
     # not query this, so no need analyzer
     id = Text()
