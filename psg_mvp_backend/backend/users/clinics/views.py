@@ -2,7 +2,7 @@
 DRF Views for clinics.
 
 """
-
+from urllib.parse import urlparse
 from collections import OrderedDict
 
 from rest_framework import generics, permissions, status
@@ -66,6 +66,148 @@ class ClinicPublicDetail(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAdminOrReadOnly]
 
 
+# class ClinicSearchView(APIView):
+#     """
+#     Elasticsearch end point for ClinicProfile
+#     on branch level.
+#
+#     ---
+#     parameters:
+#         # TODO: add docstring
+#
+#     """
+#     name = 'clinicpublic-search'
+#
+#     # serializer_class = HighScoreSerializer   # don't need this.
+#
+#     # TODO: should change the serializer to brief serializer
+#     # TODO: sort tags
+#
+#     # TODO: API, pagi, other fields
+#     def post(self, request):
+#         """
+#         Return the search result.
+#         Search query should be specified in request body.
+#         An example of search query from frontend:
+#
+#         {
+#             'keywords': [str1, str2, ...],
+#             # 'open_sunday': True
+#             'clinic_type': str
+#             'rating_min': 3
+#         }
+#
+#         # TODO: add document on response
+#
+#         :param request:
+#         :return:
+#         """
+#         # since this class does not inherit DRF's generics classes,
+#         # we need to prepare for the response data ourselves.
+#         response = OrderedDict({})
+#
+#         # ----- parse request body -----
+#         req_body = request.data
+#         logger.info("request body for ClinicSearchView ori %s" % req_body)
+#
+#         q_combined = None
+#         if req_body:
+#             for keyword in req_body.get('keywords', []):
+#                 q_new = Q("multi_match",
+#                           query=keyword,  # TODO: tmp
+#                           fields=['display_name', 'services'])
+#                 # logger.info("add keyword %s" % keyword)
+#                 q_combined = q_new if not q_combined else q_combined & q_new  # Q: or | ?
+#
+#             # TODO: should change to filter query
+#             if 'open_sunday' in req_body:
+#                 # logger.info("add open_sunday")
+#                 q_new = Q({"match": {"open_sunday": req_body['open_sunday']}})
+#                 q_combined = q_new if not q_combined else q_combined & q_new
+#
+#             if 'rating_min' in req_body:
+#                 # logger.info("add rating_miny")
+#                 q_new = Q({"range": {"rating": {"gte": req_body['rating_min']}}})
+#                 q_combined = q_new if not q_combined else q_combined & q_new
+#
+#         if not q_combined:
+#             q_combined = Q({"match_all": {}})
+#
+#         try:
+#             # get page num from url para.
+#             # page number starts from 0.
+#             page = int(request.query_params.get('page', 0))
+#
+#             # [IMPORTANT] must set index param when ES has multiple indices.
+#             # otherwise, it will search on all indices even you set the doc type.
+#             s = ClinicBranchDoc.search(index='clinic_profile')  # specify search DocType
+#             s = s.query(q_combined)  # add ES query
+#             cnt = s.count()  # get number of hits
+#             total_page = cnt // ES_PAGE_SIZE + 1
+#
+#             if page >= total_page:
+#                 return Response({'error': 'exceeds page num.'})
+#
+#             # logger.info("range: %s-%s" % (page*ES_PAGE_SIZE, min((page+1)*ES_PAGE_SIZE, cnt)))
+#             # Only take minimum number of records that you need for this page from ES by slicing
+#             res = s[page * ES_PAGE_SIZE: min((page + 1) * ES_PAGE_SIZE, cnt)].execute()
+#             response_dict = res.to_dict()
+#             hits = response_dict['hits']['hits']
+#
+#             print("========hits", hits)
+#
+#             data, ids = [], set()
+#             data_dict = {}  # for storing an Q(1) mapping from branch id to source document
+#             for hit in hits:
+#                 hit['_source']['score'] = hit.get('_score', '')
+#                 doc = hit['_source']
+#                 doc.pop('open_sunday')
+#                 doc['saved_by_user'] = False  # pre-fill
+#                 data.append(doc)
+#                 ids.add(hit['_source']['id'])
+#                 data_dict['_'.join([hit['_source']['id'],
+#                                     hit['_source']['branch_id']])] = data[-1]
+#
+#             # get the corresponding objects from mongo.
+#             # however, Django ORM returns the results in a different order,
+#             # but it doesn't matter as I only need to get the logos.
+#             queryset = ClinicProfile.objects.filter(uuid__in=ids)
+#             serializer = ClinicEsSerializer(list(queryset),
+#                                             many=True,
+#                                             context={'request': request})
+#
+#             # add back info that are not stored in ES engine. (e.g., 'saved_by_user')
+#             logo_dict = {}
+#
+#             for clinic in serializer.data:
+#                 clinic_uuid = clinic['uuid']
+#                 # print("clinic %s, %s" % (clinic['uuid'], clinic['saved_by_user']))
+#                 for branch_id in clinic['saved_by_user']:
+#                     identifier = '_'.join([clinic_uuid, branch_id])
+#                     if identifier in data_dict:
+#                         data_dict[identifier]['saved_by_user'] = True
+#                 if clinic_uuid not in logo_dict:
+#                     logo_dict[clinic_uuid] = clinic['logo_thumbnail']  # TODO: base64?
+#
+#             # ----- format response ------
+#             response['count'] = cnt
+#             response['total_page'] = total_page
+#
+#             # unlike DRF's pagination where urls of prev/next are returned,
+#             # for ES we only return page num for simplicity.
+#             response['prev'] = None if not page else page - 1
+#             response['next'] = None if page == total_page - 1 else page + 1
+#
+#             response['results'] = data
+#             response['logos'] = logo_dict
+#
+#         except Exception as e:
+#             # if ES failed. Use django's default way to search obj, which is very slow.
+#             logger.error("ES Failed on search query %s: %s" % (req_body, e))
+#             return Response({})
+#         return Response(response)
+
+
 class ClinicSearchView(APIView):
     """
     Elasticsearch end point for ClinicProfile
@@ -92,9 +234,10 @@ class ClinicSearchView(APIView):
 
         {
             'keywords': [str1, str2, ...],
-            'open_sunday': True
             'clinic_type': str
             'rating_min': 3
+            'region':"#%@"
+            'sorting':'num_cases|num_reviews'
         }
 
         # TODO: add document on response
@@ -108,7 +251,7 @@ class ClinicSearchView(APIView):
 
         # ----- parse request body -----
         req_body = request.data
-        # logger.info("request body for ClinicSearchView %s" % req_body)
+        logger.info("request body for ClinicSearchView %s" % req_body)
 
         q_combined = None
         if req_body:
@@ -118,12 +261,6 @@ class ClinicSearchView(APIView):
                           fields=['display_name', 'services'])
                 # logger.info("add keyword %s" % keyword)
                 q_combined = q_new if not q_combined else q_combined & q_new  # Q: or | ?
-
-            # TODO: should change to filter query
-            if 'open_sunday' in req_body:
-                # logger.info("add open_sunday")
-                q_new = Q({"match": {"open_sunday": req_body['open_sunday']}})
-                q_combined = q_new if not q_combined else q_combined & q_new
 
             if 'rating_min' in req_body:
                 # logger.info("add rating_miny")
@@ -140,8 +277,17 @@ class ClinicSearchView(APIView):
 
             # [IMPORTANT] must set index param when ES has multiple indices.
             # otherwise, it will search on all indices even you set the doc type.
-            s = ClinicBranchDoc.search(index='clinic_profile')  # specify search DocType
+            s = ClinicProfileDoc.search(index='clinic_profile')  # specify search DocType
             s = s.query(q_combined)  # add ES query
+            if "region" in req_body:
+                s = s.filter('term', regions=req_body['region'])
+
+            sorting_method = req_body.get('sorting', '')
+            if sorting_method == 'num_cases':
+                s = s.sort('-num_cases')
+            elif sorting_method == "num_reviews":
+                s = s.sort('-num_reviews')
+
             cnt = s.count()  # get number of hits
             total_page = cnt // ES_PAGE_SIZE + 1
 
@@ -155,37 +301,13 @@ class ClinicSearchView(APIView):
             hits = response_dict['hits']['hits']
 
             data, ids = [], set()
-            data_dict = {}  # for storing an Q(1) mapping from branch id to source document
+            url = urlparse(request.build_absolute_uri())
             for hit in hits:
                 hit['_source']['score'] = hit.get('_score', '')
                 doc = hit['_source']
-                doc.pop('open_sunday')
-                doc['saved_by_user'] = False  # pre-fill
+                if "logo_thumbnail" in doc:
+                    doc["logo_thumbnail"] = '{scheme}://{domain}{path}'.format(scheme=url.scheme, domain=url.netloc, path=doc["logo_thumbnail"])
                 data.append(doc)
-                ids.add(hit['_source']['id'])
-                data_dict['_'.join([hit['_source']['id'],
-                                    hit['_source']['branch_id']])] = data[-1]
-
-            # get the corresponding objects from mongo.
-            # however, Django ORM returns the results in a different order,
-            # but it doesn't matter as I only need to get the logos.
-            queryset = ClinicProfile.objects.filter(uuid__in=ids)
-            serializer = ClinicEsSerializer(list(queryset),
-                                            many=True,
-                                            context={'request': request})
-
-            # add back info that are not stored in ES engine. (e.g., 'saved_by_user')
-            logo_dict = {}
-
-            for clinic in serializer.data:
-                clinic_uuid = clinic['uuid']
-                # print("clinic %s, %s" % (clinic['uuid'], clinic['saved_by_user']))
-                for branch_id in clinic['saved_by_user']:
-                    identifier = '_'.join([clinic_uuid, branch_id])
-                    if identifier in data_dict:
-                        data_dict[identifier]['saved_by_user'] = True
-                if clinic_uuid not in logo_dict:
-                    logo_dict[clinic_uuid] = clinic['logo_thumbnail']  # TODO: base64?
 
             # ----- format response ------
             response['count'] = cnt
@@ -197,7 +319,6 @@ class ClinicSearchView(APIView):
             response['next'] = None if page == total_page - 1 else page + 1
 
             response['results'] = data
-            response['logos'] = logo_dict
 
         except Exception as e:
             # if ES failed. Use django's default way to search obj, which is very slow.

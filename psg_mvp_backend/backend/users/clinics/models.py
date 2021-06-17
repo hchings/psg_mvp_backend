@@ -26,7 +26,9 @@ from django.contrib.auth import get_user_model
 
 # from backend.shared.models import SimpleString, SimpleStringForm
 from backend.shared.fields import MongoDecimalField
-from ..doc_type import ClinicBranchDoc
+from cases.models import Case
+from reviews.models import Review
+from ..doc_type import ClinicBranchDoc, ClinicProfileDoc
 
 # from django.utils.translation import ugettext_lazy as _
 
@@ -356,6 +358,65 @@ class ClinicProfile(models.Model):
     def __str__(self):
         return 'clinic_profile_' + self.display_name
 
+    # def indexingOld(self):
+    #     """
+    #     An indexing instance method that adds the object instance
+    #     to the Elasticsearch index via the DocType.
+    # 
+    #     In DB, each document is in "clinic" level.
+    #     However, this method break the clinic document down
+    #     to "branch" level and store in ES.
+    # 
+    #     Simplified CN's analyzer is much better.
+    #     But since the current purpose it's only for very short text,
+    #     we don't not bother to do HanziConv.toSimplified().
+    # 
+    #     :return(list): a list of ClinicBranchDoc objects
+    #     """
+    #     # id = str(getattr(self, '_id', ''))
+    # 
+    #     data = []
+    #     for branch in self.branches:
+    # 
+    #         # 1. turn opening info into boolean
+    #         open_sunday = True
+    #         try:
+    #             # 0 represents Sunday
+    #             if 0 in json.loads(branch.opening_concise).get('close', []):
+    #                 open_sunday = False
+    #         except json.decoder.JSONDecodeError:
+    #             open_sunday = False  # unknown
+    # 
+    #         # 2. turn the concise opening info in DB to a readable format
+    #         open_info = self._humanize_opening_str(branch.opening_concise)
+    # 
+    #         # 3. create a new doc type.
+    #         #    note that we should avoid saving blob in search engine.
+    #         doc = ClinicBranchDoc(
+    #             # meta={'id': id},  # each document has metadata associated with it
+    #             display_name=self.display_name,
+    #             branch_name=branch.branch_name,
+    #             services=self.services_raw,
+    #             open_sunday=open_sunday,
+    #             open_info=str(open_info),  # TODO: somehow will block if I use array
+    #             address=branch.address,
+    #             rating=branch.rating,
+    #             id=self.uuid,  # uuid of the clinic
+    #             branch_id=branch.branch_id  # unique id of branch.
+    #         )
+    # 
+    #         data.append(doc.to_dict(include_meta=True))
+    # 
+    #         # try:
+    #         #     tmp.save()
+    #         # except ValidationException as e:
+    #         #     # trigger index_clinic_profiles command to create index and load all
+    #         #     # current records to ES.
+    #         #     logger.error("Error while saving ClinicProfile and update ES index: %s" % str(e))
+    #         #     call_command('index_clinic_profiles')
+    # 
+    #     return data
+
     def indexing(self):
         """
         An indexing instance method that adds the object instance
@@ -371,47 +432,33 @@ class ClinicProfile(models.Model):
 
         :return(list): a list of ClinicBranchDoc objects
         """
-        # id = str(getattr(self, '_id', ''))
+
+        regions = []
+        for branch in self.branches:
+            if branch.region not in regions:
+                regions.append(branch.region)
 
         data = []
-        for branch in self.branches:
+        doc = ClinicProfileDoc(
+            services=[service.name for service in self.services],
+            rating=self.rating,
+            display_name=self.display_name,
+            id=self.uuid,  # uuid of the clinic
+            regions=regions,
+            num_cases=Case.objects.filter(clinic={'uuid': self.uuid}).count(),
+            num_reviews=Review.objects.filter(clinic={'uuid':self.uuid}).count(),
+            logo_thumbnail=self.logo_thumbnail.url if self.logo_thumbnail else "",
+        )
 
-            # 1. turn opening info into boolean
-            open_sunday = True
-            try:
-                # 0 represents Sunday
-                if 0 in json.loads(branch.opening_concise).get('close', []):
-                    open_sunday = False
-            except json.decoder.JSONDecodeError:
-                open_sunday = False  # unknown
+        data.append(doc.to_dict(include_meta=True))
 
-            # 2. turn the concise opening info in DB to a readable format
-            open_info = self._humanize_opening_str(branch.opening_concise)
-
-            # 3. create a new doc type.
-            #    note that we should avoid saving blob in search engine.
-            doc = ClinicBranchDoc(
-                # meta={'id': id},  # each document has metadata associated with it
-                display_name=self.display_name,
-                branch_name=branch.branch_name,
-                services=self.services_raw,
-                open_sunday=open_sunday,
-                open_info=str(open_info),  # TODO: somehow will block if I use array
-                address=branch.address,
-                rating=branch.rating,
-                id=self.uuid,  # uuid of the clinic
-                branch_id=branch.branch_id  # unique id of branch.
-            )
-
-            data.append(doc.to_dict(include_meta=True))
-
-            # try:
-            #     tmp.save()
-            # except ValidationException as e:
-            #     # trigger index_clinic_profiles command to create index and load all
-            #     # current records to ES.
-            #     logger.error("Error while saving ClinicProfile and update ES index: %s" % str(e))
-            #     call_command('index_clinic_profiles')
+        # try:
+        #     tmp.save()
+        # except ValidationException as e:
+        #     # trigger index_clinic_profiles command to create index and load all
+        #     # current records to ES.
+        #     logger.error("Error while saving ClinicProfile and update ES index: %s" % str(e))
+        #     call_command('index_clinic_profiles')
 
         return data
 
