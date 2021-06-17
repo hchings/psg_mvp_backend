@@ -38,7 +38,8 @@ djangorestframework==3.9.2
 djongo==1.2.32
 elasticsearch==7.0.2
 elasticsearch-dsl==7.0.0
-factory_boy==3.2.0
+factory-boy==3.2.0
+Faker==8.1.2
 googlemaps==3.0.2
 gunicorn==20.0.4
 hanziconv==0.3.2
@@ -81,7 +82,10 @@ requests-oauthlib==1.2.0
 simplejson==3.16.0
 six==1.12.0
 sqlparse==0.2.4
+text-unidecode==1.3
+tinify==1.5.1
 toml==0.10.1
+typer==0.3.2
 tzlocal==2.1
 uritemplate==3.0.0
 urllib3==1.24.1
