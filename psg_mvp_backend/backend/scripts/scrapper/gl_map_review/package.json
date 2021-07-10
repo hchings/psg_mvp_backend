@@ -1,0 +1,16 @@
+{
+  "name": "gl_map_review",
+  "version": "1.0.0",
+  "description": "Scrape the latest Google Review from Google Maps using Node.js.",
+  "main": "scrape.js",
+  "dependencies": {
+    "package-lock.json": "^1.0.0",
+    "puppeteer": "^10.0.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}

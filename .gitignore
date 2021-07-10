@@ -111,4 +111,10 @@ psg_mvp_backend/static/
 psg_mvp_backend/backend/tags/migrations/
 psg_mvp_backend/nginx_logs/
 
-*.node_modules/
+*node_modules/
+psg_mvp_backend/psg_mvp_backend/backend/scripts/scrapper/gl_map_review/node_modules
+Pipfile
+Pipfile.lock
+output/
+urls.full.json
+urls.errors.json

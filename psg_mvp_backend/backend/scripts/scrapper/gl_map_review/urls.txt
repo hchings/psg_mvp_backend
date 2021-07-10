@@ -1,0 +1,12 @@
+晶華美醫診所,總店,ChIJ004m5WipQjQRmBN9dV20Vj4,https://www.google.com/maps/search/?api=1&query=121.5232565,25.0538681&query_place_id=ChIJ004m5WipQjQRmBN9dV20Vj4
+悠美診所,忠孝店,ChIJn2owW7mrQjQRt-o5hMeNFCY,https://www.google.com/maps/search/?api=1&query=121.544407,25.0418429&query_place_id=ChIJn2owW7mrQjQRt-o5hMeNFCY
+悠美診所,站前店,ChIJ15RhJXOpQjQRej72613a5ps,https://www.google.com/maps/search/?api=1&query=121.5158347,25.0454166&query_place_id=ChIJ15RhJXOpQjQRej72613a5ps
+悠美診所,松阪店,ChIJSy54ub6rQjQRR-XbSEX0d6o,https://www.google.com/maps/search/?api=1&query=121.56443,25.043098&query_place_id=ChIJSy54ub6rQjQRR-XbSEX0d6o
+悠美診所,桃園分院,ChIJyYY28LcfaDQRc_yn5ESWyCg,https://www.google.com/maps/search/?api=1&query=121.2976247,25.0240611&query_place_id=ChIJyYY28LcfaDQRc_yn5ESWyCg
+悠美診所,竹北店,ChIJBxGzWvM2aDQR6IVk85RLAw0,https://www.google.com/maps/search/?api=1&query=121.0106374,24.82065&query_place_id=ChIJBxGzWvM2aDQR6IVk85RLAw0
+悠美診所,台中店,ChIJ6-lNhKg9aTQRJksjBMVfC2M,https://www.google.com/maps/search/?api=1&query=120.6625599,24.1346639&query_place_id=ChIJ6-lNhKg9aTQRJksjBMVfC2M
+法喬醫美診所,台北店,ChIJxyZYP-SrQjQRJCKzXzRUR9E,https://www.google.com/maps/search/?api=1&query=121.5444305,25.0587854&query_place_id=ChIJxyZYP-SrQjQRJCKzXzRUR9E
+法喬醫美診所,高雄店,ChIJ8dfCVg8FbjQRhKqaISAcqbs,https://www.google.com/maps/search/?api=1&query=120.303676,22.669397&query_place_id=ChIJ8dfCVg8FbjQRhKqaISAcqbs
+教主醫美整形外科診所,台北店,ChIJpSS79JqpQjQRS2FewaOhJEc,https://www.google.com/maps/search/?api=1&query=121.523035,25.026861&query_place_id=ChIJpSS79JqpQjQRS2FewaOhJEc
+教主醫美整形外科診所,台中店,ChIJCWx18pE9aTQRmRfp7_p1J3Q,https://www.google.com/maps/search/?api=1&query=120.6494653,24.1583594&query_place_id=ChIJCWx18pE9aTQRmRfp7_p1J3Q
+美麗線時尚診所,總店,ChIJw0rqwxkWaTQRPVYDjGc_Yc0,https://www.google.com/maps/search/?api=1&query=120.6393406,24.1828851&query_place_id=ChIJw0rqwxkWaTQRPVYDjGc_Yc0
