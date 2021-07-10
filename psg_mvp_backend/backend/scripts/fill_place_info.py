@@ -3,7 +3,7 @@ Get the latest place details from Google Place API
 for all ClinicBranch objects and update the corresponding fields.
 
 To run:
-    $ python manage.py fill_place_info
+    $ python manage.py runscript fill_place_info
 
 """
 
