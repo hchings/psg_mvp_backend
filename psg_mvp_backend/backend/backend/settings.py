@@ -336,7 +336,7 @@ ACTSTREAM_SETTINGS = {
 ###################################
 # Google Map API key (project mvp1).
 # You can enable more API services under this key in Google's console.
-GOOGLE_MAP_API_KEY = 'AIzaSyDDbkqc3aU4LvKFU_78HgGoJMqY_5e-t1s'  # TODO: remove this
+GOOGLE_MAP_API_KEY = 'AIzaSyDLbH-m94Vep9C8MVHg5iIjN8j9nBzgvT8'  # TODO: remove this
 
 ###################################
 #            Celery

@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
 
 URL_template = 'https://www.google.com/maps/search/?api=1&query=%s,%s&query_place_id=%s'
-SCRAPPER_SCRIPT = '/Users/erin/PycharmProjects/prototype_tools/review_data/scrapper/gl_map_review/scrape.js %s %s %s %s'
+#SCRAPPER_SCRIPT = '/Users/erin/PycharmProjects/prototype_tools/review_data/scrapper/gl_map_review/scrape.js %s %s %s %s'
+SCRAPPER_SCRIPT = '/Users/cjoun/django/review_data/scrapper/gl_map_review/scrape.js %s %s %s %s'
 
 
 def run():
