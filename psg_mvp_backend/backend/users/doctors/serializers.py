@@ -73,59 +73,59 @@ class DoctorDetailSerializer(serializers.HyperlinkedModelSerializer):
 
     """
 
-    reviews = serializers.SerializerMethodField(required=False)
-    cases = serializers.SerializerMethodField(required=False)
-    degrees = serializers.SerializerMethodField(required=False)
-    certificates = serializers.SerializerMethodField(required=False)
-    work_exps = serializers.SerializerMethodField(required=False)
-
-    # TODO: I don't think we'll normalize this
-    services_raw = serializers.ListField()  # use this to make list
+    # reviews = serializers.SerializerMethodField(required=False)
+    # cases = serializers.SerializerMethodField(required=False)
+    # degrees = serializers.SerializerMethodField(required=False)
+    # certificates = serializers.SerializerMethodField(required=False)
+    # work_exps = serializers.SerializerMethodField(required=False)
+    # services_raw = serializers.ListField()  # use this to make list
 
     class Meta:
         model = DoctorProfile
-        fields = ('display_name', 'profile_photo', 'is_primary', 'position',
-                  'degrees', 'certificates', 'work_exps',
-                  'services_raw', 'youtube_url', 'blog_url', 'fb_url',
-                  'reviews', 'cases')
+        # commented this out until we have data
+        # fields = ('display_name', 'profile_photo', 'is_primary', 'position',
+        #           'degrees', 'certificates', 'work_exps',
+        #           'services_raw', 'youtube_url', 'blog_url', 'fb_url',
+        #           'reviews', 'cases')
+        fields = ('display_name', 'profile_photo', 'is_primary', 'position')
 
-    def get_degrees(self, obj):
-        """
-        To serialize ArrayModelField from djongo.
-        :param obj:
-        :return:
-        """
-        return embedded_model_method(obj,
-                                     self.Meta.model,
-                                     'degrees',
-                                     included_fields=['item'])
+    # def get_degrees(self, obj):
+    #     """
+    #     To serialize ArrayModelField from djongo.
+    #     :param obj:
+    #     :return:
+    #     """
+    #     return embedded_model_method(obj,
+    #                                  self.Meta.model,
+    #                                  'degrees',
+    #                                  included_fields=['item'])
 
-    def get_certificates(self, obj):
-        """
-        To serialize ArrayModelField from djongo.
-        :param obj:
-        :return:
-        """
-        return embedded_model_method(obj,
-                                     self.Meta.model,
-                                     'certificates',
-                                     included_fields=['item'])
+    # def get_certificates(self, obj):
+    #     """
+    #     To serialize ArrayModelField from djongo.
+    #     :param obj:
+    #     :return:
+    #     """
+    #     return embedded_model_method(obj,
+    #                                  self.Meta.model,
+    #                                  'certificates',
+    #                                  included_fields=['item'])
+    #
+    # def get_work_exps(self, obj):
+    #     """
+    #     To serialize ArrayModelField from djongo.
+    #     :param obj:
+    #     :return:
+    #     """
+    #     return embedded_model_method(obj,
+    #                                  self.Meta.model,
+    #                                  'work_exps',
+    #                                  included_fields=['item'])
 
-    def get_work_exps(self, obj):
-        """
-        To serialize ArrayModelField from djongo.
-        :param obj:
-        :return:
-        """
-        return embedded_model_method(obj,
-                                     self.Meta.model,
-                                     'work_exps',
-                                     included_fields=['item'])
+    # def get_reviews(self, obj):
+    #     # TODO: WIP
+    #     return {}
 
-    def get_reviews(self, obj):
-        # TODO: WIP
-        return {}
-
-    def get_cases(self, obj):
-        # TODO: WIP
-        return {}
+    # def get_cases(self, obj):
+    #     # TODO: WIP
+    #     return {}

@@ -393,6 +393,74 @@ class CaseCardSerializer(serializers.ModelSerializer):
         return ClinicLogoSerializer(clinic_obj).data['logo_thumbnail_small']
 
 
+class CaseCardBriefSerializer(serializers.ModelSerializer):
+    # read-only, so using methodField is sufficient.
+    uuid = serializers.ReadOnlyField()
+    surgeries = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Case
+        fields = ('uuid', 'is_official', 'title', 'surgeries', 'failed')
+
+    def __init__(self, *args, **kwargs):
+        """
+        Dynamically change field.
+
+        :param args:
+        :param kwargs:
+        """
+        super(CaseCardBriefSerializer, self).__init__(*args, **kwargs)
+
+        try:
+            self.fields['af_img_thumb'] = serializers.ImageField(max_length=None,
+                                                                 use_url=True,
+                                                                 required=False)
+            self.fields['posted'] = serializers.SerializerMethodField(required=False)  # tODO: WIP
+            self.fields['photo_num'] = serializers.SerializerMethodField()
+        except KeyError as e:
+            logger.error("[ERROR] CaseCardSerializer: %s" % str(e))
+
+    def get_posted(self, obj):
+        """
+        Return customer-facing posted time (author_posted)
+        and fall back to system posted if author_posted does not exist.
+
+        :param obj:
+        :return:
+        """
+        return obj.author_posted or obj.posted
+
+
+    def get_surgeries(self, obj):
+        """
+        To serialize ArrayModelField from djongo.
+        :param obj:
+        :return:
+        """
+        return embedded_model_method(obj, self.Meta.model, 'surgeries', included_fields=['name'])
+
+    def get_photo_num(self, obj):
+        """
+        Optional field. If 'show_photo_num' is specified and set to true
+        in the request url, it will return the # of photos in the case.
+
+        :param obj:
+        :return:
+        """
+        # get case object
+        other_imgs = CaseImages.objects.filter(case_uuid=obj.uuid)
+        photo_num = 0
+        if obj.bf_img_thumb:
+            photo_num += 1
+
+        if obj.af_img_thumb:
+            photo_num += 1
+
+        photo_num += len(other_imgs)
+
+        return photo_num
+
+
 ######################################
 #      Detail CRUD Serializers
 ######################################
@@ -885,7 +953,6 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         except Exception as e:
             logger.error("[Error] CaseDetailSerializer: %s" % str(e))
             return False
-
 
     def get_posted(self, obj):
         """

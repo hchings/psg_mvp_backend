@@ -9,11 +9,12 @@ from django.conf.urls import url
 from .views import CaseDetailView, CaseList, CaseSearchView, \
     CaseManageListView, CaseActionList, like_unlike_case, \
     CaseInviteTokenGenView, CaseInviteInfoDetail, CaseSendInvite, CaseStatsView, \
-    CaseUserActionView, CaseSignatureView
+    CaseUserActionView, CaseSignatureView, ClinicCaseListView
 
 urlpatterns = [
     url(r'^$', CaseList.as_view(), name=CaseList.name),
     url(r'^(?P<uuid>[0-9]+)$', CaseDetailView.as_view(), name=CaseDetailView.name),
+    url(r'clinic-cases/(?P<clinic_uuid>[0-9]+)$', ClinicCaseListView.as_view(), name=ClinicCaseListView.name),
     url(r'^search/$', CaseSearchView.as_view(), name=CaseSearchView.name),  # query is in request body
     url(r'^stats/$', CaseStatsView.as_view(), name=CaseStatsView.name),
     url(r'^user-actions/$', CaseUserActionView.as_view(), name=CaseUserActionView.name),
