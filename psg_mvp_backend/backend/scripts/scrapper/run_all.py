@@ -10,7 +10,7 @@ if __name__ == '__main__':
         data = json.load(f)
 
     for idx, clinic in enumerate(data["results"]):
-        # if idx > 1:
+        # if idx > 2:
         #     break
         # print(clinic)
         clinic_uuid = clinic["clinic_uuid"] or "missing"
@@ -18,9 +18,10 @@ if __name__ == '__main__':
         place_id = clinic["placeId"] or "missing"
         url = clinic["url"] or "missing"
 
+
         if clinic["source"] == "facebook":
             print("we have facebook")
-            #{"source": "facebook", "clinic_uuid": "915799337850471", "branch": "", "placeId": "", "url": "https://www.facebook.com/Dr.LaMer.Clinic/reviews/?ref=page_internal"}
+            print('cd fb_map_review; python fb_scrapper.py %s "%s"' % (clinic_uuid, url))
             os.system('cd fb_map_review; python fb_scrapper.py %s "%s"' % (clinic_uuid, url))
         if clinic["source"] == "google":
             continue
