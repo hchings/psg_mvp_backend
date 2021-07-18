@@ -220,12 +220,6 @@ class ClinicSearchView(APIView):
     """
     name = 'clinicpublic-search'
 
-    # serializer_class = HighScoreSerializer   # don't need this.
-
-    # TODO: should change the serializer to brief serializer
-    # TODO: sort tags
-
-    # TODO: API, pagi, other fields
     def post(self, request):
         """
         Return the search result.

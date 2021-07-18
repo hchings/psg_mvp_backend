@@ -2,22 +2,10 @@
 DRF Serializers for clinics.
 
 """
-
 import ast
 from random import randint
 
 from rest_framework import serializers, exceptions
-# from rest_auth.registration.serializers import RegisterSerializer
-# from rest_auth.serializers import LoginSerializer
-# from rest_auth.models import TokenModel
-# from taggit_serializer.serializers import TagListSerializerField, \
-#     TaggitSerializer
-
-# from django.contrib.auth import authenticate
-# from django.utils.translation import ugettext_lazy as _
-# from django.urls import reverse_lazy
-
-# from tags.serializer_fields import NestedTagListSerializerField
 from utils.drf.custom_fields import Base64ImageField
 from reviews.models import Review
 from reviews.serializers import ReviewSerializer
@@ -39,22 +27,20 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
 
     """
     uuid = serializers.ReadOnlyField()
-    logo_thumbnail = Base64ImageField()
-    # concise_regions = serializers.SerializerMethodField()
+    logo_thumbnail = serializers.ImageField(max_length=None,
+                                            use_url=True,
+                                            required=False)
     # services = NestedTagListSerializerField(source='clinic_profile.services')
-
     # opening_info = serializers.SerializerMethodField() # tmp
     # rating = serializers.SerializerMethodField()
 
     # nested field
     branches = serializers.SerializerMethodField()
-    services_raw = serializers.ListField() # TODO: use this to make list
+    services_raw = serializers.ListField()  # TODO: use this to make list
 
     saved_by_user = serializers.SerializerMethodField(required=False)
 
-    # read_only = True
-    # source = 'clinic_profile.branches',
-    # case_num = serializers.SerializerMethodField()
+    BRANCH_KEYS = set(['branch_name', 'is_head_quarter', 'address', 'region', 'locality'])
 
     def get_branches(self, obj):
         """
@@ -67,17 +53,17 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
             for item in obj.branches:
                 embedded_dict = item.__dict__
                 for key in list(embedded_dict.keys()):
-                    if key.startswith('_'):
+                    if key.startswith('_') or key not in self.BRANCH_KEYS:
                         embedded_dict.pop(key)
                     # TODO: tmp fix. PhoneNumber package has bug and is not JSON serializable
                     # https://github.com/stefanfoulis/django-phonenumber-field/issues/225
-                    elif key == 'phone':
-                        embedded_dict[key] = str(embedded_dict[key])
-                    elif key == 'opening_info':
-                        # restore the list structure
-                        # reason: Djongo abstract model couldn't use ListField..
-                        embedded_dict[key] = [] if not embedded_dict[key] \
-                            else ast.literal_eval(embedded_dict[key])
+                    # elif key == 'phone':
+                    #     embedded_dict[key] = str(embedded_dict[key])
+                    # elif key == 'opening_info':
+                    #     # restore the list structure
+                    #     # reason: Djongo abstract model couldn't use ListField..
+                    #     embedded_dict[key] = [] if not embedded_dict[key] \
+                    #         else ast.literal_eval(embedded_dict[key])
 
                 embedded_list.append(embedded_dict)
             return_data = embedded_list
@@ -187,7 +173,8 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = ClinicProfile
-        fields = ('website_url', 'uuid', 'user_id', 'display_name',  'logo_thumbnail', 'services_raw',
+        fields = ('uuid', 'display_name', 'logo_thumbnail', 'website_url', 'fb_url',
+                  'line_url', 'services_raw', 'instagram_url',
                   'branches', 'saved_by_user')
 
 
@@ -318,7 +305,7 @@ class ClinicHomeSerializer(serializers.HyperlinkedModelSerializer):
         if not cases:
             return {}
         elif len(cases) > 1:
-            chosen_case = cases[randint(0, len(cases)-1)]
+            chosen_case = cases[randint(0, len(cases) - 1)]
         else:
             chosen_case = cases[0]
 
@@ -380,7 +367,6 @@ class ClinicEsSerializer(serializers.HyperlinkedModelSerializer):
         """
         request = self.context.get('request', None)
 
-
         # for unlogin user
         if not request or request.user.is_anonymous:
             return []
@@ -415,7 +401,7 @@ class ClinicSavedSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = ClinicProfile
-        fields = ('website_url', 'uuid', 'user_id', 'display_name',  'logo_thumbnail')
+        fields = ('website_url', 'uuid', 'user_id', 'display_name', 'logo_thumbnail')
 
     def get_branch_name(self, obj):
         return ''
@@ -508,4 +494,3 @@ class ClinicSavedSerializer(serializers.HyperlinkedModelSerializer):
 #                   'clinic_uuid', 'position', 'english_name', 'nick_name',
 #                   'degrees', 'experience', 'certificates',
 #                   'services', 'fb_url', 'blog_url')
-

@@ -23,8 +23,8 @@ from .doc_type import CaseDoc
 YEAR_CHOICES = [(y, y) for y in range(2000, date.today().year + 1)]
 MONTH_CHOICE = [(m, m) for m in range(1, 13)]
 
-
 _, sub_cate_to_cate = _prep_catalog()
+
 
 ############################################################
 #   For getting img file names and paths
@@ -569,7 +569,8 @@ class Case(models.Model, HitCountMixin):
             interest=self.interest,
             posted=self.author_posted or self.posted,
             skip=self.skip or False,
-            categories = [sub_cate_to_cate[item.name] for item in self.surgeries if item.name in sub_cate_to_cate] if self.surgeries else [],
+            categories=[sub_cate_to_cate[item.name] for item in self.surgeries if
+                        item.name in sub_cate_to_cate] if self.surgeries else [],
             surgeries=[item.name for item in self.surgeries] if self.surgeries else [],
             id=str(self.uuid)  # uuid of case
         )
@@ -627,8 +628,8 @@ class Hit(models.Model):
     user_agent = models.CharField(max_length=255, editable=False)
     # user = models.ForeignKey(AUTH_USER_MODEL, null=True, editable=False, on_delete=models.CASCADE)
     # hitcount = models.ForeignKey(MODEL_HITCOUNT, editable=False, on_delete=models.CASCADE)
-    user = models.CharField(max_length=40, editable=False, blank=False) # user Uuid
-    hitcount = models.CharField(max_length=40, blank=False) # hitcount pk
+    user = models.CharField(max_length=40, editable=False, blank=False)  # user Uuid
+    hitcount = models.CharField(max_length=40, blank=False)  # hitcount pk
 
     objects = HitManager()
 
@@ -675,7 +676,6 @@ class Hit(models.Model):
     #     delete_hit_count.send(
     #         sender=self, instance=self, save_hitcount=save_hitcount)
     #     super(Hit, self).delete()
-
 
 # class HitCount(HitCountBase):
 #     """Built-in hitcount class. Default functionality."""

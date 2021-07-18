@@ -6,8 +6,6 @@ API Views for Cases app.
 from collections import OrderedDict
 import time, sys
 import random
-from urllib.parse import quote
-# from datetime import datetime
 
 from annoying.functions import get_object_or_None
 from actstream import actions, action
@@ -33,13 +31,12 @@ from backend.shared.permissions import AdminCanGetAuthCanPost
 from backend.shared.utils import add_to_cache, _prep_subcate, make_id, get_randomize_seed
 from cases.management.commands.index_cases import Command
 from users.clinics.models import ClinicProfile
-from .serializers import ClinicLogoSerializer
+from .serializers import ClinicLogoSerializer, CaseCardBriefSerializer
 from .models import Case, CaseInviteToken
 from .mixins import UpdateConciseResponseMixin, MyHitCountMixin
 from .serializers import CaseDetailSerializer, CaseCardSerializer, CaseStatsSerializer
 from .doc_type import CaseDoc
 from .tasks import send_case_invite
-
 
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
@@ -109,7 +106,7 @@ class CaseDetailView(UpdateConciseResponseMixin,
     # set to True to count the hit
     count_hit = True
     object = None
-    uuid = '' # so that we can pass it in with as_view()
+    uuid = ''  # so that we can pass it in with as_view()
 
     def retrieve(self, request, *args, **kwargs):
         """
@@ -218,8 +215,10 @@ class CaseUserActionView(APIView):
         saved_cases = user.actor_actions.filter(action_object_content_type=case_content_type,
                                                 verb='save') or []
 
-        response['liked'] = {item.action_object.uuid: True for item in liked_cases if hasattr(item.action_object, 'uuid')}
-        response['saved'] = {item.action_object.uuid: True for item in saved_cases if hasattr(item.action_object, 'uuid')}
+        response['liked'] = {item.action_object.uuid: True for item in liked_cases if
+                             hasattr(item.action_object, 'uuid')}
+        response['saved'] = {item.action_object.uuid: True for item in saved_cases if
+                             hasattr(item.action_object, 'uuid')}
         return Response(response, status.HTTP_200_OK)
 
 
@@ -421,7 +420,8 @@ class CaseSearchView(APIView):
                 return Response({'error': 'exceeds page num.'})
 
             # Only take minimum number of records that you need for this page from ES by slicing
-            res = s[((page + base) % total_page) * ES_PAGE_SIZE: min((((page + base) % total_page) + 1) * ES_PAGE_SIZE, cnt)].execute()
+            res = s[((page + base) % total_page) * ES_PAGE_SIZE: min((((page + base) % total_page) + 1) * ES_PAGE_SIZE,
+                                                                     cnt)].execute()
             response_dict = res.to_dict()
 
             hits = response_dict['hits']['hits']
@@ -505,7 +505,7 @@ class CaseSearchView(APIView):
             # only set cache if success
             if not cached_data:
                 to_cache = {
-                    'ids': ids,   # need this for case status
+                    'ids': ids,  # need this for case status
                     'response': response
                 }
 
@@ -700,6 +700,30 @@ def like_unlike_case(request, case_uuid, flag='', do_like=True, actor_only=False
 
 
 # -------------------------------------------------------------------
+#  Case for clinics
+# -------------------------------------------------------------------
+
+class ClinicCaseListView(generics.ListAPIView):
+    """
+    get: get a list of saved cases of a user.
+
+    """
+    name = 'clinic-case-list'
+    serializer_class = CaseCardBriefSerializer
+    pagination_class = PageNumberPagination
+
+    def get_queryset(self):
+        # clinic_uuid = self.request.query_params.get('clinic_uuid') or ''
+        clinic_uuid = self.kwargs['clinic_uuid']
+        print("clinic uuid:", clinic_uuid)
+        if not clinic_uuid:
+            return []
+
+        return Case.objects.filter(clinic={'uuid': clinic_uuid},
+                                   state="published").order_by('-interest')
+
+
+# -------------------------------------------------------------------
 #  Case Invite - for inviting other users to write case TODO: WIP
 # -------------------------------------------------------------------
 class CaseInviteTokenGenView(generics.RetrieveAPIView):
@@ -742,7 +766,6 @@ class CaseInviteInfoDetail(generics.RetrieveAPIView):
 
         if not token:
             return Response({'error': 'invalid token'}, status.HTTP_400_BAD_REQUEST)
-
 
         inviter_user_obj = get_object_or_None(get_user_model(), uuid=token.user_uuid)
 

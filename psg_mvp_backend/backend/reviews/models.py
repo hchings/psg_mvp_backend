@@ -32,6 +32,7 @@ def get_verify_pic_dir_name(instance, filename):
     new_filename = 'verify_pic.' + extension
     return '/'.join(['reviews', 'review_' + str(instance.uuid), filename])
 
+
 ########################################
 #   Djongo's Abstract Model -- Doctor
 ########################################
@@ -175,6 +176,10 @@ class Review(models.Model):
         blank=True,
         null=True
     )
+
+    consult_only = models.BooleanField(default=False,
+                                       blank=True,
+                                       help_text='only have consultation')
 
     # limit to one img for now
     verify_pic = ProcessedImageField(upload_to=get_verify_pic_dir_name,
