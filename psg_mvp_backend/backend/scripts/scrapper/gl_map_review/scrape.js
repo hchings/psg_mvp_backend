@@ -37,6 +37,7 @@ const puppeteer = require('puppeteer'); // Require the Package we need...
 //         console.log(clinicName + " | " + branchName + " | " + placeId);
 //     }
 
+//TODO: write UUID to file rename clinicName to UUID in json objects. Write code to add these fields to existing files too
 
 (async () => { // Prepare scrape...
 
@@ -68,13 +69,13 @@ const puppeteer = require('puppeteer'); // Require the Package we need...
         }
 
         //const browser = await puppeteer.launch({devtools:true,args: ['--no-sandbox', '--disabled-setuid-sandbox']}); // Prevent non-needed issues for *NIX
-        //const browser = await puppeteer.launch({devtools:true,args: ['--no-sandbox', '--disabled-setuid-sandbox', '--lang=zh-tw,zh']}); // Prevent non-needed issues for *NIX
+        //const browser = await puppeteer.launch({devtools:true,args: ['--no-sandbox', '--disabled-setuid-sandbox', '--lang=zh-tw']}); // Prevent non-needed issues for *NIX
 
-        const browser = await puppeteer.launch({args: ['--no-sandbox', '--disabled-setuid-sandbox', '--lang=zh-tw,zh']});
+        const browser = await puppeteer.launch({args: ['--no-sandbox', '--disabled-setuid-sandbox', '--lang=zh-tw']});
         const page = await browser.newPage(); // Create request for the new page to obtain...
 
         await page.setExtraHTTPHeaders({
-            'Accept-Language': 'zh'
+            'Accept-Language': 'zh-tw'
         });
 
         await page.goto(tmpUrl); // Define the Maps URL to Scrape...
@@ -82,7 +83,9 @@ const puppeteer = require('puppeteer'); // Require the Package we need...
         await page.waitFor(5000); // In case Server has JS needed to be loaded...
 
         //const moreReviewsBtnSelector = 'button[aria-label^="More reviews"]'
-        const moreReviewsBtnSelector = 'button[aria-label^="更多评价"]'
+        //const moreReviewsBtnSelector = 'button[aria-label^="更多评价"]'
+        const moreReviewsBtnSelector = 'button[aria-label^="更多評論"]'
+
 
         const linkHandlers = await page.$(moreReviewsBtnSelector);
 
@@ -220,6 +223,7 @@ const puppeteer = require('puppeteer'); // Require the Package we need...
         var obj = {
             comments: result
         };
+
         var json_data = JSON.stringify(obj);
         //let fs = require('fs');
 
