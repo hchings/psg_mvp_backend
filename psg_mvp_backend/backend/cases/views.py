@@ -126,14 +126,14 @@ class CaseDetailView(UpdateConciseResponseMixin,
 
         data = cache.get(cache_key)
 
+        instance = self.get_object()
+        self.object = instance
+        self.get_context_data()
+
         if data:
             # TODO: should open
             logger.info("[Case Detail] - cache found: %s" % cache_key)
             return Response(data)
-
-        instance = self.get_object()
-        self.object = instance
-        self.get_context_data()
 
         instance = self.get_object()
         serializer = self.get_serializer(instance)
