@@ -352,12 +352,10 @@ class ClinicProfile(models.Model):
                                     default=[],
                                     help_text="the original service tags on official sites w/out any normalization")
 
-    # tags
-    # services = TaggableManager(through=ServiceTaggedItem, blank=True)
-
     def __str__(self):
         return 'clinic_profile_' + self.display_name
 
+    # index on branch-level
     # def indexingOld(self):
     #     """
     #     An indexing instance method that adds the object instance
@@ -445,7 +443,7 @@ class ClinicProfile(models.Model):
             display_name=self.display_name,
             id=self.uuid,  # uuid of the clinic
             regions=regions,
-            num_cases=Case.objects.filter(clinic={'uuid': self.uuid}).count(),
+            num_cases=Case.objects.filter(clinic={'uuid': self.uuid}, state="published").count(),
             num_reviews=Review.objects.filter(clinic={'uuid':self.uuid}).count(),
             logo_thumbnail=self.logo_thumbnail.url if self.logo_thumbnail else "",
         )

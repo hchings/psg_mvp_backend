@@ -13,12 +13,8 @@ class ReviewAdmin(admin.ModelAdmin):
                     'clinic', 'doctors', 'source')
     list_filter = ('rating', 'source')
     search_fields = ('body', 'clinic')
-    # # raw_id_fields = ('username',)
-    # ordering = ['user_type', 'uuid']
 
-    # readonly_fields = ('uuid', 'side_effects')
-
-    # exclude = ('side_effects',)
+    readonly_fields = ('services',)
 
     def scp(self, obj):
         return obj.author.scp
@@ -31,7 +27,6 @@ class ReviewAdmin(admin.ModelAdmin):
 
     def doctors(self, obj):
         return str(obj.doctors)
-        # return '%s | %s' % (obj.clinic.doctor_name, obj.clinic.doctor_profile_id) if obj.clinic.doctor_name else ''
 
 
 admin.site.register(Review, ReviewAdmin)
