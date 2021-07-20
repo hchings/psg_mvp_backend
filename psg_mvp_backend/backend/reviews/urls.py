@@ -12,9 +12,8 @@ from .views import ReviewListView, ReviewDetailView\
 urlpatterns = [
     url(r'^$', ReviewListView.as_view(), name=ReviewListView.name),
     url(r'^(?P<uuid>[0-9]+)$', ReviewDetailView.as_view(), name=ReviewDetailView.name),
-    # url(r'^like/(?P<comment_uuid>[^/]+)/?$', like_unlike_review, name='like-review'),
-    # # TODO: add back flags reg: (?:(?P<flag>[^/]+)/)
-    # url(r'^unlike/(?P<comment_uuid>[^/]+)/?$',
+    # url(r'^like/(?P<review_uuid>[^/]+)/?$', like_unlike_review, name='like-review'),
+    # url(r'^unlike/(?P<review_uuid>[^/]+)/?$',
     #     like_unlike_review,
     #     {'do_like': False},
     #     name='unlike-comment')
