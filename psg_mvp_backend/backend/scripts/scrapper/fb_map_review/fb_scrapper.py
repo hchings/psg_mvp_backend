@@ -24,6 +24,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.keys import Keys
 
 import traceback
 import typer
@@ -121,8 +122,8 @@ def defining_driver():
     :return:
     """
     options = Options()
-    options.add_argument('--headless')
-    options.add_argument('--no-sandbox')
+    #options.add_argument('--headless')
+    #options.add_argument('--no-sandbox')
     options.add_argument('--start-maximized')
     options.add_argument('window-size=1536x824')
     wire_options = {
@@ -228,6 +229,22 @@ counter_skip = 0
 #
 #     print("failed_cnt: ", failed_cnt)
 
+def auth(browser):
+    print("attempting auth")
+    browser.get('http://www.facebook.com')
+    assert 'Facebook' in browser.title
+
+    elem = browser.find_element(By.ID, 'email')  # Find the search box
+    elem.send_keys('cjoun@vt.edu') #+ Keys.RETURN)
+
+    elem = browser.find_element(By.ID, 'pass')  # Find the search box
+    elem.send_keys('djchristianjoun1616' + Keys.RETURN)
+
+    print(browser.title)
+    time.sleep(2)
+    print(browser.title)
+    #WebDriverWait(browser, 10).until(EC.title_contains("7"))
+    assert 'Facebook - Log In or Sign Up' not in browser.title
 
 def fb_scapper(clinic_uuid, fb_page):
     print("part 0")
@@ -239,12 +256,17 @@ def fb_scapper(clinic_uuid, fb_page):
     counter_skip = 0
 
     driver = defining_driver()
+    #auth(driver)
     driver.get(fb_page)
+
+    #TODO: Search for text in any div "<div class="_585r _50f4">You must log in to continue.</div>" or 你必須登入才能繼續。
+
     clicked=False
 
     print("part 1")
     while True:
         try:
+            print("while loop running -- ")
             to_scroll_into_view = WebDriverWait(driver, 15).until(EC.visibility_of_element_located((By.XPATH, '//div[@class="clearfix uiMorePager stat_elem _4288 _52jv"]')))
             actions = ActionChains(driver)
             actions.move_to_element(to_scroll_into_view).perform()
@@ -256,10 +278,15 @@ def fb_scapper(clinic_uuid, fb_page):
                     a.click()
                     time.sleep(1)
                     clicked = True
+                    print("clicked = true")
                 except:
                     pass
             time.sleep(2)
         except Exception as e:
+            print(e)
+            ll = traceback.format_exc()
+            print(type(ll))
+            print(ll)
             break
 
     print("part 2")
@@ -286,11 +313,11 @@ def fb_scapper(clinic_uuid, fb_page):
     df = pd.DataFrame({"User_Name":UserClass.users_list,
                        "Recommendation_Status":UserClass.recommend_status,
                        "User_Comment":UserClass.user_comment,
-                       "User_Interaction_Date":UserClass.post_date,
+                       "User_Interac    tion_Date":UserClass.post_date,
                        "User_Profile":UserClass.user_profile_review,
                        "Page_Source":UserClass.page_url
                        })
-    if False:
+    if True:
         loop = asyncio.get_event_loop()
         loop.run_until_complete(_ensure_image_(UserClass.user_profile_review, clinic_uuid))
 
@@ -300,7 +327,8 @@ def fb_scapper(clinic_uuid, fb_page):
 def run_one(clinic_uuid, url):
     try:
         output_name = './output/%s.csv' % (clinic_uuid)
-        if path.exists(output_name):
+        error_output_name = './output/error_%s.json' % (clinic_uuid)
+        if path.exists(output_name) or path.exists(error_output_name):
             #print("%s is done, skipped" % clinic_uuid)
             pass
         else:

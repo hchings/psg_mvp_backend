@@ -10,8 +10,8 @@ if __name__ == '__main__':
         data = json.load(f)
 
     for idx, clinic in enumerate(data["results"]):
-        # if idx > 2:
-        #     break
+        #if idx > 2:
+        #    break
         # print(clinic)
         clinic_uuid = clinic["clinic_uuid"] or "missing"
         branch = clinic["branch"] or "missing"
