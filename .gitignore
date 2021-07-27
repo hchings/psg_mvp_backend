@@ -120,5 +120,4 @@ urls.full.json
 urls.errors.json
 user_images/
 user_images_fb/
-google_processed_reviews.csv
 chromedriver
