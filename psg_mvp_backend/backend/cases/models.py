@@ -330,7 +330,7 @@ class Case(models.Model, HitCountMixin):
     GENDERS = (
         ('female', 'female'),
         ('male', 'male'),
-        ('neutral', 'neutral'),
+        ('others', 'others'),
         ('', '')  # undefined
     )
 
@@ -476,6 +476,10 @@ class Case(models.Model, HitCountMixin):
 
     body = models.TextField(blank=True)
 
+    consent = models.BooleanField(default=False,
+                                  blank=True,
+                                  help_text='if a case is scraped, whether it got the consent from the author')
+
     scp_user_pic = ProcessedImageField(upload_to=get_scp_user_pic_dir_name,
                                        processors=[ResizeToFill(100, 100)],
                                        format='JPEG',
@@ -543,7 +547,7 @@ class Case(models.Model, HitCountMixin):
     skip_reason = models.CharField(
         max_length=30,
         choices=SKIP_REASONS,
-        default='undefined',
+        default='',
         blank=True,
         null=True
     )

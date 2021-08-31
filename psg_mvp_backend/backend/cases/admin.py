@@ -15,9 +15,9 @@ class CaseAdmin(admin.ModelAdmin):
     Customizing Admin Page for Case Model
 
     """
-    list_display = ('uuid', 'created', 'posted', 'author_posted', 'skip', 'skip_reason','status', 'is_scrapped', 'failed', 'title', 'is_official', 'gender', 'rating',
-                    'author', 'author_uuid', 'clinic_branch', 'clinic_uuid', 'doctor', 'doctor_profile_id')
-    list_filter = ('state', 'is_official', 'gender', 'rating', 'interest', 'skip', 'skip_reason', 'failed')
+    list_display = ('uuid', 'created', 'posted', 'status', 'is_scrapped', 'consent', 'skip', 'skip_reason', 'title', 'is_official',
+                    'author', 'author_uuid',)
+    list_filter = ('state', 'consent', 'skip', 'skip_reason', 'is_official', 'gender', 'interest', 'failed')
     search_fields = ('uuid', 'author', 'title')
     # raw_id_fields = ('username',)
     # ordering = ['user_type', 'uuid']
