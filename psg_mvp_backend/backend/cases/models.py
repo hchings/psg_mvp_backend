@@ -391,6 +391,11 @@ class Case(models.Model, HitCountMixin):
                               choices=GENDERS,
                               default='female')
 
+    case_number = models.CharField(max_length=30,
+                                   blank=True,
+                                   null=True,
+                                   help_text="customized case number by clinics")
+
     recovery_time = models.CharField(max_length=20,
                                      blank=True,
                                      null=True,
@@ -420,7 +425,7 @@ class Case(models.Model, HitCountMixin):
                                   format='JPEG',
                                   options={'quality': 100})
 
-    bf_cap = models.CharField(max_length=50,
+    bf_cap = models.CharField(max_length=200,
                               default='',
                               blank=True,
                               help_text='before caption')
@@ -447,7 +452,7 @@ class Case(models.Model, HitCountMixin):
                                   format='JPEG',
                                   options={'quality': 100})
 
-    af_cap = models.CharField(max_length=50,
+    af_cap = models.CharField(max_length=200,
                               default='',
                               blank=True,
                               help_text='after caption')
@@ -463,7 +468,7 @@ class Case(models.Model, HitCountMixin):
                                  blank=True,
                                  help_text='set to true if this case is a failed surgery')
 
-    title = models.CharField(max_length=30,
+    title = models.CharField(max_length=100,
                              blank=True)
 
     # pain_point = models.CharField(max_length=50,
@@ -535,7 +540,7 @@ class Case(models.Model, HitCountMixin):
     positive_exp = MultiSelectField(choices=POSITIVE_EXP_CHOICES,
                                     null=True, blank=True)
 
-    # view_num = models.PositiveIntegerField(default=0, help_text='number of views')
+    age = models.PositiveIntegerField(blank=True, null=True)
 
     # weird you can't set max value here
     interest = models.FloatField(default=0, blank=True)
