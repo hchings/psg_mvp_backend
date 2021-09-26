@@ -121,3 +121,7 @@ urls.errors.json
 user_images/
 user_images_fb/
 chromedriver
+puppeteer-login-for-facebook/
+
+node_fb_map_review/
+fb_processed_reviews.csv
