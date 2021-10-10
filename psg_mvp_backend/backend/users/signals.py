@@ -54,6 +54,10 @@ def create_profile(sender, instance, created, **kwargs):
                                     uuid=str(instance.uuid))
         # clinic
         elif instance.user_type == 'clinic':
+            # TODO: this has to change to many-to-1 mapping w/ User model
+            # TODO: username should not affect clinic display_name
+            # TODO: user_id in ClinicProfile can be deprecated
+            # TODO: when a user claim a ClinicProfile, need to add clinic_uuid to the User object
             profile = ClinicProfile(user_id=user_id,
                                     display_name=instance.username,
                                     uuid=str(instance.uuid))
