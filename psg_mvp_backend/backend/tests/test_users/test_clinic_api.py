@@ -23,7 +23,7 @@ class ClinicAPITest(APITestCase):
         self.token.save()
         self.data = {
             "display_name": "晶華美醫診所",
-            "services_raw": ["test2"],
+            "services_raw": ["service_1"],
             "instagram_url": "http://my-insta-2.com",
             "branches": [
                 {
@@ -157,6 +157,27 @@ class ClinicAPITest(APITestCase):
         self.assertEqual(response.status_code, 403,
                          'Expected Response Code 401, received {0} instead.'
                          .format(response.status_code))
+
+    def test_create_then_update_services_raw(self):
+        """
+        Test PUT /clinics/<uuid> on nested field
+        :return:
+        """
+        #self.data["branches"][0]["branch_name"] = "new-branch-name"
+        response = self._call_clinic_detail_api("PUT")
+        clinic_obj = ClinicProfile.objects.get(uuid=self.user.clinic_uuid)
+
+        print("get response", response.data, response.data["branches"][0]["branch_name"])
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(clinic_obj.services_raw[0], "service_1")
+
+        self.data["services_raw"] = ["service_1", "service_2"]
+        response = self._call_clinic_detail_api("PUT")
+        clinic_obj = ClinicProfile.objects.get(uuid=self.user.clinic_uuid)
+
+        print("get response", response.data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(clinic_obj.services_raw[1], "service_2")
 
     def _call_clinic_detail_api(self, verb, data=None, token_key=None):
         """

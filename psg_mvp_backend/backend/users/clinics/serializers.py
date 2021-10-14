@@ -201,7 +201,11 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
         """
         in_branches = [] if 'branches' not in validated_data else validated_data.pop('branches')
         # TODO: Not done yet
-        servies_raw = {} if 'servies_raw' not in validated_data else validated_data.pop('servies_raw')
+        in_services_raw = [] if 'services_raw' not in validated_data else validated_data.pop('services_raw')
+
+        if in_services_raw and isinstance(in_services_raw, list):
+            # if we are letting the front end send the full list that is easiest.
+            instance.services_raw = in_services_raw
 
         if in_branches and isinstance(in_branches, list):
             place_id_to_branch = OrderedDict([(branch.place_id, branch) for branch in (instance.branches or []) \
