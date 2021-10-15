@@ -2,10 +2,11 @@
 DRF Serializers for clinics.
 
 """
-import ast
 from random import randint
+import coloredlogs, logging
+from collections import OrderedDict
 
-from rest_framework import serializers, exceptions
+from rest_framework import serializers
 from utils.drf.custom_fields import Base64ImageField
 from reviews.models import Review
 from reviews.serializers import ReviewSerializer
@@ -14,10 +15,13 @@ from cases.serializers import CaseCardSerializer
 from users.doctors.models import DoctorProfile
 from users.doctors.serializers import DoctorDetailSerializer
 from .models import ClinicProfile
-
+from users.clinics.models import ClinicBranch
 
 # pylint: disable=too-few-public-methods
 # pylint: disable=missing-docstring
+
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG', logger=logger)
 
 
 class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
@@ -30,17 +34,10 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
     logo_thumbnail = serializers.ImageField(max_length=None,
                                             use_url=True,
                                             required=False)
-    # services = NestedTagListSerializerField(source='clinic_profile.services')
-    # opening_info = serializers.SerializerMethodField() # tmp
-    # rating = serializers.SerializerMethodField()
-
     # nested field
-    branches = serializers.SerializerMethodField()
     services_raw = serializers.ListField()  # TODO: use this to make list
-
     saved_by_user = serializers.SerializerMethodField(required=False)
-
-    BRANCH_KEYS = set(['branch_name', 'is_head_quarter', 'address', 'region', 'locality'])
+    BRANCH_KEYS_INCLUDED = set(['place_id', 'branch_name', 'is_head_quarter', 'address', 'region', 'locality'])
 
     def get_branches(self, obj):
         """
@@ -53,7 +50,7 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
             for item in obj.branches:
                 embedded_dict = item.__dict__
                 for key in list(embedded_dict.keys()):
-                    if key.startswith('_') or key not in self.BRANCH_KEYS:
+                    if key.startswith('_') or key not in self.BRANCH_KEYS_INCLUDED:
                         embedded_dict.pop(key)
                     # TODO: tmp fix. PhoneNumber package has bug and is not JSON serializable
                     # https://github.com/stefanfoulis/django-phonenumber-field/issues/225
@@ -177,10 +174,71 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
                   'line_url', 'services_raw', 'instagram_url',
                   'branches', 'saved_by_user')
 
+    def __init__(self, *args, **kwargs):
+        """
+        Dynamically change field.
+        :param args:
+        :param kwargs:
+        """
+        super(ClinicPublicSerializer, self).__init__(*args, **kwargs)
+        if self.context['request'].method in ['POST', 'PUT', 'PATCH']:
+            # nested fields don't have serializers implicitly assigned
+            self.fields['branches'] = BranchSerializer(required=False, many=True)
+        else:
+            self.fields['branches'] = serializers.SerializerMethodField()
+
+    def create(self, validated_data):
+        raise NotImplementedError("Does not allow create a ClinicProfile through API atm.")
+
+    def update(self, instance, validated_data):
+        """
+        Need this to handle noSQL record creation (not natively supported by Django).
+        In ClinicProfile, "branches" and "serice_raw" are using abstract Djongo schemas
+        and need to be handled.
+        :param instance:
+        :param validated_data:
+        :return:
+        """
+        in_branches = [] if 'branches' not in validated_data else validated_data.pop('branches')
+        # TODO: Not done yet
+        in_services_raw = [] if 'services_raw' not in validated_data else validated_data.pop('services_raw')
+
+        if in_services_raw and isinstance(in_services_raw, list):
+            # if we are letting the front end send the full list that is easiest.
+            instance.services_raw = in_services_raw
+
+        if in_branches and isinstance(in_branches, list):
+            place_id_to_branch = OrderedDict([(branch.place_id, branch) for branch in (instance.branches or []) \
+                                              if branch.place_id])
+            for in_branch in in_branches:
+                # if place_id matches an existing branch
+                if "place_id" in in_branch and in_branch["place_id"] in place_id_to_branch:
+                    target_branch = place_id_to_branch[in_branch["place_id"]]
+                    for k, v in in_branch.items():
+                        if hasattr(target_branch, k):
+                            setattr(target_branch, k, v)
+                else:
+                    # create a new branch obj
+                    logger.info("No matched branch, creating a new one...")
+                    serializer = BranchSerializer(data=in_branch)
+                    if serializer.is_valid():
+                        target_branch = ClinicBranch(**serializer.validated_data)
+                        # assume place_id is required
+                        place_id_to_branch[target_branch.place_id] = target_branch
+                        # print("new target_branch", target_branch, serializer.validated_data)
+                    else:
+                        logger.error("ClinicPublicSerializer Invalid branch %s " % str(in_branch))
+            instance.branches = list(place_id_to_branch.values())
+
+        # will call save()
+        super(ClinicPublicSerializer, self).update(instance, validated_data)
+        return instance
+
 
 class BranchSerializer(serializers.Serializer):
     branch_name = serializers.CharField(required=False)
-    place_id = serializers.ReadOnlyField(required=False)
+    # place_id = serializers.ReadOnlyField(required=False)
+    place_id = serializers.CharField(required=True)  # TODO: double check
     is_head_quarter = serializers.BooleanField(required=False)
     opening_info = serializers.CharField(required=False)
     rating = serializers.FloatField(required=False)

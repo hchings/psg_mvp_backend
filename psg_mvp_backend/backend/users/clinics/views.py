@@ -20,7 +20,7 @@ from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnl
 from django.contrib.contenttypes.models import ContentType
 
 from backend.settings import ES_PAGE_SIZE
-from backend.shared.permissions import IsAdminOrReadOnly
+from backend.shared.permissions import IsAdminOrReadOnly, IsAdminOrIsClinicOwner
 from .serializers import ClinicPublicSerializer, ClinicSavedSerializer, \
     ClinicEsSerializer, ClinicHomeSerializer, ClinicDoctorsSerializer
 from .models import ClinicProfile
@@ -63,7 +63,7 @@ class ClinicPublicDetail(generics.RetrieveUpdateAPIView):
     queryset = ClinicProfile.objects.all()
     serializer_class = ClinicPublicSerializer
     lookup_field = 'uuid'
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAdminOrIsClinicOwner]
 
 
 # class ClinicSearchView(APIView):

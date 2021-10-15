@@ -54,6 +54,10 @@ def create_profile(sender, instance, created, **kwargs):
                                     uuid=str(instance.uuid))
         # clinic
         elif instance.user_type == 'clinic':
+            # TODO: this has to change to many-to-1 mapping w/ User model
+            # TODO: username should not affect clinic display_name
+            # TODO: user_id in ClinicProfile can be deprecated
+            # TODO: when a user claim a ClinicProfile, need to add clinic_uuid to the User object
             profile = ClinicProfile(user_id=user_id,
                                     display_name=instance.username,
                                     uuid=str(instance.uuid))
@@ -82,12 +86,12 @@ def clinic_profile_store_service_tags_raw(sender, instance, **kwargs):
     if services_raw_input and services_raw_input.strip() == '-':
         instance.services_raw_input = ''
         instance.services_raw = []
-    elif services_raw_input:
-        services_raw_input = remove_newlines(services_raw_input)
-        services_raw_input.replace("\n", ",")
-        services_raw_input.replace("，", ",")
-
-        instance.services_raw = [item.strip() for item in services_raw_input.split(',') if item.strip()]
+    # elif services_raw_input:
+    #     services_raw_input = remove_newlines(services_raw_input)
+    #     services_raw_input.replace("\n", ",")
+    #     services_raw_input.replace("，", ",")
+    #
+    #     instance.services_raw = [item.strip() for item in services_raw_input.split(',') if item.strip()]
     elif instance.services_raw:
         instance.services_raw_input = ', '.join(instance.services_raw)
 
