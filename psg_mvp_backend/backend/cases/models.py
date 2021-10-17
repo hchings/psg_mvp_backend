@@ -10,15 +10,14 @@ from djongo import models
 from multiselectfield import MultiSelectField
 from hitcount.models import HitCountMixin, HitCount
 from hitcount.managers import HitCountManager, HitManager
-# from django.contrib.contenttypes.fields import GenericRelation
-# from django.utils.translation import ugettext_lazy as _
+from annoying.functions import get_object_or_None
 
 from uuid import uuid4
 
 from django import forms
-from backend.shared.utils import _prep_catalog
-from backend.shared.utils import make_id
-from .doc_type import CaseDoc
+# from users.clinics.models import ClinicProfile
+from backend.settings import ROOT_URL
+from backend.shared.utils import _prep_catalog, make_id, get_category
 
 YEAR_CHOICES = [(y, y) for y in range(2000, date.today().year + 1)]
 MONTH_CHOICE = [(m, m) for m in range(1, 13)]
@@ -38,10 +37,6 @@ def get_bg_img_dir_name(instance, filename):
     """
     extension = filename.split(".")[-1]
     new_filename = 'before.' + extension
-    # obj.log.url, Media root is by default loaded
-    # adding MEDIA_ROOT is wrong! the below two will save the img to the same place,
-    # but the upper one will be wrong when serialized.
-    # return os.path.join(settings.MEDIA_ROOT, '/'.join(['cases', 'case_' + str(instance.uuid), new_filename]))
     return '/'.join(['cases', 'case_' + str(instance.uuid), new_filename])  # TODO: tmp try
 
 
@@ -52,7 +47,6 @@ def get_bg_img_cropped_dir_name(instance, filename):
     """
     extension = filename.split(".")[-1]
     new_filename = 'before_cropped.' + extension
-    # obj.log.url, Media root is by default loaded
     return '/'.join(['cases', 'case_' + str(instance.uuid), new_filename])
 
 
@@ -63,7 +57,6 @@ def get_af_img_dir_name(instance, filename):
     """
     extension = filename.split(".")[-1]
     new_filename = 'after.' + extension
-    # obj.log.url, Media root is by default loaded
     return '/'.join(['cases', 'case_' + str(instance.uuid), new_filename])
 
 
@@ -74,7 +67,6 @@ def get_af_img_cropped_dir_name(instance, filename):
     """
     extension = filename.split(".")[-1]
     new_filename = 'after_cropped.' + extension
-    # obj.log.url, Media root is by default loaded
     return '/'.join(['cases', 'case_' + str(instance.uuid), new_filename])
 
 
@@ -89,7 +81,6 @@ def get_scp_user_pic_dir_name(instance, filename):
     """
     extension = filename.split(".")[-1]
     new_filename = 'scp_user_pic.' + extension
-    # obj.log.url, Media root is by default loaded
     return '/'.join(['cases', 'case_' + str(instance.uuid), new_filename])
 
 
@@ -137,7 +128,6 @@ class UserInfo(models.Model):
     """
     Abstract model representing the info of a author.
     one-to-one relationship to Case.
-    TODO: add relationship if pbm=True
     """
 
     class Meta:
@@ -235,9 +225,6 @@ class SurgeryMeta(models.Model):
     one-to-one relationship to Case.
     """
 
-    # default = datetime.datetime.now().year,
-    # default = datetime.datetime.now().month,
-
     class Meta:
         abstract = True
 
@@ -246,10 +233,9 @@ class SurgeryMeta(models.Model):
     min_price = models.PositiveIntegerField(blank=True, null=True)
     max_price = models.PositiveIntegerField(blank=True, null=True)
 
-    # + price breakdown?
-
     def __str__(self):
-        return str(self.year)  # tmp
+        # tmp
+        return str(self.year)
 
 
 class SurgeryMetaForm(forms.ModelForm):
@@ -272,11 +258,8 @@ class SurgeryMetaForm(forms.ModelForm):
 class CaseImages(models.Model):
     """
     Concrete model for storing cases images other
-    than before/after photos. TODO: WIP
+    than before/after photos.
     """
-    # post = models.ForeignKey(Post, default=None)
-    # image = models.ImageField(upload_to=get_image_filename,
-    #                           verbose_name='Image')
     _id = models.ObjectIdField()
 
     # Image is resized to 120X120 pixels with django-imagekit
@@ -297,7 +280,6 @@ class CaseImages(models.Model):
                                default='',
                                blank=True)
 
-    # editable = False,
     case_uuid = models.CharField(max_length=30,
                                  blank=False,
                                  unique=False,
@@ -311,11 +293,7 @@ class CaseImages(models.Model):
     def __str__(self):
         return str(self.img) if self.order is None else str(self.img) + ' (%s)' % self.order
 
-    # 798 X 350 4:3
-    # 1000 X 750
 
-
-# TODO: add delete photo stuff/signal
 class Case(models.Model, HitCountMixin):
     """
     The core model for a case.
@@ -374,7 +352,6 @@ class Case(models.Model, HitCountMixin):
     # not working, Djongo/mongo does not support relation
     # hit_count = GenericRelation(HitCount, object_id_field='object_uuid',
     #                             related_query_name='hit_count_generic_relation')
-    # posted = models.TimeField(auto_now=True, help_text="last modified")
     posted = models.DateTimeField(auto_now=True, help_text="the real value of last modified")
     author_posted = models.DateTimeField(blank=True,
                                          null=True,
@@ -412,14 +389,13 @@ class Case(models.Model, HitCountMixin):
                                  help_text="before image")
 
     bf_img_cropped = ProcessedImageField(upload_to=get_bg_img_cropped_dir_name,
-                                         # processors=[ResizeToFill(1000, 750)], // TODO: not sure
                                          format='JPEG',
                                          options={'quality': 100},
                                          blank=True,
                                          null=True,
                                          help_text="before image cropped")
 
-    # 520:390,  4:3 X 130
+    # 520:390, 4:3 X 130
     bf_img_thumb = ImageSpecField(source='bf_img_cropped',
                                   processors=[ResizeToFill(520, 390)],
                                   format='JPEG',
@@ -440,7 +416,6 @@ class Case(models.Model, HitCountMixin):
                                  help_text="after image")
 
     af_img_cropped = ProcessedImageField(upload_to=get_af_img_cropped_dir_name,
-                                         # processors=[ResizeToFill(1000, 750)],
                                          format='JPEG',
                                          options={'quality': 100},
                                          blank=True,
@@ -471,9 +446,6 @@ class Case(models.Model, HitCountMixin):
     title = models.CharField(max_length=100,
                              blank=True)
 
-    # pain_point = models.CharField(max_length=50,
-    #                               blank=True)
-
     rating = models.FloatField(help_text="ratings from google map API",
                                blank=True)
 
@@ -497,7 +469,6 @@ class Case(models.Model, HitCountMixin):
                                         format='JPEG',
                                         options={'quality': 100})
 
-    # model_form_class = UserInfoForm
     author = models.EmbeddedModelField(
         model_container=UserInfo,
     )
@@ -542,7 +513,6 @@ class Case(models.Model, HitCountMixin):
 
     age = models.PositiveIntegerField(blank=True, null=True)
 
-    # weird you can't set max value here
     interest = models.FloatField(default=0, blank=True)
 
     # case management
@@ -562,31 +532,46 @@ class Case(models.Model, HitCountMixin):
         sig = ' '.join([sig, self.title]) if self.title else sig
         return sig
 
-    def indexing(self):
+    def indexing(self, root_url="", included_fields=[]):
         """
         An indexing instance method that adds the object instance
-        to the Elasticsearch index 'Cases' via the DocType.
+        to the Algolia's index.
 
-        :return(obj): a case boj?
+        :return(dict): the case object in dict form.
         """
-        doc = CaseDoc(
-            # meta={'id': self.id},
-            title=self.title or '',
-            clinic_name=self.clinic.display_name or '',
-            gender=self.gender,
-            is_official=self.is_official,
-            interest=self.interest,
-            posted=self.author_posted or self.posted,
-            skip=self.skip or False,
-            categories=[sub_cate_to_cate[item.name] for item in self.surgeries if
-                        item.name in sub_cate_to_cate] if self.surgeries else [],
-            surgeries=[item.name for item in self.surgeries] if self.surgeries else [],
-            id=str(self.uuid)  # uuid of case
-        )
+        # clinic_obj = get_object_or_None(ClinicProfile, uuid=self.clinic.uuid)
 
-        # must add index, otherwise will get No Index error.
-        doc.save(index="cases")  # TODO, not sure, seems not need this.
-        return doc.to_dict(include_meta=True)
+
+        obj = {
+            "objectID": self.uuid,
+            "uuid": self.uuid,
+            "title": self.title or '',
+            "clinic": {
+                "display_name": self.clinic.display_name or '',
+                "uuid": self.clinic.uuid,
+            },
+            "type": [get_category(surgery_obj.get('name', 'ERR')) for surgery_obj in self.surgeries
+                           if get_category(surgery_obj.get('name', 'ERR'))],
+            "failed": self.failed,
+            "is_official": self.is_official,
+            "surgeries": [{"name": item.name} for item in self.surgeries],
+            "af_img_thumb": (root_url or ROOT_URL) + self.af_img_thumb.url,
+            "bf_img_thumb": (root_url or ROOT_URL) + self.bf_img_thumb.url,
+            # "logo": (root_url or ROOT_URL) + clinic_obj.logo_thumbnail_small.url,
+            "posted": self.author_posted or self.posted,
+            "interest": self.interest,
+            "author": self.author.scp_username if self.author.scp else self.author.name,
+        }
+
+        if included_fields:
+            obj_new = {
+                "objectID": obj["objectID"]
+            }
+            for field in included_fields:
+                obj_new[field] = obj[field]
+            obj = obj_new
+
+        return obj
 
 
 ############################################################
@@ -635,8 +620,6 @@ class Hit(models.Model):
     ip = models.CharField(max_length=40, editable=False, db_index=True)
     session = models.CharField(max_length=40, editable=False, db_index=True)
     user_agent = models.CharField(max_length=255, editable=False)
-    # user = models.ForeignKey(AUTH_USER_MODEL, null=True, editable=False, on_delete=models.CASCADE)
-    # hitcount = models.ForeignKey(MODEL_HITCOUNT, editable=False, on_delete=models.CASCADE)
     user = models.CharField(max_length=40, editable=False, blank=False)  # user Uuid
     hitcount = models.CharField(max_length=40, blank=False)  # hitcount pk
 
@@ -645,8 +628,6 @@ class Hit(models.Model):
     class Meta:
         ordering = ('-created',)
         get_latest_by = 'created'
-        # verbose_name = _("hit")
-        # verbose_name_plural = _("hits")
 
     def __str__(self):
         return 'Hit: %s' % self.pk
@@ -667,28 +648,7 @@ class Hit(models.Model):
                 else:
                     hitcount_obj.hits = hitcount_obj.hits + 1
                     hitcount_obj.save()
-                # hitcount_obj.increase()
             except Exception as e:
                 print("Hit error: no obj", e)
 
         super(Hit, self).save(*args, **kwargs)
-    #
-    # TODO: this does not work in Djongo/mongo context.
-    # TODO: so I don't handle deletion for now.
-    # def delete(self, save_hitcount=False):
-    #     """
-    #     If a Hit is deleted and save_hitcount=True, it will preserve the
-    #     HitCount object's total. However, under normal circumstances, a
-    #     delete() will trigger a subtraction from the HitCount object's total.
-    #     NOTE: This doesn't work at all during a queryset.delete().
-    #     """
-    #     delete_hit_count.send(
-    #         sender=self, instance=self, save_hitcount=save_hitcount)
-    #     super(Hit, self).delete()
-
-# class HitCount(HitCountBase):
-#     """Built-in hitcount class. Default functionality."""
-#     pk = models.CharField(max_length=40, blank=False)
-#
-#     class Meta(HitCountBase.Meta):
-#         db_table = "hitcount_hit_count"

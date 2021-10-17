@@ -68,9 +68,7 @@ def create_profile(sender, instance, created, **kwargs):
         if profile:
             profile.save()
 
-
 @receiver(pre_save, sender=ClinicProfile)
-@receiver(pre_save, sender=DoctorProfile)
 def clinic_profile_store_service_tags_raw(sender, instance, **kwargs):
     """
     Turn services_raw_input field (TextField) of a ClinicProfile into services_raw field (ListField, plain array).
@@ -81,25 +79,10 @@ def clinic_profile_store_service_tags_raw(sender, instance, **kwargs):
     :param kwargs:
     :return:
     """
-    services_raw_input = instance.services_raw_input
-
-    if services_raw_input and services_raw_input.strip() == '-':
-        instance.services_raw_input = ''
-        instance.services_raw = []
-    # elif services_raw_input:
-    #     services_raw_input = remove_newlines(services_raw_input)
-    #     services_raw_input.replace("\n", ",")
-    #     services_raw_input.replace("，", ",")
-    #
-    #     instance.services_raw = [item.strip() for item in services_raw_input.split(',') if item.strip()]
-    elif instance.services_raw:
-        instance.services_raw_input = ', '.join(instance.services_raw)
-
     # fill in branch id (md5 hash of place id)
     if isinstance(instance, ClinicProfile):
         for branch in instance.branches:
             if branch.place_id and not branch.branch_id:
-                # print(branch.place_id, type(branch.place_id))
                 try:
                     hash_obj = hashlib.md5(branch.place_id.encode('utf-8'))
                     branch.branch_id = hash_obj.hexdigest()

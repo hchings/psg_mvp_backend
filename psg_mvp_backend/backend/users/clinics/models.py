@@ -10,29 +10,14 @@ from phonenumber_field.modelfields import PhoneNumberField
 from imagekit.models import ProcessedImageField
 from imagekit.processors import ResizeToFill
 from imagekit.models import ImageSpecField
-# from elasticsearch_dsl.exceptions import ValidationException
-
-# from taggit.managers import TaggableManager
-# from django import forms
-# from django.db import models
 from djongo import models
-# from hanziconv import HanziConv
 
 from django import forms
 from django.conf import settings
-# from django.contrib.postgres.fields import ArrayField
 from django.contrib.auth import get_user_model
-# from django.core.management import call_command
 
-# from backend.shared.models import SimpleString, SimpleStringForm
 from backend.shared.fields import MongoDecimalField
-from cases.models import Case
-from reviews.models import Review
-from ..doc_type import ClinicBranchDoc, ClinicProfileDoc
 
-# from django.utils.translation import ugettext_lazy as _
-
-# from tags.models import ServiceTaggedItem
 
 # Create a logger
 logger = logging.getLogger(__name__)
@@ -53,7 +38,6 @@ num_to_zh_char = {
 #            Utilities
 # -------------------------------
 
-
 def get_logo_full_dir_name(instance, filename):
     extension = filename.split(".")[-1]
     new_filename = 'logo_full.' + extension
@@ -69,7 +53,7 @@ def get_logo_dir_name(instance, filename):
     clinic = user_model.objects.get(_id=instance.user_id)
     extension = filename.split(".")[-1]
     new_filename = 'logo.' + extension
-    # obj.log.url, Media root is by default loaded
+
     return os.path.join('clinics', 'clinic_' + str(clinic.uuid), new_filename)
 
 
@@ -82,12 +66,6 @@ class ClinicBranch(models.Model):
 
     class Meta:
         abstract = True
-
-    # # one-to-many field. no need this when using mongo
-    # clinic_group = models.ForeignKey(ClinicProfile,
-    #                                  related_name="branches",
-    #                                  on_delete=models.CASCADE,  # not sure
-    #                                  help_text="the clinic group")
 
     # --- basic info ---
     place_id = models.CharField(max_length=50,
@@ -236,7 +214,20 @@ class ClinicProfile(models.Model):
     Auto-created when a clinic user is created.
 
     """
+    BIZ_TYPES = (
+        ('private', '整形醫美診所'),
+        ('derm', '皮膚科診所'),
+        ('hospital', '大型醫院'),
+        ('opht', '眼科診所'),
+    )
+
     _id = models.ObjectIdField()
+
+    biz_type = models.CharField(
+        max_length=40,
+        choices=BIZ_TYPES,
+        default=0,  # default to reviewing
+    )
 
     # ---fields copy from the User colleciton ---
     user_id = models.CharField(max_length=30,
@@ -259,12 +250,6 @@ class ClinicProfile(models.Model):
     obsolete_english_name = models.CharField(max_length=50,
                                              blank=True)
 
-    # TODO: check params and path
-    # logo_full = models.ImageField(upload_to=get_logo_full_dir_name,
-    #                               blank=True,
-    #                               null=True,
-    #                               help_text="logo with clinic name")
-
     # Image is resized to 120X120 pixels with django-imagekit
     logo = ProcessedImageField(upload_to=get_logo_dir_name,
                                processors=[ResizeToFill(400, 400)],
@@ -274,7 +259,6 @@ class ClinicProfile(models.Model):
                                null=True,
                                help_text="pure logo in square")
 
-    # logo = models.ImageField(upload_to=get_logo_dir_name)
     logo_thumbnail = ImageSpecField(source='logo',
                                     processors=[ResizeToFill(130, 130)],
                                     format='JPEG',
@@ -313,7 +297,6 @@ class ClinicProfile(models.Model):
     is_sm = models.BooleanField(default=False, blank=True, help_text="is small. for marking tiny clinics")
     is_oob = models.BooleanField(default=False, blank=True, help_text="might be out-of-business")
 
-    # branches = modeClinicBranchFormls.EmbeddedModelField(model_container=ClinicBranch)
     branches = models.ArrayModelField(
         model_container=ClinicBranch,
         model_form_class=ClinicBranchForm,
@@ -333,12 +316,6 @@ class ClinicProfile(models.Model):
         # arithmetic average rounded to 1 decimal point
         return 0.0 if not branch_ratings else round(sum(branch_ratings) / len(branch_ratings), 1)
 
-    # services_raw = models.ArrayModelField(
-    #     model_container=SimpleString,
-    #     model_form_class=SimpleStringForm,
-    #     default=[]
-    # )
-
     services = models.ArrayModelField(
         model_container=ServiceTag,
         model_form_class=ServiceTagForm,
@@ -355,110 +332,6 @@ class ClinicProfile(models.Model):
     def __str__(self):
         return 'clinic_profile_' + self.display_name
 
-    # index on branch-level
-    # def indexingOld(self):
-    #     """
-    #     An indexing instance method that adds the object instance
-    #     to the Elasticsearch index via the DocType.
-    # 
-    #     In DB, each document is in "clinic" level.
-    #     However, this method break the clinic document down
-    #     to "branch" level and store in ES.
-    # 
-    #     Simplified CN's analyzer is much better.
-    #     But since the current purpose it's only for very short text,
-    #     we don't not bother to do HanziConv.toSimplified().
-    # 
-    #     :return(list): a list of ClinicBranchDoc objects
-    #     """
-    #     # id = str(getattr(self, '_id', ''))
-    # 
-    #     data = []
-    #     for branch in self.branches:
-    # 
-    #         # 1. turn opening info into boolean
-    #         open_sunday = True
-    #         try:
-    #             # 0 represents Sunday
-    #             if 0 in json.loads(branch.opening_concise).get('close', []):
-    #                 open_sunday = False
-    #         except json.decoder.JSONDecodeError:
-    #             open_sunday = False  # unknown
-    # 
-    #         # 2. turn the concise opening info in DB to a readable format
-    #         open_info = self._humanize_opening_str(branch.opening_concise)
-    # 
-    #         # 3. create a new doc type.
-    #         #    note that we should avoid saving blob in search engine.
-    #         doc = ClinicBranchDoc(
-    #             # meta={'id': id},  # each document has metadata associated with it
-    #             display_name=self.display_name,
-    #             branch_name=branch.branch_name,
-    #             services=self.services_raw,
-    #             open_sunday=open_sunday,
-    #             open_info=str(open_info),  # TODO: somehow will block if I use array
-    #             address=branch.address,
-    #             rating=branch.rating,
-    #             id=self.uuid,  # uuid of the clinic
-    #             branch_id=branch.branch_id  # unique id of branch.
-    #         )
-    # 
-    #         data.append(doc.to_dict(include_meta=True))
-    # 
-    #         # try:
-    #         #     tmp.save()
-    #         # except ValidationException as e:
-    #         #     # trigger index_clinic_profiles command to create index and load all
-    #         #     # current records to ES.
-    #         #     logger.error("Error while saving ClinicProfile and update ES index: %s" % str(e))
-    #         #     call_command('index_clinic_profiles')
-    # 
-    #     return data
-
-    def indexing(self):
-        """
-        An indexing instance method that adds the object instance
-        to the Elasticsearch index via the DocType.
-
-        In DB, each document is in "clinic" level.
-        However, this method break the clinic document down
-        to "branch" level and store in ES.
-
-        Simplified CN's analyzer is much better.
-        But since the current purpose it's only for very short text,
-        we don't not bother to do HanziConv.toSimplified().
-
-        :return(list): a list of ClinicBranchDoc objects
-        """
-
-        regions = []
-        for branch in self.branches:
-            if branch.region not in regions:
-                regions.append(branch.region)
-
-        data = []
-        doc = ClinicProfileDoc(
-            services=[service.name for service in self.services],
-            rating=self.rating,
-            display_name=self.display_name,
-            id=self.uuid,  # uuid of the clinic
-            regions=regions,
-            num_cases=Case.objects.filter(clinic={'uuid': self.uuid}, state="published").count(),
-            num_reviews=Review.objects.filter(clinic={'uuid':self.uuid}).count(),
-            logo_thumbnail=self.logo_thumbnail.url if self.logo_thumbnail else "",
-        )
-
-        data.append(doc.to_dict(include_meta=True))
-
-        # try:
-        #     tmp.save()
-        # except ValidationException as e:
-        #     # trigger index_clinic_profiles command to create index and load all
-        #     # current records to ES.
-        #     logger.error("Error while saving ClinicProfile and update ES index: %s" % str(e))
-        #     call_command('index_clinic_profiles')
-
-        return data
 
     @staticmethod
     def _humanize_opening_str(opening_concise):

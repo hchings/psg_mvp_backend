@@ -28,6 +28,13 @@ SECRET_KEY = 'hck+)fy3p9x789tx(x^-j*^!8ylg*e-n=lkh5*3zs^k&f$)h_='
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+# For Algolia indexing
+ALGOLIA_CASE_INDEX = 'cases-dev'
+ALGOLIA_CLINIC_INDEX = 'clinics-brief-dev'
+ROOT_URL = 'http://localhost:8000'
+# ROOT_URL = "https://api.surgi.fyi"
+
+
 ALLOWED_HOSTS = ['*', '0.0.0.0', 'localhost']  # TODO: remove star
 
 # CORS_REPLACE_HTTPS_REFERER = False
@@ -392,3 +399,11 @@ URL_FRONT = 'surgi.fyi'
 #   Hit Count Config
 ########################
 HITCOUNT_KEEP_HIT_ACTIVE = { 'minutes': 3 }
+
+
+########################
+#       Algolia
+########################
+ALGOLIA_APP_ID = '59Z1FVS3D5'
+ALGOLIA_SECRET = '7a3a8ca34511873b56938d40f34b125d'
+
