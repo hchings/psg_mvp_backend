@@ -169,6 +169,7 @@ class CaseCardSerializer(serializers.ModelSerializer):
                                           use_url=True,
                                           required=False)
     logo = serializers.SerializerMethodField()
+    failed = serializers.SerializerMethodField()
 
     class Meta:
         model = Case
@@ -340,6 +341,9 @@ class CaseCardSerializer(serializers.ModelSerializer):
     def get_category(self, obj):
         return [get_category(surgery_obj.name or 'ERR') for surgery_obj in obj.surgeries
                            if get_category(surgery_obj.name or 'ERR')]
+
+    def failed(self, obj):
+        return True if obj.failed else False
 
 
 class CaseCardBriefSerializer(serializers.ModelSerializer):

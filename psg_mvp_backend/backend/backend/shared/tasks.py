@@ -9,7 +9,7 @@ import coloredlogs, logging
 
 from backend.settings import ALGOLIA_APP_ID, ALGOLIA_SECRET, \
     ALGOLIA_CASE_INDEX, ALGOLIA_CLINIC_INDEX
-# from clinics import ClinicPublicSerializer
+from users.clinics.serializers import ClinicCardSerializer
 from users.clinics.models import ClinicProfile
 from ..celery import app
 
@@ -62,9 +62,12 @@ def update_algolia_clinic_case_num(self, clinic_uuid):
         # do nothing
         return
 
-    # serializer = ClinicPublicSerializer()
+    serializer = ClinicCardSerializer(clinic_obj, indexing_algolia=True)
+    data = serializer.data
 
-    # TODO:
+    # TODO: bad. Not sure how to dynamically set fields
+    update_algolia_record.delay({"objectID": data["objectID"],
+                                 "num_cases": data["num_cases"]}, type="clinic")
 
 
 def _get_index(type):

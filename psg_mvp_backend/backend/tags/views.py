@@ -28,8 +28,8 @@ class ClinicNameListView(APIView):
         cache_key = "clinics_names"
         data = cache.get(cache_key)
 
-        if data:
-            return Response(data)
+        # if data:
+        #     return Response(data)
 
         objs = ClinicProfile.objects.filter(is_oob=False).only("display_name")
         res = [{"display_name": obj.display_name} for obj in objs]

@@ -402,18 +402,27 @@ class ClinicCardSerializer(serializers.HyperlinkedModelSerializer):
 
     def __init__(self, *args, **kwargs):
         self.indexing_algolia = kwargs.get("indexing_algolia", False)
+        # self.allow_fields = kwargs.get("allow_fields", False)
 
+        # downstream can't accept this keyword
         if self.indexing_algolia:
-            # downstream can't accept this keyword
             kwargs.pop('indexing_algolia')
+
+        # if self.allow_fields:
+        #     kwargs.pop('allow_fields')
 
         super(ClinicCardSerializer, self).__init__(*args, **kwargs)
 
         if self.indexing_algolia:
             self.fields['objectID'] = serializers.SerializerMethodField(required=False)
 
-            if not self.context.get('request', None):
-                self.fields['logo_thumbnail'] = serializers.SerializerMethodField()
+        if not self.context.get('request', None):
+            self.fields['logo_thumbnail'] = serializers.SerializerMethodField()
+
+        # if self.allow_fields and isinstance(self.allow_fields, list):
+        #     print("set fields", self.allow_fields)
+        #     self.fields = self.allow_fields
+
 
     def get_objectID(self, obj):
         return str(obj.uuid)
