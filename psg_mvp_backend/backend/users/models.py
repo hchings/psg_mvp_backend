@@ -52,6 +52,11 @@ class User(AbstractUser):
                                  choices=USER_TYPE_CHOICES,
                                  default=1)
 
+    # many-to-one association w/ ClinicProfile model
+    clinic_uuid = models.CharField(max_length=30,
+                                   blank=True,
+                                   help_text="the uuid field of ClinicProfile")
+
 
 class RegistrationOTP(models.Model):
     _id = models.ObjectIdField()

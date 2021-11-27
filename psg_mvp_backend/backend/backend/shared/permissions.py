@@ -31,7 +31,6 @@ class IsAdminOrReadOnly(BasePermission):
     """
 
     """
-
     def has_permission(self, request, view):
         """
         :return(Boolean):
@@ -42,3 +41,18 @@ class IsAdminOrReadOnly(BasePermission):
             return True
         else:
             return request.user.is_superuser
+
+
+class IsAdminOrIsClinicOwner(BasePermission):
+    """
+    Customized permission class to allow admin or clinic owner to
+    do put/post on ClinicProfile.
+    """
+    def has_permission(self, request, view):
+        """
+        :return(Boolean): Whether the permission is granted.
+        """
+        if request.method in SAFE_METHODS:
+            return True
+        else:
+            return request.user.is_superuser or (request.user.is_authenticated and str(request.user.clinic_uuid) == view.kwargs["uuid"])

@@ -2,22 +2,26 @@
 DRF Serializers for clinics.
 
 """
-import ast
 from random import randint
+import coloredlogs, logging
+from collections import OrderedDict
 
-from rest_framework import serializers, exceptions
+from rest_framework import serializers
 from utils.drf.custom_fields import Base64ImageField
+
 from reviews.models import Review
 from reviews.serializers import ReviewSerializer
 from cases.models import Case
 from cases.serializers import CaseCardSerializer
 from users.doctors.models import DoctorProfile
 from users.doctors.serializers import DoctorDetailSerializer
+from users.clinics.models import ClinicBranch
+from backend.settings import ROOT_URL
 from .models import ClinicProfile
 
 
-# pylint: disable=too-few-public-methods
-# pylint: disable=missing-docstring
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG', logger=logger)
 
 
 class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
@@ -30,17 +34,10 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
     logo_thumbnail = serializers.ImageField(max_length=None,
                                             use_url=True,
                                             required=False)
-    # services = NestedTagListSerializerField(source='clinic_profile.services')
-    # opening_info = serializers.SerializerMethodField() # tmp
-    # rating = serializers.SerializerMethodField()
-
     # nested field
-    branches = serializers.SerializerMethodField()
     services_raw = serializers.ListField()  # TODO: use this to make list
-
     saved_by_user = serializers.SerializerMethodField(required=False)
-
-    BRANCH_KEYS = set(['branch_name', 'is_head_quarter', 'address', 'region', 'locality'])
+    BRANCH_KEYS_INCLUDED = set(['place_id', 'branch_name', 'is_head_quarter', 'address', 'region', 'locality'])
 
     def get_branches(self, obj):
         """
@@ -53,7 +50,7 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
             for item in obj.branches:
                 embedded_dict = item.__dict__
                 for key in list(embedded_dict.keys()):
-                    if key.startswith('_') or key not in self.BRANCH_KEYS:
+                    if key.startswith('_') or key not in self.BRANCH_KEYS_INCLUDED:
                         embedded_dict.pop(key)
                     # TODO: tmp fix. PhoneNumber package has bug and is not JSON serializable
                     # https://github.com/stefanfoulis/django-phonenumber-field/issues/225
@@ -92,18 +89,12 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
         """
         request = self.context.get('request', None)
 
-        # print("reauest", request)
-
         # for unlogin user
         if not request or request.user.is_anonymous:
             return False
 
         # it should only have one obj if it's saved
         action_objs = obj.action_object_actions.filter(actor_object_id=request.user._id, verb='save')
-        # for item in action_objs:
-        #     print("branch_id", item.data['branch_id'])
-
-        # logger.info("action_objs in serializer %s" % action_objs)
 
         return False if not action_objs else True
 
@@ -177,10 +168,71 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
                   'line_url', 'services_raw', 'instagram_url',
                   'branches', 'saved_by_user')
 
+    def __init__(self, *args, **kwargs):
+        """
+        Dynamically change field.
+        :param args:
+        :param kwargs:
+        """
+        super(ClinicPublicSerializer, self).__init__(*args, **kwargs)
+        if self.context['request'].method in ['POST', 'PUT', 'PATCH']:
+            # nested fields don't have serializers implicitly assigned
+            self.fields['branches'] = BranchSerializer(required=False, many=True)
+        else:
+            self.fields['branches'] = serializers.SerializerMethodField()
+
+    def create(self, validated_data):
+        raise NotImplementedError("Does not allow create a ClinicProfile through API atm.")
+
+    def update(self, instance, validated_data):
+        """
+        Need this to handle noSQL record creation (not natively supported by Django).
+        In ClinicProfile, "branches" and "serice_raw" are using abstract Djongo schemas
+        and need to be handled.
+        :param instance:
+        :param validated_data:
+        :return:
+        """
+        in_branches = [] if 'branches' not in validated_data else validated_data.pop('branches')
+        # TODO: Not done yet
+        in_services_raw = [] if 'services_raw' not in validated_data else validated_data.pop('services_raw')
+
+        if in_services_raw and isinstance(in_services_raw, list):
+            # if we are letting the front end send the full list that is easiest.
+            instance.services_raw = in_services_raw
+
+        if in_branches and isinstance(in_branches, list):
+            place_id_to_branch = OrderedDict([(branch.place_id, branch) for branch in (instance.branches or []) \
+                                              if branch.place_id])
+            for in_branch in in_branches:
+                # if place_id matches an existing branch
+                if "place_id" in in_branch and in_branch["place_id"] in place_id_to_branch:
+                    target_branch = place_id_to_branch[in_branch["place_id"]]
+                    for k, v in in_branch.items():
+                        if hasattr(target_branch, k):
+                            setattr(target_branch, k, v)
+                else:
+                    # create a new branch obj
+                    logger.info("No matched branch, creating a new one...")
+                    serializer = BranchSerializer(data=in_branch)
+                    if serializer.is_valid():
+                        target_branch = ClinicBranch(**serializer.validated_data)
+                        # assume place_id is required
+                        place_id_to_branch[target_branch.place_id] = target_branch
+                        # print("new target_branch", target_branch, serializer.validated_data)
+                    else:
+                        logger.error("ClinicPublicSerializer Invalid branch %s " % str(in_branch))
+            instance.branches = list(place_id_to_branch.values())
+
+        # will call save()
+        super(ClinicPublicSerializer, self).update(instance, validated_data)
+        return instance
+
 
 class BranchSerializer(serializers.Serializer):
     branch_name = serializers.CharField(required=False)
-    place_id = serializers.ReadOnlyField(required=False)
+    # place_id = serializers.ReadOnlyField(required=False)
+    place_id = serializers.CharField(required=True)  # TODO: double check
     is_head_quarter = serializers.BooleanField(required=False)
     opening_info = serializers.CharField(required=False)
     rating = serializers.FloatField(required=False)
@@ -216,8 +268,6 @@ class ClinicHomeSerializer(serializers.HyperlinkedModelSerializer):
         request = self.context.get('request', None)
         branch_id = request.query_params.get('branch_id', '')
 
-        print("===branch_id", branch_id)
-
         # TODO: should I assume it's HQ?
         if not branch_id:
             return ''
@@ -226,11 +276,7 @@ class ClinicHomeSerializer(serializers.HyperlinkedModelSerializer):
         for branch in obj.branches or []:
             if branch.branch_id == branch_id:
                 serializer = BranchSerializer(branch)
-                # reviews = Review.objects.filter(clinic={'place_id': 'ChIJ004m5WipQjQRmBN9dV20Vj4'})
-                # serializer.data['reviews'] = ReviewSerializer(reviews, many=True)
                 return serializer.data
-                # return {"branch_name": branch.branch_name,
-                #         "rating":branch.rating}
 
         # TODO: assumption: data check is in place
         return ''
@@ -340,53 +386,66 @@ class ClinicDoctorsSerializer(serializers.HyperlinkedModelSerializer):
                 "results": serializer.data}
 
 
-class ClinicEsSerializer(serializers.HyperlinkedModelSerializer):
+class ClinicCardSerializer(serializers.HyperlinkedModelSerializer):
     """
-    Read only Serializer for enriching ES record.
+    Read only Serializer for clinic brief info.
 
     """
     uuid = serializers.ReadOnlyField()
-    logo_thumbnail = Base64ImageField()
-
-    # return a list of branch_id of branches saved by users
-    saved_by_user = serializers.SerializerMethodField(required=False)
-
-    # read_only = True
-    # source = 'clinic_profile.branches',
-    # case_num = serializers.SerializerMethodField()
-
-    def get_saved_by_user(self, obj):
-        """
-        Return a list of branch ids of branch that are saved
-        by the user.
-
-        For unauthorized users, it will always be an empty array.
-
-        :param obj: the comment object
-        :return (list of str):
-        """
-        request = self.context.get('request', None)
-
-        # for unlogin user
-        if not request or request.user.is_anonymous:
-            return []
-
-        # it should only have one obj if it's saved
-        action_objs = obj.action_object_actions.filter(actor_object_id=request.user._id, verb='save')
-
-        branch_ids = []
-        for item in action_objs:
-            branch_id = item.data.get('branch_id', '')
-            if branch_id:
-                branch_ids.append(branch_id)
-
-        # logger.info("action_objs in serializer %s" % action_objs)
-        # return False if not action_objs else True
-        return branch_ids
+    services = serializers.SerializerMethodField(required=False)
+    regions = serializers.SerializerMethodField(required=False)
+    num_cases = serializers.SerializerMethodField(required=False)
 
     class Meta:
         model = ClinicProfile
-        fields = ('uuid', 'logo_thumbnail', 'saved_by_user')
+        fields = ('uuid', 'display_name', 'logo_thumbnail', 'regions', 'num_cases', 'services')
+
+    def __init__(self, *args, **kwargs):
+        self.indexing_algolia = kwargs.get("indexing_algolia", False)
+        # self.allow_fields = kwargs.get("allow_fields", False)
+
+        # downstream can't accept this keyword
+        if self.indexing_algolia:
+            kwargs.pop('indexing_algolia')
+
+        # if self.allow_fields:
+        #     kwargs.pop('allow_fields')
+
+        super(ClinicCardSerializer, self).__init__(*args, **kwargs)
+
+        if self.indexing_algolia:
+            self.fields['objectID'] = serializers.SerializerMethodField(required=False)
+
+        if not self.context.get('request', None):
+            self.fields['logo_thumbnail'] = serializers.SerializerMethodField()
+
+        # if self.allow_fields and isinstance(self.allow_fields, list):
+        #     print("set fields", self.allow_fields)
+        #     self.fields = self.allow_fields
+
+
+    def get_objectID(self, obj):
+        return str(obj.uuid)
+
+    def get_logo_thumbnail(self, obj):
+        return "" if not obj.logo_thumbnail else ROOT_URL + obj.logo_thumbnail.url
+
+    def get_services(self, obj):
+        return obj.services_raw or []
+
+    def get_regions(self, obj):
+        dedup = {}
+        regions = []
+        for branch in obj.branches:
+            region = branch.region
+            if region and region not in dedup and (region.endswith('市') or region.endswith('縣')):
+                regions.append(region)
+        return regions
+
+    def get_num_cases(self, obj):
+        return Case.objects.filter(clinic={'uuid': obj.uuid},
+                                   state="published").count()
+
 
 
 # TODO: WIP
@@ -405,92 +464,3 @@ class ClinicSavedSerializer(serializers.HyperlinkedModelSerializer):
 
     def get_branch_name(self, obj):
         return ''
-
-# --- Doctor ---
-
-# class DoctorPublicSerializer(serializers.HyperlinkedModelSerializer):
-#     """
-#
-#     """
-#     uuid = serializers.ReadOnlyField()
-#     # doctor_profile = DoctorProfileSerializer(many=False,
-#     #                                          read_only=False)
-#
-#     clinic_name = serializers.SlugRelatedField(
-#         source='doctor_profile.clinic',
-#         many=False,
-#         read_only=True,
-#         slug_field='username'
-#     )
-#
-#     clinic_uuid = serializers.SlugRelatedField(
-#         source='doctor_profile.clinic',
-#         many=False,
-#         read_only=True,
-#         slug_field='uuid'
-#     )
-#
-#     position = serializers.SlugRelatedField(
-#         source='doctor_profile',
-#         many=False,
-#         read_only=True,
-#         slug_field='position'
-#     )
-#
-#     english_name = serializers.SlugRelatedField(
-#         source='doctor_profile',
-#         many=False,
-#         read_only=True,
-#         slug_field='english_name'
-#     )
-#
-#     nick_name = serializers.SlugRelatedField(
-#         source='doctor_profile',
-#         many=False,
-#         read_only=True,
-#         slug_field='nick_name'
-#     )
-#
-#     degrees = serializers.SlugRelatedField(
-#         source='doctor_profile',
-#         many=False,
-#         read_only=True,
-#         slug_field='degrees'
-#     )
-#
-#     experience = serializers.SlugRelatedField(
-#         source='doctor_profile',
-#         many=False,
-#         read_only=True,
-#         slug_field='experiences'
-#     )
-#
-#     certificates = serializers.SlugRelatedField(
-#         source='doctor_profile',
-#         many=False,
-#         read_only=True,
-#         slug_field='certificates'
-#     )
-#
-#     services = TagListSerializerField(source='doctor_profile.services')
-#
-#     fb_url = serializers.SlugRelatedField(
-#         source='doctor_profile',
-#         many=False,
-#         read_only=True,
-#         slug_field='fb_url'
-#     )
-#
-#     blog_url = serializers.SlugRelatedField(
-#         source='doctor_profile',
-#         many=False,
-#         read_only=True,
-#         slug_field='blog_url'
-#     )
-#
-#     class Meta:
-#         model = User
-#         fields = ('uuid', 'username', 'clinic_name',
-#                   'clinic_uuid', 'position', 'english_name', 'nick_name',
-#                   'degrees', 'experience', 'certificates',
-#                   'services', 'fb_url', 'blog_url')

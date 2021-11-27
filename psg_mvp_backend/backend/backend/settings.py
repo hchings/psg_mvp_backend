@@ -30,6 +30,12 @@ DEBUG = False
 
 # TODO: remove hard-coded front/backend IPs
 ALLOWED_HOSTS = ['0.0.0.0', 'localhost', 'api.surgi.fyi', 'www.api.surgi.fyi', 'surgi.fyi', 'www.surgi.fyi', '206.189.218.129', '157.245.3.246']
+# For Algolia indexing
+ALGOLIA_CASE_INDEX = 'cases-prod'
+ALGOLIA_CLINIC_INDEX = 'clinics-brief-prod'
+ROOT_URL = 'https://api.surgi.fyi'
+
+
 
 # CORS_REPLACE_HTTPS_REFERER = False
 # HOST_SCHEME = "http://"
@@ -316,7 +322,6 @@ LOGOUT_URL = reverse_lazy('rest_logout')
 # ES_HOST = os.environ.get('ES_HOST')
 # ES_PORT = os.environ.get('ES_PORT')
 
-# TODO: remove this
 ES_HOST = 'elasticsearch'
 ES_PORT = 9200
 
@@ -439,3 +444,11 @@ URL_FRONT = 'surgi.fyi'
 #   Hit Count Config
 ########################
 HITCOUNT_KEEP_HIT_ACTIVE = { 'minutes': 3 }
+
+
+########################
+#       Algolia
+########################
+ALGOLIA_APP_ID = '59Z1FVS3D5'
+ALGOLIA_SECRET = '7a3a8ca34511873b56938d40f34b125d'
+ALGOLIA_ANALYTIC_KEY = 'cd669799ffe33b273991d0c1495740e5'

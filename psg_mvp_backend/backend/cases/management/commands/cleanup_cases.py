@@ -7,17 +7,11 @@ To run:
 
 """
 
-from elasticsearch_dsl import Search, Index, connections
-from elasticsearch.helpers import bulk
-from elasticsearch import Elasticsearch
 import coloredlogs, logging
 
-from django.conf import settings
-from django.db.models import F
 from django.core.management.base import BaseCommand, CommandError
 
 from cases.models import Case
-from cases.doc_type import CaseDoc
 
 
 # Create a logger

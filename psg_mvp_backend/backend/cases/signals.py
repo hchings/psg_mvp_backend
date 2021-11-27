@@ -8,11 +8,6 @@ from datetime import datetime
 import pytz
 import coloredlogs, logging
 from annoying.functions import get_object_or_None
-from elasticsearch import Elasticsearch
-# from elasticsearch.exceptions import NotFoundError
-from elasticsearch_dsl import Search, Q
-# from elasticsearch.helpers import bulk
-# from elasticsearch_dsl import UpdateByQuery
 
 from django.conf import settings
 from django.db.models.signals import post_delete, pre_save, post_init, post_save
@@ -20,19 +15,20 @@ from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 from django.core.exceptions import MultipleObjectsReturned
 
+from backend.shared.tasks import update_algolia_record, update_algolia_clinic_case_num, \
+    delete_algolia_record
 from users.clinics.models import ClinicProfile
 from users.doctors.models import DoctorProfile
 from comments.models import Comment
 from backend.shared.utils import invalidate_cached_data
 from .models import Case, CaseImages
-from .doc_type import CaseDoc
 from .tasks import send_case_in_review_confirmed, send_case_published_notice
+from .serializers import CaseCardSerializer
+
 
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
 
-es = Elasticsearch([{'host': settings.ES_HOST, 'port': settings.ES_PORT}],
-                   index="cases")
 
 User = get_user_model()
 
@@ -59,9 +55,6 @@ def fill_in_on_create(sender, instance, created, **kwargs):
             if user and user.is_staff:
                 instance.author.scp = True
                 instance.save()
-        #
-        # print("updated a p to ", instance.posted)
-        # instance.author_posted = instance.posted
 
         # send out "your case is in review email"
         if instance.state == 'reviewing':
@@ -74,7 +67,19 @@ def fill_in_on_create(sender, instance, created, **kwargs):
                                                 instance.title,
                                                 instance.uuid)
 
-        # print("!! post_save created signal", instance, instance.state)
+    # only need to update case record if it's published
+    if instance.state == 'published':
+        serializer = CaseCardSerializer(instance,
+                                        search_view=True,
+                                        indexing_algolia=True)
+
+        # update case in Algolia
+        update_algolia_record.delay(serializer.data, type="case")
+
+    # always update the case_counts for clinics in Algolia
+    if instance.clinic and instance.clinic.uuid:
+        update_algolia_clinic_case_num.delay(instance.clinic.uuid)
+
 
 
 # TODO: WIP. need more test. need rewrite...
@@ -87,7 +92,6 @@ def fill_in_data(sender, instance, **kwargs):
     :param kwargs:
     :return:
     """
-    # TODO: WIP
     # check the first time the case tranferred from 'review' to 'publish' and not scrapped case
     # and send out a notif email
     if (instance.state == 'published' or instance.state == 2) and not instance.author.scp:
@@ -101,7 +105,12 @@ def fill_in_data(sender, instance, **kwargs):
                                              first_tag,
                                              instance.title,
                                              instance.uuid)
-            # print("---send out published signal")
+
+    if instance.state == 'reviewing':
+        pre_save_instance = get_object_or_None(Case, uuid=instance.uuid)
+        if pre_save_instance and pre_save_instance.state == 'published':
+            delete_algolia_record.delay(instance.uuid, type="case")
+
 
     # sanity check on status
     if not instance.state:
@@ -111,8 +120,6 @@ def fill_in_data(sender, instance, **kwargs):
     # TODO: TMP, bad
     if instance.rating == 1:
         instance.failed = True
-
-    # author
 
     # clinic
     if instance.clinic and instance.clinic.display_name:
@@ -133,7 +140,6 @@ def fill_in_data(sender, instance, **kwargs):
             matched_branch = None
             if clinic.branches:
                 for branch in clinic.branches:
-                    # print(branch, branch.branch_name, branch.is_head_quarter, instance.clinic.branch_name)
                     if branch.is_head_quarter:
                         head_quarter = branch
                         if not instance.clinic.branch_name:
@@ -192,34 +198,7 @@ def fill_in_data(sender, instance, **kwargs):
             logger.error("[Fill in case data] Clinic %s of case %s not found!" %
                          (instance.clinic.display_name,
                           instance.uuid))
-        # if clinic name exist, fill in uuid, else notify and nullify uuid
 
-    # ------ [IMPORTANT !!] Create/Update ES --------
-    # check ES record, only if it's a published case
-    try:
-        query = Q({"match": {"id": str(instance.uuid)}})
-        s = CaseDoc.search(index='cases').query(query)
-        if instance.state == 'published' or instance.state == 2:
-            if s.count() == 0:
-                logger.info('Indexed case %s into ES.' % instance.uuid)
-                instance.indexing()
-            else:
-                # has record, delete and re-index
-                response = s.delete()
-                logger.info("Deleted document of case %s in ES: %s for reindexing" % (instance.uuid,
-                                                                                      response))
-                instance.indexing()
-        else:
-            # remove the ES record is state change
-            if s.count() > 0:
-                response = s.delete()
-                logger.info("Deleted document of case %s in ES: %s" % (instance.uuid,
-                                                                       response))
-    # NotFoundError
-    except Exception as e:
-        # prevent ES crashes
-        logger.error("[Error write case signal]: %s" % str(e))
-        pass
 
     # check for migration
     # This is a patch for djongo's Listfield.
@@ -236,16 +215,6 @@ def fill_in_data(sender, instance, **kwargs):
     except Exception as e:
         pass
 
-    # regardless of scp or not
-
-    # TODO: update searchable fields
-    # ubq = UpdateByQuery(index="cases").using(es).query("match", title="old title").script(
-    #     source="ctx._source.title='new title'")
-    # result = bulk(
-    #     client=es,
-    #     actions=(instance.indexing())
-    # )
-    # logger.info("updated case %s in ES: %s" % (instance.uuid, result))
 
 # TODO: this got called four times on a save
 # TODO: this is bad perf.
@@ -254,16 +223,11 @@ def fill_in_data(sender, instance, **kwargs):
 def case_health_check(sender, instance, **kwargs):
     # check thumbnail
     try:
-        # print("------post save")
         if instance.af_img:
-            thumb_path = instance.af_img_thumb.path
-            # if not path.exists(thumb_path):
             instance.af_img_thumb.generate(force=True)
             # logger.info("[case singal post save %s]: regen thumb %s" % (instance.uuid, instance.af_img_thumb))
 
         if instance.bf_img:
-            thumb_path = instance.bf_img_thumb.path
-            # if not path.exists(thumb_path):
             instance.bf_img_thumb.generate(force=True)
             # logger.info("[case singal post save %s]: regen thumb %s" % (instance.uuid, instance.bf_img_thumb))
     except Exception as e:
@@ -319,11 +283,11 @@ def delete_media(sender, instance, **kwargs):
         logging.error('Post %s\'s cache media no need cleaning. %s'
                       % (str(instance.uuid), path.join(settings.MEDIA_ROOT, dir_path)))
 
-    # 3. delete reference in ES
-    s = Search(index="cases").using(es).query("match", id=str(instance.uuid))
-    res = s.delete()
-    logger.info("Removed %s ES record of case %s" % (res['deleted'], instance.uuid))
-
-    # 4. delete comments
+    # 3. delete comments
     comment_objs = Comment.objects.filter(case_id=instance.uuid)
     comment_objs.delete()  # instantly delete
+
+    # 4. delete reference in Algolia
+    if instance.clinic and instance.clinic.uuid:
+        update_algolia_clinic_case_num.delay(instance.clinic.uuid)
+    delete_algolia_record.delay(instance.uuid, type="case")

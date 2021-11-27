@@ -157,6 +157,19 @@ def _prep_subcate():
     return sub_cate, sub_cate_to_cate
 
 
+def get_category(sub_cate):
+    """
+    Get procedure category given a procedure name.
+
+    :param(str) sub_cate: the procedure name
+    :return(str): the procedure category name
+    """
+    if not sub_cate_to_cate:
+        _prep_subcate()
+
+    return sub_cate_to_cate.get(sub_cate, "")
+
+
 def random_with_n_digits(n):
     """
     Gen random numerical code in n digits.

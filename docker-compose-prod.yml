@@ -18,18 +18,18 @@ services:
   web:
     build: ./psg_mvp_backend
     # gunicorn --bind 0.0.0.0:8000 --chdir ./backend backend.wsgi
-    command: [sh, -c, "python3 ./backend/manage.py index_cases && \
-                       python3 ./backend/manage.py index_clinic_profiles && \
+    command: [sh, -c, "python3 ./backend/manage.py index_cases_algolia && \
+                       python3 ./backend/manage.py index_clinic_algolia && \
                        gunicorn --certfile=/code/security/certificate.crt --keyfile=/code/security/private.key --bind 0.0.0.0:443 --chdir ./backend backend.wsgi"]
     environment:
       DJANGO_SETTINGS_MODULE: backend.settings
     volumes:
       - ./psg_mvp_backend:/code
-    links:
-      - elasticsearch
+    # links:
+      # - elasticsearch
     depends_on:
       - mongo
-      - elasticsearch
+      # - elasticsearch
       - cache
       - celery
     expose:
@@ -92,10 +92,3 @@ services:
     container_name: rd01
 #    ports:
 #      - '6379:6379'
-  dejavu:
-    image: appbaseio/dejavu:3.3.0
-    container_name: dejavu
-    ports:
-      - "1358:1358"
-    links:
-      - elasticsearch
