@@ -27,8 +27,8 @@ class ClinicProfileAdmin(admin.ModelAdmin):
     Customizing Admin Page for ClinicProfile Model
 
     """
-    list_display = ('display_name', 'user_id', 'uuid', 'logo_img', 'all_doctors_loaded', 'first_check')
-    list_filter = ('first_check', 'all_doctors_loaded', 'is_oob')
+    list_display = ('display_name', 'biz_type', 'user_id', 'uuid', 'logo_img', 'all_doctors_loaded', 'first_check')
+    list_filter = ('first_check', 'biz_type', 'all_doctors_loaded', 'is_oob')
     search_fields = ['display_name']
     readonly_fields = ['services_raw', 'services']
 

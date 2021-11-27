@@ -18,28 +18,28 @@ services:
   web:
     build: ./psg_mvp_backend
 #    gunicorn --certfile=/project/security/localhost-ip.crt --keyfile=/project/security/localhost-ip.key --bind 0.0.0.0:443 --chdir ./backend backend.wsgi"
-    command: [sh, -c, "python3 ./backend/manage.py index_cases && \
-                       python3 ./backend/manage.py index_clinic_profiles && \
+    command: [sh, -c, "python3 ./backend/manage.py index_cases_algolia && \
+                       python3 ./backend/manage.py index_clinics_algolia && \
                        gunicorn --bind 0.0.0.0:8000 --chdir ./backend backend.wsgi"]
     environment:
       DJANGO_SETTINGS_MODULE: backend.settings
     volumes:
       - ./psg_mvp_backend:/code
-    links:
-      - elasticsearch
+    # links:
+      # - elasticsearch
     depends_on:
       - mongo
-      - elasticsearch
+      # - elasticsearch
       - cache
       - celery
     expose:
-      - "8000"
-#      - "443"
+      # - "8000"
+      - "443"
   nginx:
     image: nginx:1.17-alpine
     ports:
-      - 8000:80
-#      - 443:80
+      # - 8000:80
+      - 443:80
     volumes:
       - ./psg_mvp_backend/nginx.conf:/etc/nginx/nginx.conf
       - ./psg_mvp_backend/static:/var/static  # <-- bind the static volume
@@ -92,10 +92,3 @@ services:
     container_name: rd01
 #    ports:
 #      - '6379:6379'
-  dejavu:
-    image: appbaseio/dejavu:3.3.0
-    container_name: dejavu
-    ports:
-      - "1358:1358"
-    links:
-      - elasticsearch

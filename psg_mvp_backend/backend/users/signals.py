@@ -11,10 +11,11 @@ from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.text import normalize_newlines
 
+from backend.shared.tasks import update_algolia_record
+from users.clinics.serializers import ClinicCardSerializer
 from .models import User
 from .clinics.models import ClinicProfile
 from .doctors.models import DoctorProfile
-# from .doc_type import ClinicProfileDoc
 
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
@@ -43,16 +44,10 @@ def create_profile(sender, instance, created, **kwargs):
     if created:
         profile = None
         user_id = str(getattr(instance, '_id', ''))
-        # user
-        if instance.user_type == 'user':
-            # profile = UserProfile(user=instance)
-            pass
-        # doctor
-        elif instance.user_type == 'doctor':
+        if instance.user_type == 'doctor':
             profile = DoctorProfile(user_id=user_id,
                                     display_name=instance.username,
                                     uuid=str(instance.uuid))
-        # clinic
         elif instance.user_type == 'clinic':
             # TODO: this has to change to many-to-1 mapping w/ User model
             # TODO: username should not affect clinic display_name
@@ -68,9 +63,7 @@ def create_profile(sender, instance, created, **kwargs):
         if profile:
             profile.save()
 
-
 @receiver(pre_save, sender=ClinicProfile)
-@receiver(pre_save, sender=DoctorProfile)
 def clinic_profile_store_service_tags_raw(sender, instance, **kwargs):
     """
     Turn services_raw_input field (TextField) of a ClinicProfile into services_raw field (ListField, plain array).
@@ -81,31 +74,21 @@ def clinic_profile_store_service_tags_raw(sender, instance, **kwargs):
     :param kwargs:
     :return:
     """
-    services_raw_input = instance.services_raw_input
-
-    if services_raw_input and services_raw_input.strip() == '-':
-        instance.services_raw_input = ''
-        instance.services_raw = []
-    # elif services_raw_input:
-    #     services_raw_input = remove_newlines(services_raw_input)
-    #     services_raw_input.replace("\n", ",")
-    #     services_raw_input.replace("，", ",")
-    #
-    #     instance.services_raw = [item.strip() for item in services_raw_input.split(',') if item.strip()]
-    elif instance.services_raw:
-        instance.services_raw_input = ', '.join(instance.services_raw)
-
     # fill in branch id (md5 hash of place id)
     if isinstance(instance, ClinicProfile):
         for branch in instance.branches:
             if branch.place_id and not branch.branch_id:
-                # print(branch.place_id, type(branch.place_id))
                 try:
                     hash_obj = hashlib.md5(branch.place_id.encode('utf-8'))
                     branch.branch_id = hash_obj.hexdigest()
-                    # print(hash_obj.hexdigest())
                 except Exception as e:
                     logger.error(e)
+
+
+@receiver(post_save, sender=ClinicProfile)
+def update_algolia_clinic_record(sender, instance, **kwargs):
+    serializer = ClinicCardSerializer(instance, indexing_algolia=True)
+    update_algolia_record.delay(serializer.data, type="clinic")
 
 
 @receiver(pre_save, sender=DoctorProfile)
@@ -119,7 +102,6 @@ def store_clinic(sender, instance, **kwargs):
     :param kwargs:
     :return:
     """
-
     # TODO: tmp fix. Djongo's ArrayModelField and ListField
     # TODO: could not have an initial value properly
     instance.degrees = instance.degrees or []
@@ -132,25 +114,7 @@ def store_clinic(sender, instance, **kwargs):
     if clinic_name:
         clinic_profile_obj = get_object_or_None(ClinicProfile, display_name=clinic_name)
         if not clinic_profile_obj:
-            # TODO: this part should be guarded at frontend.
-            # raise AttributeError('Clinic %s not found when creating doctor %s! \
-            #                       Please create the corresponding clinic user and profile first.'
-            #                      % (clinic_name, instance.display_name))
             instance.clinic_user_id = ''
             pass
         else:
             instance.clinic_uuid = str(getattr(clinic_profile_obj, 'uuid', ''))
-
-
-@receiver(post_save, sender=ClinicProfile)
-def clinic_profile_index_handler(sender, instance, **kwargs):
-    """
-    Index clinic profile into ElasticSearch on save.
-
-    :param sender:
-    :param instance:
-    :param kwargs:
-    :return:
-    """
-    pass
-    # instance.indexing()

@@ -1,52 +1,73 @@
 """
 Index cases into Algolia
-    >> python manage.py index_cases_algolia
+
+>> python manage.py index_cases_algolia <index_name>
+
 """
-from random import randint
+import coloredlogs, logging
+from algoliasearch.search_client import SearchClient
 
 from django.core.management.base import BaseCommand
-
-from algoliasearch.search_client import SearchClient
+from backend.settings import ALGOLIA_APP_ID, ALGOLIA_SECRET, \
+    FIXTURE_ROOT, ALGOLIA_CASE_INDEX
 
 from cases.serializers import CaseCardSerializer
 from cases.models import Case
 
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG', logger=logger)
 
 
 class Command(BaseCommand):
     """
-    Delete the exisiting cases index in ES instance
-    and bulk insert all "published" cases from main DB.
+    Index published cases into Algolia.
     """
 
-    help = 'Indexes Cases in Elastic Search'
+    help = 'Indexes Cases in Algolia Search'
+
+    def add_arguments(self, parser):
+        parser.add_argument("index_name",
+                            type=str,
+                            nargs='?',
+                            default=ALGOLIA_CASE_INDEX,
+                            help="The index name in Algolia. Use 'cases' for us_demo and 'cases-prod' for prod website in TW")
+
 
     def handle(self, *args, **options):
-        client = SearchClient.create('59Z1FVS3D5', '7a3a8ca34511873b56938d40f34b125d')
-        index = client.init_index('cases')
+        # ===== step 1 - index cases =====
+        client = SearchClient.create(ALGOLIA_APP_ID, ALGOLIA_SECRET)
+        index_name = options["index_name"]
+        index = client.init_index(index_name)
+        logger.info("Loading to Algolia index: %s" % index_name)
+
         cases = Case.objects.filter(state="published")
-        # cases = cases[:10]
-        serializer = CaseCardSerializer(cases, many=True, search_view=True)
-        # print(serializer.data)
+        serializer = CaseCardSerializer(cases,
+                                        many=True,
+                                        search_view=True,
+                                        indexing_algolia=True)
 
-        # algolia require object id
-        for obj in serializer.data:
-            obj["objectID"] = obj["uuid"]
-            obj["age"] = randint(18, 70)
-            # tmp
-            ROOT_URL = "http://localhost:8000"
-            if obj["af_img_thumb"]:
-                obj["af_img_thumb"] = ROOT_URL + obj["af_img_thumb"]
-
-            if obj["bf_img_thumb"]:
-                obj["bf_img_thumb"] = ROOT_URL + obj["bf_img_thumb"]
-            pivot = randint(0, 10)
-            if pivot // 2 == 0:
-                obj["gender"] = "female"
-            else:
-                obj["gender"] = "male"
-
-
-        print("indexing...")
+        logger.info("indexing %s cases..." % len(cases))
         index.replace_all_objects(serializer.data)
-        print("done")
+        logger.info("done")
+
+        # ===== step 2 - apply ranking =====
+        from django.core import management
+        management.call_command("shuffle_cases")
+
+        # ===== step 3 - create replica for sorting =====
+        # create a standard replica. Algolia will take care of content sync
+        replica_index_name = '%s_posted_desc' % index_name
+        index.set_settings({
+            'replicas': [
+                replica_index_name
+            ]
+        })
+        # configure the replica to sort by posted
+        replica_index = client.init_index(replica_index_name)
+        replica_index.set_settings({
+            'ranking': [
+                'desc(posted)',
+            ]
+        })
+
+        client.close()

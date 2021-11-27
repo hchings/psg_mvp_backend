@@ -229,25 +229,15 @@ class CaseStatsView(APIView):
     name = 'case-stats'
 
     def post(self, request):
-        # get page num from url para.
-        # page number starts from 0.
-        try:
-            page = int(request.query_params.get('page', 0))
-        except ValueError as e:
-            logger.error("case stats: %s" % str(e))
-            page = 0
+        """
+        Get view_num and like_num given a list of cases' uuids.
+        This endpoint has no cache.
 
-        # ----- parse request body -----
-        req_body = request.data
-
-        cache_key = '_'.join(['case_search', str(sorted(req_body.items())), str(page)]).replace(" ", "")
-        # logger.info("cache key: %s" % cache_key)
-        cached_data = cache.get(cache_key)  # should open
-
-        ids = [] if not cached_data else cached_data.get('ids', [])
-
+        :param request:
+        :return:
+        """
+        ids = request.data
         if not ids:
-            # cache error
             return Response({})
 
         queryset = Case.objects.filter(uuid__in=ids)
@@ -313,7 +303,7 @@ class CaseSearchView(APIView):
                 logger.error("Get cache failed in Case Search %s" % str(e))
 
             # print('check cache Time: %4f, has cache: %s' % (time.time() - start, True if cached_data else False))
-            if cached_data and cached_data.get('response', {}):
+            if False and cached_data and cached_data.get('response', {}):
                 logger.info("[Case Search] Found %s in cache" % cache_key)
                 return Response(cached_data.get('response', {}))
 

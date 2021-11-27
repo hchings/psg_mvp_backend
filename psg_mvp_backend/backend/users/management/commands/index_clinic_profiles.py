@@ -1,4 +1,5 @@
 """
+[Obsolete]
 Command to create the index of Clinic Profile
 and bulk insert all the current documents in the ClinicProfile collections.
 This will create branch-level documents into the ES engine.

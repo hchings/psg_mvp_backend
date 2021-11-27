@@ -11,15 +11,16 @@ import coloredlogs, logging
 from hitcount.models import HitCount
 
 from django.db.models import Q
-from backend.settings import FIXTURE_ROOT
-
-from backend.shared.fields import embedded_model_method
-from backend.shared.serializers import AuthorSerializer
-from backend.shared.utils import image_as_base64
-from .models import Case, CaseImages, UserInfo, ClinicInfo, SurgeryMeta, SurgeryTag
-from rest_framework.fields import (  # NOQA # isort:skip
+from rest_framework.fields import (
     CreateOnlyDefault, CurrentUserDefault, SkipField, empty
 )
+
+from backend.settings import FIXTURE_ROOT
+from backend.settings import ROOT_URL
+from backend.shared.fields import embedded_model_method
+from backend.shared.serializers import AuthorSerializer
+from backend.shared.utils import image_as_base64, get_category
+from .models import Case, CaseImages, UserInfo, ClinicInfo, SurgeryMeta, SurgeryTag
 
 # TODO: this dependency is not good
 from comments.models import Comment
@@ -27,25 +28,14 @@ from comments.serializers import CommentSerializer
 from comments.views import COMMENT_PAGE_SIZE
 from users.clinics.models import ClinicProfile
 
-# from users.clinics.serializers import ClinicLogoSerializer
-# COMMENT_PAGE_SIZE
-
-# from rest_framework.exceptions import ErrorDetail, ValidationError
-# from rest_framework.serializers import  as_serializer_error
-# from django.core.exceptions import ValidationError as DjangoValidationError
-# from rest_framework.fields import get_error_detail, set_value
-# from collections import OrderedDict
-# from collections.abc import Mapping
-# from rest_framework.utils import html, humanize_datetime, json, representation
-
 # Create a logger
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
 
 # hitcount random seed file
 HITCOUNT_FILE = os.path.join(FIXTURE_ROOT, 'hitcount.json')
-
 hitcount_dict = {}
+
 try:
     with open(HITCOUNT_FILE) as json_file:
         hitcount_dict = json.load(json_file)
@@ -57,9 +47,6 @@ class ClinicLogoSerializer(serializers.HyperlinkedModelSerializer):
     logo_thumbnail_small = serializers.ImageField(max_length=None,
                                                   use_url=True,
                                                   required=False)
-
-    # too large the payload
-    # logo_thumbnail_small = Base64ImageField()
 
     class Meta:
         model = ClinicProfile
@@ -134,9 +121,7 @@ class SurgeryTagSerializer(serializers.Serializer):
 ######################################
 
 class CaseStatsSerializer(serializers.ModelSerializer):
-    # number
     like_num = serializers.SerializerMethodField(required=False)
-
     view_num = serializers.SerializerMethodField(required=False)
 
     class Meta:
@@ -153,7 +138,7 @@ class CaseStatsSerializer(serializers.ModelSerializer):
         try:
             return len(obj.action_object_actions.filter(verb='like'))
         except Exception as e:
-            print("errir get liked num", obj.uuid)
+            logger.error("ERROR in get_like_num: %s, %s" % (str(e), obj.uuid))
             return 0
 
     def get_view_num(self, obj):
@@ -170,7 +155,6 @@ class CaseStatsSerializer(serializers.ModelSerializer):
         if not hitcount_obj:
             return hitcount_seed
         else:
-            # print("seed...", obj.uuid, hitcount_seed)
             return hitcount_obj.hits + hitcount_seed or 0
 
 
@@ -179,34 +163,18 @@ class CaseCardSerializer(serializers.ModelSerializer):
     clinic = ClinicInfoBriefSerializer()
     uuid = serializers.ReadOnlyField()
 
-    # this will correctly return full url in endpoints
-    # but not when using it standalone in DRF views unless the context is set.
-    # bf_img_thumb = serializers.ImageField(max_length=None,
-    #                                       use_url=True,
-    #                                       required=False)
+    surgeries = serializers.SerializerMethodField()
 
     af_img_thumb = serializers.ImageField(max_length=None,
                                           use_url=True,
                                           required=False)
+    logo = serializers.SerializerMethodField()
+    failed = serializers.SerializerMethodField()
 
-    # bf_img_thumb = serializers.SerializerMethodField()
-
-    # author = serializers.SerializerMethodField()
-    surgeries = serializers.SerializerMethodField()
-
-    # boolean
-    # saved_by_user = serializers.SerializerMethodField(required=False)
-    # liked_by_user = serializers.SerializerMethodField(required=False)
-
-    # number
-    # like_num = serializers.SerializerMethodField(required=False)
-    # view_num = serializers.SerializerMethodField(required=False)
-
-    # 'saved_by_user', 'liked_by_user',
     class Meta:
         model = Case
         fields = ('uuid', 'is_official', 'title', 'af_img_thumb', 'surgeries',
-                  'author', 'clinic', 'failed')
+                  'author', 'clinic', 'failed', 'logo')
 
     def __init__(self, *args, **kwargs):
         """
@@ -221,6 +189,9 @@ class CaseCardSerializer(serializers.ModelSerializer):
         # is on saved page
         self.saved_page = kwargs.get("saved_page", False)
 
+        # to include Algolia-specific fields
+        self.indexing_algolia = kwargs.get("indexing_algolia", False)
+
         if self.search_view:
             # downstream can't accept this keyword
             kwargs.pop('search_view')
@@ -228,6 +199,10 @@ class CaseCardSerializer(serializers.ModelSerializer):
         if self.saved_page:
             # downstream can't accept this keyword
             kwargs.pop('saved_page')
+
+        if self.indexing_algolia:
+            # downstream can't accept this keyword
+            kwargs.pop('indexing_algolia')
 
         super(CaseCardSerializer, self).__init__(*args, **kwargs)
 
@@ -237,22 +212,26 @@ class CaseCardSerializer(serializers.ModelSerializer):
                                                                      use_url=True,
                                                                      required=False)
                 self.fields['author'] = serializers.SerializerMethodField()
-                # self.fields['logo'] = serializers.SerializerMethodField()
-                self.fields['posted'] = serializers.SerializerMethodField(required=False)  # tODO: WIP
-                # print("search view-----")
-
-                # if self.saved_page:
-                #     self.fields['like_num'] = serializers.SerializerMethodField()
-                #     self.fields['view_num'] = serializers.SerializerMethodField()
-
+                self.fields['posted'] = serializers.SerializerMethodField(required=False)
+                self.fields['category'] = serializers.SerializerMethodField()
             else:
                 # manage-case or edit mode etc
                 self.fields['photo_num'] = serializers.SerializerMethodField()
-                self.fields['interest'] = serializers.FloatField(required=False)  # interestingness
+                self.fields['interest'] = serializers.FloatField(required=False)
                 self.fields['state'] = serializers.CharField(required=False)
                 self.fields['author'] = serializers.SerializerMethodField()  # detail author
                 self.fields['posted'] = serializers.CharField(required=False)
                 self.fields['author_posted'] = serializers.CharField(required=False)
+
+            if self.indexing_algolia:
+                self.fields['objectID'] = serializers.SerializerMethodField(required=False)
+
+            if not self.context.get('request', None):
+                # assume it can only be GET
+                self.fields['af_img_thumb'] = serializers.SerializerMethodField()
+                if self.search_view:
+                    self.fields['bf_img_thumb'] = serializers.SerializerMethodField()
+
         except KeyError as e:
             logger.error("[ERROR] CaseCardSerializer: %s" % str(e))
 
@@ -278,7 +257,7 @@ class CaseCardSerializer(serializers.ModelSerializer):
         :param obj:
         :return:
         """
-        return obj.author_posted or obj.posted
+        return str(obj.author_posted or obj.posted)
 
     def get_surgery_meta(self, obj):
         """
@@ -312,7 +291,7 @@ class CaseCardSerializer(serializers.ModelSerializer):
         :param obj:
         :return:
         """
-        if not self.context.get('request'):
+        if not self.context.get('request', None):
             return ''
 
         show_photo_num = self.context.get('request').query_params.get('show_photo_num')
@@ -332,53 +311,6 @@ class CaseCardSerializer(serializers.ModelSerializer):
         else:
             return ''
 
-    # def get_saved_by_user(self, obj):
-    #     """
-    #     Return a boolean flag indicating whether the user
-    #     in the request saved the current case.
-    #
-    #     For unauthorized users, it will always be false.
-    #
-    #     :param obj: the comment object
-    #     :return (boolean):
-    #     """
-    #     return False
-    #
-    #     request = self.context.get('request', None)
-    #
-    #     # for unlogin user
-    #     if not request or request.user.is_anonymous:
-    #         return False
-    #
-    #     # it should only have one obj if it's saved
-    #     action_objs = obj.action_object_actions.filter(actor_object_id=request.user._id, verb='save')
-    #     # logger.info("action_objs in serializer %s" % action_objs)
-    #
-    #     return False if not action_objs else True
-
-    # def get_liked_by_user(self, obj):
-    #     """
-    #     Return a boolean flag indicating whether the user
-    #     in the request liked the current case.
-    #
-    #     For unauthorized users, it will always be false.
-    #
-    #     :param obj: the comment object
-    #     :return (boolean):
-    #     """
-    #     return False
-    #
-    #     request = self.context.get('request', None)
-    #
-    #     # for unlogin user
-    #     if not request or request.user.is_anonymous:
-    #         return False
-    #
-    #     # it should only have one obj if it's liked
-    #     action_objs = obj.action_object_actions.filter(actor_object_id=request.user._id, verb='like')
-    #
-    #     return False if not action_objs else True
-
     def get_logo(self, obj):
         """
         Not using
@@ -390,7 +322,28 @@ class CaseCardSerializer(serializers.ModelSerializer):
         if not clinic_obj:
             return ''
 
-        return ClinicLogoSerializer(clinic_obj).data['logo_thumbnail_small']
+        img_url = ClinicLogoSerializer(clinic_obj).data['logo_thumbnail_small']
+
+        if not img_url:
+            return ""
+
+        return img_url if self.context.get("request", None) else ROOT_URL + img_url
+
+    def get_af_img_thumb(self, obj):
+        return "" if not obj.af_img_thumb else ROOT_URL + obj.af_img_thumb.url
+
+    def get_bf_img_thumb(self, obj):
+        return "" if not obj.bf_img_thumb else ROOT_URL + obj.bf_img_thumb.url
+
+    def get_objectID(self, obj):
+        return str(obj.uuid)
+
+    def get_category(self, obj):
+        return [get_category(surgery_obj.name or 'ERR') for surgery_obj in obj.surgeries
+                           if get_category(surgery_obj.name or 'ERR')]
+
+    def failed(self, obj):
+        return True if obj.failed else False
 
 
 class CaseCardBriefSerializer(serializers.ModelSerializer):
@@ -429,7 +382,6 @@ class CaseCardBriefSerializer(serializers.ModelSerializer):
         :return:
         """
         return obj.author_posted or obj.posted
-
 
     def get_surgeries(self, obj):
         """
@@ -505,62 +457,14 @@ class CaseImagesEditSerializer(serializers.Serializer):
     def get_id(self, obj):
         return str(obj._id)
 
-    # this won't be called
-    # def get_value(self, dictionary):
-    #     """
-    #     Given the *incoming* primitive data, return the value for this field
-    #     that should be validated and transformed to a native value.
-    #     """
-    #     print('***** dict----------------', dictionary)
-    #     if html.is_html_input(dictionary):
-    #         # HTML forms will represent empty fields as '', and cannot
-    #         # represent None or False values directly.
-    #         if self.field_name not in dictionary:
-    #             print("***** filed name not in", self.field_name)
-    #             if getattr(self.root, 'partial', False):
-    #                 return empty
-    #             return self.default_empty_html
-    #         ret = dictionary[self.field_name]
-    #         if ret == '' and self.allow_null:
-    #             print("***** 2", self.field_name)
-    #             # If the field is blank, and null is a valid value then
-    #             # determine if we should use null instead.
-    #             return '' if getattr(self, 'allow_blank', False) else None
-    #         elif ret == '' and not self.required:
-    #             # If the field is blank, and emptiness is valid then
-    #             # determine if we should use emptiness instead.
-    #             print("***** 3", self.field_name)
-    #             return '' if getattr(self, 'allow_blank', False) else empty
-    #         return ret
-    #     print("***** 4", dictionary.get(self.field_name, empty))
-    #     return dictionary.get(self.field_name, empty)
 
-
-# TODO: WIP. list API should through ES
-# TODO: don't know why all the Base64ImageField here don't work
 class CaseDetailSerializer(serializers.ModelSerializer):
     uuid = serializers.ReadOnlyField()
-
-    # author = AuthorSerializer(required=False)
-    # surgeries = serializers.SerializerMethodField(required=False)  # TODO this works for get only
-    # surgeries = SurgeryTagSerializer(many=True) # TODO: this works for post only
-    # surgeries = serializers.ListField() # this does not work
-
     surgery_meta = SurgeryMetaSerializer(required=False)
-
-    # from extra field package. handy. can post base64 directly.
     bf_img_cropped = Base64ImageField(required=False)
-
     af_img_cropped = Base64ImageField(required=False)
 
-    # other_imgs = CaseImagesSerializer(required=False)   # many = True
-    # CaseImagesSerializer2
     other_imgs = CaseImagesSerializer(many=True, required=False)
-    # other_imgs = serializers.ListField(child=serializers.CharField(), required=False)
-    # other_imgs = serializers.ListField(child=serializers.ImageField(), required=False)
-
-    # anesthesia = serializers.CharField(source='get_anesthesia_display', required=False)
-
     scp_user_pic = serializers.ImageField(max_length=None,
                                           use_url=True,
                                           required=False)
@@ -574,25 +478,19 @@ class CaseDetailSerializer(serializers.ModelSerializer):
     comment_num = serializers.SerializerMethodField(required=False)
     comments = serializers.SerializerMethodField(required=False)
 
-    posted = serializers.SerializerMethodField(required=False)  # tODO: WIP
+    posted = serializers.SerializerMethodField(required=False)
 
     class Meta:
         model = Case
-        # fields = "__all__"
         fields = ('uuid', 'is_official', 'title', 'bf_img_cropped', 'bf_cap',
                   'af_img_cropped', 'af_cap', 'surgeries', 'author', 'state', 'other_imgs',
                   'body', 'surgery_meta', 'rating', 'bf_img_cropped', 'posted',
                   'recovery_time', 'anesthesia', 'scp_user_pic', 'positive_exp', 'side_effects', 'pain_points',
                   'ori_url', 'comment_num', 'comments', 'failed')
 
-    # def _force_get_value(self, dictionary):
-    #     print("!!!!!!!!! set value")
-    #     return dictionary.get('other_imgs', empty)
-
     @staticmethod
     def _force_get_value_factory(field_name):
         def get_value(dictionary):
-            # print("!!!!!!!!! set value", field_name, dictionary)
             return dictionary.get(field_name, empty)
 
         return get_value
@@ -610,16 +508,10 @@ class CaseDetailSerializer(serializers.ModelSerializer):
 
         edit_param = self.context.get('request').query_params.get('edit')
         self.edit_mode = True if (edit_param and edit_param.lower() in ("yes", "true", "t", "1")) else False
-
-        # self.fields['other_imgs'].get_value = self._force_get_value
         self.fields['other_imgs'].get_value = self._force_get_value_factory(self.fields['other_imgs'].field_name)
-
-        # if 'request' in self.context:
-        #    print("======data", self.context['request'].data)
 
         try:
             if self.context['request'].method in ['POST', 'PUT', 'PATCH']:
-                # need to set required=False for post.
                 self.fields['bf_img'] = serializers.ImageField(max_length=None,
                                                                use_url=True,
                                                                required=False)
@@ -634,9 +526,6 @@ class CaseDetailSerializer(serializers.ModelSerializer):
                                                                      required=False)
                 self.fields['author'] = AuthorSerializer(required=False)
                 self.fields['clinic'] = ClinicInfoSerializer(required=False)
-                # if self.context['request'].method != 'POST':
-                # self.fields['other_imgs'] = CaseImagesSerializer(many=True, required=False)  # many=True
-                # self.fields['other_imgs'] = serializers.ListField(required=False)
                 if self.context['request'].method != 'POST':
                     # PUT or PATCH
                     self.fields['img_to_delete'] = serializers.ListField(required=False)
@@ -653,7 +542,6 @@ class CaseDetailSerializer(serializers.ModelSerializer):
                 self.fields['author'] = serializers.SerializerMethodField()
                 self.fields['clinic'] = ClinicInfoURLSerializer()
                 if self.edit_mode:
-                    # return img url if it's edit mode
                     self.fields['scp_user_pic'] = serializers.ImageField(max_length=None,
                                                                          use_url=True,
                                                                          required=False)
@@ -678,22 +566,12 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         :param validated_data:
         :return:
         """
-        # print("validated data, create", validated_data)
-        #
-        # if 'other_imgs' in validated_data:
-        #     print("oooo created", validated_data['other_imgs'], type(validated_data['other_imgs'][0]))
-        #     serializer = CaseImagesSerializer(validated_data['other_imgs'], many=True)
-        #     print("??? created", serializer.data)
-
         # TODO: hard-coded pop
         # TODO: key error
         author = {} if 'author' not in validated_data else validated_data.pop('author')
         clinic = {} if 'clinic' not in validated_data else validated_data.pop('clinic')
         surgery_meta = {} if 'surgery_meta' not in validated_data else validated_data.pop('surgery_meta')
         surgeries = [] if 'surgeries' not in validated_data else validated_data.pop('surgeries')
-        # positive_exp = [] if 'positive_exp' not in validated_data else validated_data.pop('positive_exp')
-
-        # print("positive_exp", positive_exp)
 
         surgeries_objs = []
         for surgery in surgeries:
@@ -723,8 +601,6 @@ class CaseDetailSerializer(serializers.ModelSerializer):
 
         case_obj._request_user = request_user
         case_obj.save()
-        # if author:
-        #     UserInfo.objects.create(**author)
         return case_obj
 
     def update(self, instance, validated_data):
@@ -735,12 +611,6 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         :param validated_data:
         :return:
         """
-        # TODO: need more test
-        # TODO: remove prints and change them to loggings.
-
-        # TODO: WIP
-        # print("validate, update", validated_data, instance.uuid)
-
         # when creating new other imgs
         captions = []
         if 'captions' in validated_data:
@@ -803,9 +673,6 @@ class CaseDetailSerializer(serializers.ModelSerializer):
                                           order=orders[i],
                                           case_uuid=instance.uuid)
                 new_instance.save()
-
-            # serializer = CaseImagesSerializer(validated_data['other_imgs'], many=True)
-            # print("???", serializer.data)
 
         # for deleting CaseImg
         if 'img_to_delete' in validated_data:
@@ -999,7 +866,6 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         # return the imgs based on the order field.
         if objsSsorted and objsSsorted[-1].order is not None:
             objsToReturn = objsSsorted
-            # print("used sorted.")
 
         if self.edit_mode:
             # decide whether to sort
@@ -1011,7 +877,6 @@ class CaseDetailSerializer(serializers.ModelSerializer):
                                               many=True,
                                               context={'request': self.context['request']})
 
-        # [item.get('img', '') for item in serializer.data]
         return [] if not objs else serializer.data
 
     def get_scp_user_pic(self, obj):
