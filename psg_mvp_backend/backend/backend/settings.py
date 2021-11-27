@@ -32,7 +32,6 @@ DEBUG = True
 ALGOLIA_CASE_INDEX = 'cases-dev'
 ALGOLIA_CLINIC_INDEX = 'clinics-brief-dev'
 ROOT_URL = 'http://localhost:8000'
-# ROOT_URL = "https://api.surgi.fyi"
 
 
 ALLOWED_HOSTS = ['*', '0.0.0.0', 'localhost']  # TODO: remove star
@@ -405,4 +404,4 @@ HITCOUNT_KEEP_HIT_ACTIVE = { 'minutes': 3 }
 ########################
 ALGOLIA_APP_ID = '59Z1FVS3D5'
 ALGOLIA_SECRET = '7a3a8ca34511873b56938d40f34b125d'
-
+ALGOLIA_ANALYTIC_KEY = 'cd669799ffe33b273991d0c1495740e5'

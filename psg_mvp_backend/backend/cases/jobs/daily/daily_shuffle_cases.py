@@ -13,4 +13,4 @@ class Job(DailyJob):
 
     def execute(self):
         from django.core import management
-        management.call_command("clearsessions")
+        management.call_command("shuffle_cases")

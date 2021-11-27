@@ -18,12 +18,13 @@ coloredlogs.install(level='DEBUG', logger=logger)
 
 
 @app.task(bind=True)
-def update_algolia_record(self, obj, type):
+def update_algolia_record(self, obj, type, create_if_not_exist=True):
     """
     Update an algolia record
 
     :param obj: a Clinic or a Case json obj
     :param(str) type: 'clinic' or 'case' to specify obj type
+    :param(str) create_if_not_exist:
     :return:
     """
     # update algolia record
@@ -33,7 +34,28 @@ def update_algolia_record(self, obj, type):
 
     logger.info("Update %s %s from Algolia index '%s'" % (type, obj.get("objectID", ""), index_name))
 
-    index.partial_update_object(obj, {'createIfNotExists': True})
+    index.partial_update_object(obj, {'createIfNotExists': create_if_not_exist})
+    client.close()
+
+
+@app.task(bind=True)
+def update_algolia_records(self, objs, type, create_if_not_exist=True):
+    """
+    Update an algolia record
+
+    :param objs: a Clinic or a Case json obj
+    :param(str) type: 'clinic' or 'case' to specify obj type
+    :param(str) create_if_not_exist:
+    :return:
+    """
+    # update algolia record
+    client = SearchClient.create(ALGOLIA_APP_ID, ALGOLIA_SECRET)
+    index_name = _get_index(type)
+    index = client.init_index(index_name)
+
+    logger.info("Updating %s %s records in Algolia index '%s'" % (len(objs), type, index_name))
+
+    index.partial_update_objects(objs, {'createIfNotExists': create_if_not_exist})
     client.close()
 
 

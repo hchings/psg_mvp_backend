@@ -34,6 +34,7 @@ class Command(BaseCommand):
 
 
     def handle(self, *args, **options):
+        # ===== step 1 - index cases =====
         client = SearchClient.create(ALGOLIA_APP_ID, ALGOLIA_SECRET)
         index_name = options["index_name"]
         index = client.init_index(index_name)
@@ -48,4 +49,25 @@ class Command(BaseCommand):
         logger.info("indexing %s cases..." % len(cases))
         index.replace_all_objects(serializer.data)
         logger.info("done")
+
+        # ===== step 2 - apply ranking =====
+        from django.core import management
+        management.call_command("shuffle_cases")
+
+        # ===== step 3 - create replica for sorting =====
+        # create a standard replica. Algolia will take care of content sync
+        replica_index_name = '%s_posted_desc' % index_name
+        index.set_settings({
+            'replicas': [
+                replica_index_name
+            ]
+        })
+        # configure the replica to sort by posted
+        replica_index = client.init_index(replica_index_name)
+        replica_index.set_settings({
+            'ranking': [
+                'desc(posted)',
+            ]
+        })
+
         client.close()
