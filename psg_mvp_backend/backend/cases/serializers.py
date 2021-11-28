@@ -164,10 +164,13 @@ class CaseCardSerializer(serializers.ModelSerializer):
     uuid = serializers.ReadOnlyField()
 
     surgeries = serializers.SerializerMethodField()
+    #
+    # af_img_thumb = serializers.ImageField(max_length=None,
+    #                                       use_url=True,
+    #                                       required=False)
+    af_img_thumb = serializers.SerializerMethodField()
 
-    af_img_thumb = serializers.ImageField(max_length=None,
-                                          use_url=True,
-                                          required=False)
+
     logo = serializers.SerializerMethodField()
     failed = serializers.SerializerMethodField()
 
@@ -208,9 +211,10 @@ class CaseCardSerializer(serializers.ModelSerializer):
 
         try:
             if self.search_view:
-                self.fields['bf_img_thumb'] = serializers.ImageField(max_length=None,
-                                                                     use_url=True,
-                                                                     required=False)
+                # self.fields['bf_img_thumb'] = serializers.ImageField(max_length=None,
+                #                                                      use_url=True,
+                #                                                      required=False)
+                self.fields['bf_img_thumb'] = serializers.SerializerMethodField()
                 self.fields['author'] = serializers.SerializerMethodField()
                 self.fields['posted'] = serializers.SerializerMethodField(required=False)
                 self.fields['category'] = serializers.SerializerMethodField()
@@ -330,10 +334,10 @@ class CaseCardSerializer(serializers.ModelSerializer):
         return img_url if self.context.get("request", None) else ROOT_URL + img_url
 
     def get_af_img_thumb(self, obj):
-        return "" if not obj.af_img_thumb else ROOT_URL + obj.af_img_thumb.url
+        return "" if not obj.af_img_thumb else ROOT_URL + obj.af_img_cropped.url
 
     def get_bf_img_thumb(self, obj):
-        return "" if not obj.bf_img_thumb else ROOT_URL + obj.bf_img_thumb.url
+        return "" if not obj.bf_img_thumb else ROOT_URL + obj.bf_img_cropped.url
 
     def get_objectID(self, obj):
         return str(obj.uuid)
