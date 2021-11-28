@@ -19,7 +19,7 @@ services:
     build: ./psg_mvp_backend
     # gunicorn --bind 0.0.0.0:8000 --chdir ./backend backend.wsgi
     command: [sh, -c, "python3 ./backend/manage.py index_cases_algolia && \
-                       python3 ./backend/manage.py index_clinic_algolia && \
+                       python3 ./backend/manage.py index_clinics_algolia && \
                        gunicorn --certfile=/code/security/certificate.crt --keyfile=/code/security/private.key --bind 0.0.0.0:443 --chdir ./backend backend.wsgi"]
     environment:
       DJANGO_SETTINGS_MODULE: backend.settings
