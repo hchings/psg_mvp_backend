@@ -29,7 +29,7 @@ SECRET_KEY = 'hck+)fy3p9x789tx(x^-j*^!8ylg*e-n=lkh5*3zs^k&f$)h_='
 DEBUG = False
 
 # TODO: remove hard-coded front/backend IPs
-ALLOWED_HOSTS = ['0.0.0.0', 'localhost', 'api.surgi.fyi', 'www.api.surgi.fyi', 'surgi.fyi', 'www.surgi.fyi', '206.189.218.129', '157.245.3.246']
+ALLOWED_HOSTS = ['0.0.0.0', 'localhost', 'api.surgi.fyi', 'www.api.surgi.fyi', 'surgi.fyi', 'www.surgi.fyi', '206.189.218.129', '157.245.3.246', '167.172.201.138']
 # For Algolia indexing
 ALGOLIA_CASE_INDEX = 'cases-prod'
 ALGOLIA_CLINIC_INDEX = 'clinics-brief-prod'
@@ -342,6 +342,8 @@ CORS_ORIGIN_WHITELIST = (
     'surgi.fyi',
     'https://api.surgi.fyi',
     'api.surgi.fyi',
+    'https://167.172.201.138:1668',  # for Scully JK build
+    'https://167.172.201.138:1864'   # for Scully JK build
 )
 
 
