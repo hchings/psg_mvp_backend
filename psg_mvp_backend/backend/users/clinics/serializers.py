@@ -398,7 +398,7 @@ class ClinicCardSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = ClinicProfile
-        fields = ('uuid', 'display_name', 'logo_thumbnail', 'regions', 'num_cases', 'services')
+        fields = ('uuid', 'display_name', 'logo_thumbnail', 'regions', 'num_cases', 'services', 'biz_type')
 
     def __init__(self, *args, **kwargs):
         self.indexing_algolia = kwargs.get("indexing_algolia", False)

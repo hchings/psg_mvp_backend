@@ -30,7 +30,7 @@ class Command(BaseCommand):
             elif '醫院' in clinic_name:
                 obj.biz_type = ClinicProfile.BIZ_TYPES[2][0]
                 print("%s --> %s"  % (clinic_name, ClinicProfile.BIZ_TYPES[2][0]))
-            elif '眼' in clinic_name:
+            elif '眼科' in clinic_name:
                 obj.biz_type = ClinicProfile.BIZ_TYPES[3][0]
                 print("%s --> %s"  % (clinic_name, ClinicProfile.BIZ_TYPES[3][0]))
             else:
