@@ -14,6 +14,7 @@ Please refer to `docker-compose.yml` (for dev) or `docker-compose-prod.yml` (for
 4. `celery`
 5. `redis`
 
+We also use [Algolia](https://www.algolia.com/) as the managed ElasticSearch for both dev and prod.
 
 ## A. Prerequisites
 Install [docker](https://docs.docker.com/) on your local environment. 
