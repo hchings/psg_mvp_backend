@@ -395,6 +395,8 @@ class ClinicCardSerializer(serializers.HyperlinkedModelSerializer):
     services = serializers.SerializerMethodField(required=False)
     regions = serializers.SerializerMethodField(required=False)
     num_cases = serializers.SerializerMethodField(required=False)
+    # to return the human readable value in ChoiceField
+    biz_type = serializers.CharField(source='get_biz_type_display')
 
     class Meta:
         model = ClinicProfile
