@@ -91,4 +91,5 @@ class Command(BaseCommand):
 
 
             obj.services_raw = services_raw_cleaned
+            # obj.services_raw_input = ", ".join(services_raw_cleaned)
             obj.save()

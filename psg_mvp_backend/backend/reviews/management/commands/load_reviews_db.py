@@ -191,7 +191,8 @@ class Command(BaseCommand):
                             rating=rating,
                             services=services,
                             topics=topics_objs,
-                            source=source)
+                            source=source,
+                            state="published")
 
             pp.pprint({
                 "hash": hash,

@@ -31,6 +31,7 @@ DEBUG = True
 # For Algolia indexing
 ALGOLIA_CASE_INDEX = 'cases-dev'
 ALGOLIA_CLINIC_INDEX = 'clinics-brief-dev'
+ALGOLIA_REVIEW_INDEX = 'reviews-dev'
 ROOT_URL = 'http://localhost:8000'
 
 
