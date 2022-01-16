@@ -21,10 +21,22 @@ coloredlogs.install(level='DEBUG', logger=logger)
 
 user_mode = get_user_model()
 
+# The better way is to transform items in frontend.
+# This is used as a hack bcz algolia transformItems
+# is broken and will be fired multiple times.
+TOPICS_MAPPING = {
+    'consult': '諮詢',
+    'env': '環境',
+    'price': '性價比',
+    'service': '服務',
+    'skill': '醫術'
+}
+
 
 class ReviewSerializer(serializers.ModelSerializer):
     uuid = serializers.ReadOnlyField()
     topics = serializers.SerializerMethodField(required=False)
+    services = serializers.SerializerMethodField(required=False)
 
     class Meta:
         model = Review
@@ -45,7 +57,6 @@ class ReviewSerializer(serializers.ModelSerializer):
             if 'request' in self.context:
                 if self.context['request'].method in ['GET']:
                     self.fields['author'] = PartialAuthorSerializer()
-                    self.fields['services'] = serializers.SerializerMethodField(required=False)
                 else:
                     # review list is query by clinic uuid, so we don't need it in response
                     self.fields['clinic'] = ClinicInfoSerializer(required=False)
@@ -108,7 +119,11 @@ class ReviewSerializer(serializers.ModelSerializer):
         :param obj:
         :return:
         """
-        return embedded_model_method(obj, self.Meta.model, 'topics', included_fields=['topic'])
+        return embedded_model_method(obj,
+                                     self.Meta.model,
+                                     'topics',
+                                     included_fields=['topic'],
+                                     value_mapping=TOPICS_MAPPING)
 
     def get_scp_user_pic(self, obj):
         return "" if not obj.scp_user_pic else ROOT_URL + obj.scp_user_pic.url
