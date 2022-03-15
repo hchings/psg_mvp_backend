@@ -466,3 +466,39 @@ class ClinicSavedSerializer(serializers.HyperlinkedModelSerializer):
 
     def get_branch_name(self, obj):
         return ''
+
+
+class ClinicProfileSerializer(serializers.HyperlinkedModelSerializer):
+    
+    display_name = serializers.CharField(max_length=30, required=False)
+    logo = serializers.ImageField(max_length=None,
+                                            use_url=True,
+                                            required=False)
+    logo_thumbnail = serializers.ImageField(max_length=None,
+                                            use_url=True,
+                                            required=False)
+    logo_thumbnail_small = serializers.ImageField(max_length=None,
+                                            use_url=True,
+                                            required=False)
+    services = serializers.SerializerMethodField(required=False)
+
+    class Meta:
+        model = ClinicProfile
+        fields = ('uuid','display_name','logo','logo_thumbnail','logo_thumbnail_small','phone','website_url','fb_url','line_url','instagram_url','pixnet_url','line_id', 'customer_email', 'branches','services')
+
+    def get_services(self, obj):
+        return obj.services_raw or []
+    
+    def save_image_from_data(self):
+        # Regenerate thumbnail
+        self.logo.generate(force=True)
+        return True
+    
+
+class AddBranchSerializer(serializers.HyperlinkedModelSerializer):
+    
+    class Meta:
+        # abstract = True
+        model = ClinicBranch    
+        fields = ('place_id','branch_name')  
+         
