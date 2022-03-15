@@ -46,7 +46,7 @@ class ClinicPublicDetail(generics.RetrieveUpdateAPIView):
     queryset = ClinicProfile.objects.all()
     serializer_class = ClinicPublicSerializer
     lookup_field = 'uuid'
-    # permission_classes = [IsAdminOrIsClinicOwner]
+    permission_classes = [IsAdminOrIsClinicOwner]
 
     def get_object(self):
         obj = super().get_object()
@@ -335,5 +335,4 @@ class UpdateClinicProfile(generics.RetrieveUpdateAPIView):
     serializer_class = ClinicPublicSerializer
     lookup_field = 'uuid'
     # permission_classes = [IsAdminOrIsClinicOwner]
-    
-                  
+                   
