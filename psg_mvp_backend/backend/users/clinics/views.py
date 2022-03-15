@@ -323,16 +323,3 @@ def like_unlike_clinic(request, clinic_uuid, flag='', do_like=True, actor_only=F
         if res:
             res.delete()
         return Response({'succeed': "redo %s" % verb}, status.HTTP_201_CREATED)
-
-
-class UpdateClinicProfile(generics.RetrieveUpdateAPIView):
-    """
-    get: Return the info of a clinic of given uuid.
-
-    """
-    name = 'update-clinicprofile'
-    queryset = ClinicProfile.objects.all()
-    serializer_class = ClinicPublicSerializer
-    lookup_field = 'uuid'
-    # permission_classes = [IsAdminOrIsClinicOwner]
-                   
