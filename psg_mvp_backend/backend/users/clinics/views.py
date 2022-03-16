@@ -22,6 +22,8 @@ from .models import ClinicProfile , ClinicBranch
 from rest_framework.views import APIView
 from django.views.generic import DeleteView
 from django.core.exceptions import ObjectDoesNotExist
+from rest_framework.exceptions import ParseError
+from rest_framework.parsers import JSONParser
 
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
@@ -53,27 +55,37 @@ class ClinicPublicDetail(generics.RetrieveUpdateAPIView):
         return obj
 
     def put(self, request, *args, **kwargs):
-        clinic_uuid = request.GET.get('clinic_uuid')
-        place_id_to_delete = request.GET.get('place_id_to_delete',None)
-
-        place_id = request.GET.get('place_id',None)
-        branch_name = request.GET.get('branch_name')
+        # clinic_uuid = request.GET.get('clinic_uuid')
+        data_set = JSONParser().parse(request)
+        try:
+            place_id_to_delete = data_set['place_id_to_delete']
+            place_id = data_set['place_id']
+            branch_name = data_set['branch_name']
+        except:
+            place_id_to_delete = ''
+            place_id = ''
+            branch_name = ''
+               
         branch_obj = self.get_object()
+        
          # Delete :--
-        if place_id_to_delete is not None:
+        if place_id_to_delete is not None and place_id_to_delete != "":
             try:
                 pro_obj = ClinicProfile.objects.get(branches={'place_id':f'{place_id_to_delete}'})
+                print(type(pro_obj.branches))
                 
                 for i in range(len(pro_obj.branches)):
                     if str(pro_obj.branches[i]) == place_id_to_delete:
                         pro_obj.branches.pop(i)
+                        print(pro_obj.branches)
                         pro_obj.save() 
                 return Response({"message":f"Branch deleted !!! :{place_id_to_delete}"},status=status.HTTP_200_OK)
-            except:
+            except Exception as e:
+                print(e)
                 return Response({"message":"Invalid place_id or uuid"},status.HTTP_400_BAD_REQUEST)
 
         # Create :--
-        if place_id is not None:
+        if place_id is not None and place_id != "":
             try:
             
                 branch = ClinicBranch(branch_name = branch_name,place_id=place_id)
@@ -87,13 +99,19 @@ class ClinicPublicDetail(generics.RetrieveUpdateAPIView):
 
         # Update:--
         try:
-            serializer = ClinicProfileSerializer(branch_obj, data=request.data)
+            serializer = ClinicProfileSerializer(branch_obj, data=data_set)
             if serializer.is_valid():
                 serializer.save()
                 serializer= ClinicPublicSerializer(branch_obj,context={'request': request})
                 return Response(serializer.data)
-        except:
-            return Response({"message":"Invalid uuid"},status.HTTP_400_BAD_REQUEST)
+            
+        except ParseError as e:
+            print("Error",type(e).__name__)
+            return Response({"message":"JSON ParseError"},status.HTTP_400_BAD_REQUEST)
+        
+        except Exception as e:
+            print("Error",e)
+            return Response({"message":"Something went wrong"},status.HTTP_400_BAD_REQUEST)
 
 
 ##########################
@@ -323,3 +341,4 @@ def like_unlike_clinic(request, clinic_uuid, flag='', do_like=True, actor_only=F
         if res:
             res.delete()
         return Response({'succeed': "redo %s" % verb}, status.HTTP_201_CREATED)
+                
