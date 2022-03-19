@@ -17,13 +17,8 @@ from backend.shared.permissions import IsAdminOrReadOnly, IsAdminOrIsClinicOwner
 from utils.drf.custom_fields import Base64ImageField
 from users.doctors.models import DoctorProfile
 from .serializers import ClinicPublicSerializer, ClinicSavedSerializer, \
-    ClinicHomeSerializer, ClinicDoctorsSerializer, ClinicProfileSerializer , BranchSerializer
-from .models import ClinicProfile , ClinicBranch
-from rest_framework.views import APIView
-from django.views.generic import DeleteView
-from django.core.exceptions import ObjectDoesNotExist
-from rest_framework.exceptions import ParseError
-from rest_framework.parsers import JSONParser
+    ClinicHomeSerializer, ClinicDoctorsSerializer, ClinicProfileSerializer
+from .models import ClinicProfile, ClinicBranch
 
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
@@ -54,64 +49,53 @@ class ClinicPublicDetail(generics.RetrieveUpdateAPIView):
         obj = super().get_object()
         return obj
 
-    def put(self, request, *args, **kwargs):
-        # clinic_uuid = request.GET.get('clinic_uuid')
-        data_set = JSONParser().parse(request)
-        try:
-            place_id_to_delete = data_set['place_id_to_delete']
-            place_id = data_set['place_id']
-            branch_name = data_set['branch_name']
-        except:
-            place_id_to_delete = ''
-            place_id = ''
-            branch_name = ''
-               
-        branch_obj = self.get_object()
-        
-         # Delete :--
-        if place_id_to_delete is not None and place_id_to_delete != "":
-            try:
-                pro_obj = ClinicProfile.objects.get(branches={'place_id':f'{place_id_to_delete}'})
-                print(type(pro_obj.branches))
-                
-                for i in range(len(pro_obj.branches)):
-                    if str(pro_obj.branches[i]) == place_id_to_delete:
-                        pro_obj.branches.pop(i)
-                        print(pro_obj.branches)
-                        pro_obj.save() 
-                return Response({"message":f"Branch deleted !!! :{place_id_to_delete}"},status=status.HTTP_200_OK)
-            except Exception as e:
-                print(e)
-                return Response({"message":"Invalid place_id or uuid"},status.HTTP_400_BAD_REQUEST)
+    def put(self, request, uuid, *args, **kwargs):
+        place_id_to_delete = request.data.get('place_id_to_delete', None)
+        place_id = request.data.get('place_id', None)
+        branch_name = request.data.get('branch_name', None)
+        profile_obj = self.get_object()
 
-        # Create :--
-        if place_id is not None and place_id != "":
+        # Delete a branch :--
+        if place_id_to_delete is not None and profile_obj.branches:
+            for i in range(len(profile_obj.branches)):
+                if str(profile_obj.branches[i]) == place_id_to_delete:
+                    profile_obj.branches.pop(i)
+                    profile_obj.save()
+                    return Response({"message": f"Branch deleted:{place_id_to_delete}"}, status=status.HTTP_200_OK)
+
+            return Response({"message": "Invalid place_id"}, status.HTTP_400_BAD_REQUEST)
+
+        # Create a branch:--
+        if place_id is not None:
             try:
-            
-                branch = ClinicBranch(branch_name = branch_name,place_id=place_id)
-                branch_obj.branches.append(branch)
-                branch_obj.save()
-                serializer= ClinicPublicSerializer(branch_obj,context={'request': request})
+                # check branch existence
+                branch_obj = ClinicProfile.objects.get(uuid=uuid, branches={'place_id': place_id})
+                if branch_obj is not None:
+                    return Response({'error': "branch %s already exist" % place_id},
+                                    status.HTTP_400_BAD_REQUEST)
+
+                branch = ClinicBranch(branch_name=branch_name, place_id=place_id)
+                profile_obj.branches.append(branch)
+                profile_obj.save()
+                serializer = ClinicPublicSerializer(profile_obj,
+                                                    context={'request': request},
+                                                    fields=['branches'])
+                logger.info("branch created for clinic %s" % uuid)
                 return Response(serializer.data)
-            except:
+            except Exception as e:
+                logger.error("Error when creating a branch for clinic %s: %s" % (uuid, str(e)))
                 return Response({'error': "clinic not found"},
-                        status.HTTP_400_BAD_REQUEST)
+                                status.HTTP_400_BAD_REQUEST)
 
         # Update:--
         try:
-            serializer = ClinicProfileSerializer(branch_obj, data=data_set)
+            serializer = ClinicProfileSerializer(profile_obj, data=request.data)
             if serializer.is_valid():
                 serializer.save()
-                serializer= ClinicPublicSerializer(branch_obj,context={'request': request})
+                serializer = ClinicPublicSerializer(profile_obj, context={'request': request})
                 return Response(serializer.data)
-            
-        except ParseError as e:
-            print("Error",type(e).__name__)
-            return Response({"message":"JSON ParseError"},status.HTTP_400_BAD_REQUEST)
-        
-        except Exception as e:
-            print("Error",e)
-            return Response({"message":"Something went wrong"},status.HTTP_400_BAD_REQUEST)
+        except:
+            return Response({"message":"Invalid uuid"},status.HTTP_400_BAD_REQUEST)
 
 
 ##########################
@@ -341,4 +325,3 @@ def like_unlike_clinic(request, clinic_uuid, flag='', do_like=True, actor_only=F
         if res:
             res.delete()
         return Response({'succeed': "redo %s" % verb}, status.HTTP_201_CREATED)
-                

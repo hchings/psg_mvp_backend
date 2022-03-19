@@ -39,6 +39,85 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
     saved_by_user = serializers.SerializerMethodField(required=False)
     BRANCH_KEYS_INCLUDED = set(['place_id', 'branch_name', 'is_head_quarter', 'address', 'region', 'locality'])
 
+    class Meta:
+        model = ClinicProfile
+        fields = ('uuid', 'display_name', 'logo_thumbnail', 'website_url', 'fb_url',
+                  'line_url', 'services_raw', 'instagram_url',
+                  'branches', 'saved_by_user')
+
+    def __init__(self, *args, **kwargs):
+        """
+        Dynamically change field.
+        :param args:
+        :param kwargs:
+        """
+        # Don't pass the 'fields' arg up to the superclass
+        fields = kwargs.pop('fields', None)
+
+        super(ClinicPublicSerializer, self).__init__(*args, **kwargs)
+
+        if self.context['request'].method in ['POST', 'PUT', 'PATCH']:
+            # nested fields don't have serializers implicitly assigned
+            self.fields['branches'] = BranchSerializer(required=False, many=True)
+        else:
+            self.fields['branches'] = serializers.SerializerMethodField()
+
+        if fields is not None:
+            # Drop any fields that are not specified in the `fields` argument.
+            allowed = set(fields)
+            existing = set(self.fields.keys())
+            for field_name in existing - allowed:
+                self.fields.pop(field_name)
+
+
+    def create(self, validated_data):
+        raise NotImplementedError("Does not allow create a ClinicProfile through API atm.")
+
+
+    def update(self, instance, validated_data):
+        """
+        Need this to handle noSQL record creation (not natively supported by Django).
+        In ClinicProfile, "branches" and "serice_raw" are using abstract Djongo schemas
+        and need to be handled.
+        :param instance:
+        :param validated_data:
+        :return:
+        """
+        in_branches = [] if 'branches' not in validated_data else validated_data.pop('branches')
+        # TODO: Not done yet
+        in_services_raw = [] if 'services_raw' not in validated_data else validated_data.pop('services_raw')
+
+        if in_services_raw and isinstance(in_services_raw, list):
+            # if we are letting the front end send the full list that is easiest.
+            instance.services_raw = in_services_raw
+
+        if in_branches and isinstance(in_branches, list):
+            place_id_to_branch = OrderedDict([(branch.place_id, branch) for branch in (instance.branches or []) \
+                                              if branch.place_id])
+            for in_branch in in_branches:
+                # if place_id matches an existing branch
+                if "place_id" in in_branch and in_branch["place_id"] in place_id_to_branch:
+                    target_branch = place_id_to_branch[in_branch["place_id"]]
+                    for k, v in in_branch.items():
+                        if hasattr(target_branch, k):
+                            setattr(target_branch, k, v)
+                else:
+                    # create a new branch obj
+                    logger.info("No matched branch, creating a new one...")
+                    serializer = BranchSerializer(data=in_branch)
+                    if serializer.is_valid():
+                        target_branch = ClinicBranch(**serializer.validated_data)
+                        # assume place_id is required
+                        place_id_to_branch[target_branch.place_id] = target_branch
+                        # print("new target_branch", target_branch, serializer.validated_data)
+                    else:
+                        logger.error("ClinicPublicSerializer Invalid branch %s " % str(in_branch))
+            instance.branches = list(place_id_to_branch.values())
+
+        # will call save()
+        super(ClinicPublicSerializer, self).update(instance, validated_data)
+        return instance
+
     def get_branches(self, obj):
         """
         To serialize ArrayModelField from djongo.
@@ -97,136 +176,6 @@ class ClinicPublicSerializer(serializers.HyperlinkedModelSerializer):
         action_objs = obj.action_object_actions.filter(actor_object_id=request.user._id, verb='save')
 
         return False if not action_objs else True
-
-    # def get_concise_regions(self, obj):
-    #     """
-    #     Truncate the ugly 市/縣 words and
-    #     remove duplicates.
-    #
-    #     :param obj: an User object.
-    #     :return (string[]): an array of regions
-    #
-    #     """
-    #     d = {}
-    #     concise_regions = []
-    #     for branch in obj.clinic_profile.branches.all():
-    #         # TODO: rewrite the reg
-    #         region = branch.region
-    #         # alternative is no region
-    #         # TODO: bad
-    #         if not region and len(branch.branch_name) == 3:
-    #             region = branch.branch_name
-    #
-    #         # truncate
-    #         if region and (region.endswith('市')
-    #                        or region.endswith('縣')
-    #                        or region.endswith('店')):
-    #             region = region[:-1]
-    #
-    #         # remove duplicate
-    #         if region and region not in d:
-    #             concise_regions.append(region)
-    #             d[region] = ''
-    #
-    #     return concise_regions
-
-    # def get_opening_info(self, obj):
-    #     # TODO: deal with empty case
-    #     for branch in obj.clinic_profile.branches.all():
-    #         if branch.is_head_quarter:
-    #             if branch.opening_info:
-    #                 return json.loads(branch.opening_info)
-    #     return {}
-
-    # def get_case_num(self, obj):
-    #     """
-    #     Get the number of cases(i.e., posts) that belonged
-    #     to this clinic. (default function name for field case_num)
-    #
-    #     :param obj: an User object
-    #     :return (int): reverse foreignkey objects number
-    #     """
-    #     return obj.clinic_user_posts.count()
-
-    # def get_rating(self, obj):
-    #     """
-    #     Since in google MAP API, only a location (i.e., a ClinicBranch)
-    #     has a rating. So for a Clinic User, we simply average
-    #     the ratings from all its branches.
-    #
-    #     :param obj: an User object
-    #     :return (float): the averaged ratings
-    #     """
-    #     branch_ratings = [branch.rating for branch in obj.branches.all()
-    #                       if branch.rating]
-    #     # arithmetic average rounded to 1 decimal point
-    #     return 0.0 if not branch_ratings else round(sum(branch_ratings)/len(branch_ratings), 1)
-
-    class Meta:
-        model = ClinicProfile
-        fields = ('uuid', 'display_name', 'logo_thumbnail', 'website_url', 'fb_url',
-                  'line_url', 'services_raw', 'instagram_url',
-                  'branches', 'saved_by_user')
-
-    def __init__(self, *args, **kwargs):
-        """
-        Dynamically change field.
-        :param args:
-        :param kwargs:
-        """
-        super(ClinicPublicSerializer, self).__init__(*args, **kwargs)
-        if self.context['request'].method in ['POST', 'PUT', 'PATCH']:
-            # nested fields don't have serializers implicitly assigned
-            self.fields['branches'] = BranchSerializer(required=False, many=True)
-        else:
-            self.fields['branches'] = serializers.SerializerMethodField()
-
-    def create(self, validated_data):
-        raise NotImplementedError("Does not allow create a ClinicProfile through API atm.")
-
-    def update(self, instance, validated_data):
-        """
-        Need this to handle noSQL record creation (not natively supported by Django).
-        In ClinicProfile, "branches" and "serice_raw" are using abstract Djongo schemas
-        and need to be handled.
-        :param instance:
-        :param validated_data:
-        :return:
-        """
-        in_branches = [] if 'branches' not in validated_data else validated_data.pop('branches')
-        # TODO: Not done yet
-        in_services_raw = [] if 'services_raw' not in validated_data else validated_data.pop('services_raw')
-
-        if in_services_raw and isinstance(in_services_raw, list):
-            # if we are letting the front end send the full list that is easiest.
-            instance.services_raw = in_services_raw
-
-        if in_branches and isinstance(in_branches, list):
-            place_id_to_branch = OrderedDict([(branch.place_id, branch) for branch in (instance.branches or []) \
-                                              if branch.place_id])
-            for in_branch in in_branches:
-                # if place_id matches an existing branch
-                if "place_id" in in_branch and in_branch["place_id"] in place_id_to_branch:
-                    target_branch = place_id_to_branch[in_branch["place_id"]]
-                    for k, v in in_branch.items():
-                        if hasattr(target_branch, k):
-                            setattr(target_branch, k, v)
-                else:
-                    # create a new branch obj
-                    logger.info("No matched branch, creating a new one...")
-                    serializer = BranchSerializer(data=in_branch)
-                    if serializer.is_valid():
-                        target_branch = ClinicBranch(**serializer.validated_data)
-                        # assume place_id is required
-                        place_id_to_branch[target_branch.place_id] = target_branch
-                        # print("new target_branch", target_branch, serializer.validated_data)
-                    else:
-                        logger.error("ClinicPublicSerializer Invalid branch %s " % str(in_branch))
-            instance.branches = list(place_id_to_branch.values())
-
-        # will call save()
-        super(ClinicPublicSerializer, self).update(instance, validated_data)
-        return instance
 
 
 class BranchSerializer(serializers.Serializer):
@@ -501,4 +450,3 @@ class AddBranchSerializer(serializers.HyperlinkedModelSerializer):
         # abstract = True
         model = ClinicBranch    
         fields = ('place_id','branch_name')  
-         
