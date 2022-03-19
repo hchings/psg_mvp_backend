@@ -16,6 +16,8 @@ from django.contrib.contenttypes.models import ContentType
 from backend.shared.permissions import IsAdminOrReadOnly, IsAdminOrIsClinicOwner
 from utils.drf.custom_fields import Base64ImageField
 from users.doctors.models import DoctorProfile
+from cases.models import Case
+from cases.serializers import CasePricePointsSerizlier
 from .serializers import ClinicPublicSerializer, ClinicSavedSerializer, \
     ClinicHomeSerializer, ClinicDoctorsSerializer, ClinicProfileSerializer
 from .models import ClinicProfile, ClinicBranch
@@ -328,3 +330,48 @@ def like_unlike_clinic(request, clinic_uuid, flag='', do_like=True, actor_only=F
         if res:
             res.delete()
         return Response({'succeed': "redo %s" % verb}, status.HTTP_201_CREATED)
+
+
+class ClinicPricePointsList(generics.ListAPIView):
+    """
+    get: get a list of saved cases of a user.
+
+    """
+    name = 'clinic-price-points-list'
+    serializer_class = CasePricePointsSerizlier
+    pagination_class = PageNumberPagination
+
+    def get_queryset(self):
+        clinic_uuid = self.kwargs['uuid']
+        print("clinic uuid:", clinic_uuid)
+        if not clinic_uuid:
+            return []
+
+        return Case.objects.filter(clinic={'uuid': clinic_uuid},
+                                    state="published").exclude(surgery_meta={'min_price': None}).order_by('-created')
+
+
+@api_view(['GET'])
+def clinic_id_view(request, clinic_name=''):
+    """
+    API view for returning a list of doctor names of
+    a given clinic. Could specify the clinic by its
+    uuid or by its name.
+
+    :param clinic_name: clinic name
+    :param request:
+    :return: {'id': 123456}
+    """
+    # get clinic profile
+    if clinic_name:
+        clinic = get_object_or_None(ClinicProfile,
+                                    display_name=clinic_name.strip())
+    else:
+        clinic = None
+
+    if not clinic:
+        return Response({'error': "clinic not found"},
+                        status.HTTP_400_BAD_REQUEST)
+
+    return Response({'id': clinic.uuid},
+                    status.HTTP_200_OK)

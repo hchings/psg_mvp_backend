@@ -37,6 +37,7 @@ class ReviewSerializer(serializers.ModelSerializer):
     uuid = serializers.ReadOnlyField()
     topics = serializers.SerializerMethodField(required=False)
     services = serializers.SerializerMethodField(required=False)
+    rating = serializers.IntegerField(required=False)
 
     class Meta:
         model = Review
@@ -59,7 +60,8 @@ class ReviewSerializer(serializers.ModelSerializer):
                     self.fields['author'] = PartialAuthorSerializer()
                 else:
                     # review list is query by clinic uuid, so we don't need it in response
-                    self.fields['clinic'] = ClinicInfoSerializer(required=False)
+                    # self.fields['clinic'] = ClinicInfoSerializer(required=True)
+                    self.fields['clinic'] = serializers.CharField(required=True)
                     self.fields['verify_pic'] = serializers.ImageField(max_length=None,
                                                                        use_url=True,
                                                                        required=False)
@@ -87,17 +89,17 @@ class ReviewSerializer(serializers.ModelSerializer):
         """
         author = self.context['request'].user
 
-        clinic = validated_data.pop('clinic')
+        clinic_display_name = validated_data.pop('clinic')
 
         # link to clinic, branch, and doctors
-        clinic_obj = get_object_or_None(ClinicProfile, display_name=clinic['display_name'])
+        clinic_obj = get_object_or_None(ClinicProfile, display_name=clinic_display_name)
 
         if clinic_obj is None:
-            logger.warning("[Create Review]: Can't find clinic %s" % clinic['display_name'])
+            logger.warning("[Create Review]: Can't find clinic %s" % clinic_display_name)
             review_obj = Review.objects.create(**validated_data,
                                                author=UserInfo(name=author.username,
                                                                uuid=author.uuid),
-                                               clinic=ClinicInfo(display_name=clinic['display_name']))
+                                               clinic=ClinicInfo(display_name=clinic_display_name))
         else:
             review_obj = Review.objects.create(**validated_data,
                                                author=UserInfo(name=author.username,

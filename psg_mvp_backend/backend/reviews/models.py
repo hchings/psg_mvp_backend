@@ -161,7 +161,7 @@ class Review(models.Model):
 
     posted = models.DateTimeField(auto_now=True, help_text="last modified")
     created = models.DateTimeField(auto_now_add=True, help_text="created")  # default=timezone.now
-    rating = models.FloatField(help_text="1 to 5", blank=True)
+    rating = models.PositiveIntegerField(help_text="1 to 5", blank=True)
 
     body = models.TextField(blank=False)
 

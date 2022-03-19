@@ -5,7 +5,8 @@ Urls for clinics / doctors.
 from django.conf.urls import url
 
 from .views import ClinicPublicList, ClinicPublicDetail, \
-    doctor_name_view, like_unlike_clinic, ClinicSavedList, ClinicHome, ClinicDoctors
+    doctor_name_view, like_unlike_clinic, ClinicSavedList, ClinicHome, \
+    ClinicDoctors, ClinicPricePointsList, clinic_id_view
 
 urlpatterns = [
     url(r'^$', ClinicPublicList.as_view(), name=ClinicPublicList.name),
@@ -21,4 +22,6 @@ urlpatterns = [
          'save_unsave': True},
         name='unsave-clinic'),
     url(r'^saved$', ClinicSavedList.as_view(), name=ClinicSavedList.name),
+    url(r'^price_points/(?P<uuid>[0-9]+)$', ClinicPricePointsList.as_view(), name=ClinicPricePointsList.name),
+    url(r'^id/(?P<clinic_name>\w+)$', clinic_id_view, name='clinic_id'),
 ]

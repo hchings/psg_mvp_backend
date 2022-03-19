@@ -3,6 +3,7 @@ REST Framework Serializers for Case app.
 
 """
 import ast, os, json
+import datetime
 from rest_framework import serializers, exceptions
 from drf_extra_fields.fields import Base64ImageField
 from bson import ObjectId
@@ -915,3 +916,36 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         objs = Comment.objects.filter(Q(reply_to_id='') | Q(reply_to_id__isnull=True)) \
             .filter(case_id=obj.uuid)
         return len(objs)
+
+
+class CasePricePointsSerizlier(serializers.ModelSerializer):
+    surgeries = serializers.SerializerMethodField(required=False)
+    timestamp = serializers.SerializerMethodField(required=False)
+    min_price = serializers.SerializerMethodField(required=False)
+    max_price = serializers.SerializerMethodField(required=False)
+
+    class Meta:
+        model = Case
+        fields = ('uuid', 'timestamp', 'surgeries', 'min_price', 'max_price')
+
+    def get_surgeries(self, obj):
+        """
+        To serialize ArrayModelField from djongo.
+        :param obj:
+        :return:
+        """
+        return embedded_model_method(obj, self.Meta.model, 'surgeries', included_fields=['name', 'mat'])
+
+    def get_min_price(self, obj):
+        return obj.surgery_meta.min_price
+
+    def get_max_price(self, obj):
+        return obj.surgery_meta.max_price
+
+    def get_timestamp(self, obj):
+        if obj.surgery_meta and obj.surgery_meta.year:
+            if obj.surgery_meta.month:
+                return datetime.datetime.strptime('%s-%s' % (obj.surgery_meta.year, obj.surgery_meta.month),
+                                                  '%Y-%m')
+            return datetime.datetime.strptime(obj.surgery_meta.year, '%Y')
+        return obj.created
