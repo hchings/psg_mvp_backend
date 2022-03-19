@@ -113,3 +113,5 @@ psg_mvp_backend/nginx_logs/
 
 psg_mvp_backend/backend/scripts/scrapper/
 psg_mvp_backend/backend/scripts/urls.full.json
+
+db/
