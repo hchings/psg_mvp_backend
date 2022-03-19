@@ -69,10 +69,13 @@ class ClinicPublicDetail(generics.RetrieveUpdateAPIView):
         if place_id is not None:
             try:
                 # check branch existence
-                branch_obj = ClinicProfile.objects.get(uuid=uuid, branches={'place_id': place_id})
-                if branch_obj is not None:
+                try:
+                    ClinicProfile.objects.get(uuid=uuid, branches={'place_id': f'{place_id}'})
                     return Response({'error': "branch %s already exist" % place_id},
                                     status.HTTP_400_BAD_REQUEST)
+                except Exception as e:
+                    # object not exist
+                    pass
 
                 branch = ClinicBranch(branch_name=branch_name, place_id=place_id)
                 profile_obj.branches.append(branch)
