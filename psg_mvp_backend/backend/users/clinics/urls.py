@@ -23,5 +23,5 @@ urlpatterns = [
         name='unsave-clinic'),
     url(r'^saved$', ClinicSavedList.as_view(), name=ClinicSavedList.name),
     url(r'^price_points/(?P<uuid>[0-9]+)$', ClinicPricePointsList.as_view(), name=ClinicPricePointsList.name),
-    url(r'^id/(?P<clinic_name>\w+)$', clinic_id_view, name='clinic_id'),
+    url(r'^id/(?P<clinic_name>.+)$', clinic_id_view, name='clinic_id'),
 ]

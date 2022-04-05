@@ -51,6 +51,8 @@ class ReviewSerializer(serializers.ModelSerializer):
         if self.indexing_algolia:
             # downstream can't accept this keyword
             kwargs.pop('indexing_algolia')
+            # for ranking purpose (scp and organic posts have timestamp in the same field)
+            self.fields['scp_time'] = serializers.SerializerMethodField()
 
         super(ReviewSerializer, self).__init__(*args, **kwargs)
 
@@ -133,6 +135,11 @@ class ReviewSerializer(serializers.ModelSerializer):
     def get_verify_pic(self, obj):
         return "" if not obj.verify_pic else ROOT_URL + obj.verify_pic.url
 
+    def get_scp_time(self, obj):
+        if obj.scp_time:
+            return str(obj.scp_time)
+        else:
+            return str(obj.created)
     # def get_like_num(self, obj):
     #     """
     #
