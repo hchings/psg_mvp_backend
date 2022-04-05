@@ -10,12 +10,10 @@ from djongo import models
 from multiselectfield import MultiSelectField
 from hitcount.models import HitCountMixin, HitCount
 from hitcount.managers import HitCountManager, HitManager
-from annoying.functions import get_object_or_None
 
 from uuid import uuid4
 
 from django import forms
-# from users.clinics.models import ClinicProfile
 from backend.settings import ROOT_URL
 from backend.shared.utils import _prep_catalog, make_id, get_category
 
@@ -147,7 +145,7 @@ class UserInfo(models.Model):
                                     help_text="scrapped username. Blank if the post is not scraped.")
 
     def __str__(self):
-        return self.name
+        return self.name or self.scp_username
 
 
 class UserInfoForm(forms.ModelForm):

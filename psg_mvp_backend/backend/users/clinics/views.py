@@ -16,9 +16,11 @@ from django.contrib.contenttypes.models import ContentType
 from backend.shared.permissions import IsAdminOrReadOnly, IsAdminOrIsClinicOwner
 from utils.drf.custom_fields import Base64ImageField
 from users.doctors.models import DoctorProfile
+from cases.models import Case
+from cases.serializers import CasePricePointsSerizlier
 from .serializers import ClinicPublicSerializer, ClinicSavedSerializer, \
-    ClinicHomeSerializer, ClinicDoctorsSerializer
-from .models import ClinicProfile
+    ClinicHomeSerializer, ClinicDoctorsSerializer, ClinicProfileSerializer
+from .models import ClinicProfile, ClinicBranch
 
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
@@ -44,6 +46,61 @@ class ClinicPublicDetail(generics.RetrieveUpdateAPIView):
     serializer_class = ClinicPublicSerializer
     lookup_field = 'uuid'
     permission_classes = [IsAdminOrIsClinicOwner]
+
+    def get_object(self):
+        obj = super().get_object()
+        return obj
+
+    def put(self, request, uuid, *args, **kwargs):
+        place_id_to_delete = request.data.get('place_id_to_delete', None)
+        place_id = request.data.get('place_id', None)
+        branch_name = request.data.get('branch_name', None)
+        profile_obj = self.get_object()
+
+        # Delete a branch :--
+        if place_id_to_delete is not None and profile_obj.branches:
+            for i in range(len(profile_obj.branches)):
+                if str(profile_obj.branches[i]) == place_id_to_delete:
+                    profile_obj.branches.pop(i)
+                    profile_obj.save()
+                    return Response({"message": f"Branch deleted:{place_id_to_delete}"}, status=status.HTTP_200_OK)
+
+            return Response({"message": "Invalid place_id"}, status.HTTP_400_BAD_REQUEST)
+
+        # Create a branch:--
+        if place_id is not None:
+            try:
+                # check branch existence
+                try:
+                    ClinicProfile.objects.get(uuid=uuid, branches={'place_id': f'{place_id}'})
+                    return Response({'error': "branch %s already exist" % place_id},
+                                    status.HTTP_400_BAD_REQUEST)
+                except Exception as e:
+                    # object not exist
+                    pass
+
+                branch = ClinicBranch(branch_name=branch_name, place_id=place_id)
+                profile_obj.branches.append(branch)
+                profile_obj.save()
+                serializer = ClinicPublicSerializer(profile_obj,
+                                                    context={'request': request},
+                                                    fields=['branches'])
+                logger.info("branch created for clinic %s" % uuid)
+                return Response(serializer.data)
+            except Exception as e:
+                logger.error("Error when creating a branch for clinic %s: %s" % (uuid, str(e)))
+                return Response({'error': "clinic not found"},
+                                status.HTTP_400_BAD_REQUEST)
+
+        # Update:--
+        try:
+            serializer = ClinicProfileSerializer(profile_obj, data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                serializer = ClinicPublicSerializer(profile_obj, context={'request': request})
+                return Response(serializer.data)
+        except:
+            return Response({"message":"Invalid uuid"},status.HTTP_400_BAD_REQUEST)
 
 
 ##########################
@@ -273,3 +330,48 @@ def like_unlike_clinic(request, clinic_uuid, flag='', do_like=True, actor_only=F
         if res:
             res.delete()
         return Response({'succeed': "redo %s" % verb}, status.HTTP_201_CREATED)
+
+
+class ClinicPricePointsList(generics.ListAPIView):
+    """
+    get: get a list of saved cases of a user.
+
+    """
+    name = 'clinic-price-points-list'
+    serializer_class = CasePricePointsSerizlier
+    pagination_class = PageNumberPagination
+
+    def get_queryset(self):
+        clinic_uuid = self.kwargs['uuid']
+        print("clinic uuid:", clinic_uuid)
+        if not clinic_uuid:
+            return []
+
+        return Case.objects.filter(clinic={'uuid': clinic_uuid},
+                                    state="published").exclude(surgery_meta={'min_price': None}).order_by('-created')
+
+
+@api_view(['GET'])
+def clinic_id_view(request, clinic_name=''):
+    """
+    API view for returning a list of doctor names of
+    a given clinic. Could specify the clinic by its
+    uuid or by its name.
+
+    :param clinic_name: clinic name
+    :param request:
+    :return: {'id': 123456}
+    """
+    # get clinic profile
+    if clinic_name:
+        clinic = get_object_or_None(ClinicProfile,
+                                    display_name=clinic_name.strip())
+    else:
+        clinic = None
+
+    if not clinic:
+        return Response({'error': "clinic not found"},
+                        status.HTTP_400_BAD_REQUEST)
+
+    return Response({'id': clinic.uuid},
+                    status.HTTP_200_OK)

@@ -8,7 +8,7 @@ from annoying.functions import get_object_or_None
 import coloredlogs, logging
 
 from backend.settings import ALGOLIA_APP_ID, ALGOLIA_SECRET, \
-    ALGOLIA_CASE_INDEX, ALGOLIA_CLINIC_INDEX
+    ALGOLIA_CASE_INDEX, ALGOLIA_CLINIC_INDEX, ALGOLIA_REVIEW_INDEX
 from users.clinics.serializers import ClinicCardSerializer
 from users.clinics.models import ClinicProfile
 from ..celery import app
@@ -97,5 +97,7 @@ def _get_index(type):
         return ALGOLIA_CASE_INDEX
     elif type == "clinic":
         return ALGOLIA_CLINIC_INDEX
+    elif type == "review":
+        return ALGOLIA_REVIEW_INDEX
     else:
         raise ValueError("Parameter type can only be 'case' or 'clinic'.")

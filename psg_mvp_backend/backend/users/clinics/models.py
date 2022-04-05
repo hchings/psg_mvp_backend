@@ -110,7 +110,7 @@ class ClinicBranch(models.Model):
     latitude = MongoDecimalField(max_digits=9, decimal_places=6, blank=True)
 
     def __str__(self):
-        return self.branch_name
+        return self.place_id
 
 
 class ClinicBranchForm(forms.ModelForm):

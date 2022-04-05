@@ -17,14 +17,14 @@ services:
       - "27017:27017"
   web:
     build: ./psg_mvp_backend
-    # gunicorn --bind 0.0.0.0:8000 --chdir ./backend backend.wsgi
+#    gunicorn --certfile=/project/security/certificate.crt --keyfile=/project/security/private.key --bind 0.0.0.0:443 --chdir ./backend backend.wsgi"
     command: [sh, -c, "python3 ./backend/manage.py index_cases_algolia && \
                        python3 ./backend/manage.py index_clinics_algolia && \
                        gunicorn --certfile=/code/security/certificate.crt --keyfile=/code/security/private.key --bind 0.0.0.0:443 --chdir ./backend backend.wsgi"]
     environment:
       DJANGO_SETTINGS_MODULE: backend.settings
     volumes:
-      - ./psg_mvp_backend:/code
+      - ./psg_mvp_backend:/project
     # links:
       # - elasticsearch
     depends_on:
@@ -78,7 +78,7 @@ services:
     command: [sh, -c, "cd ./backend && \
                        celery -A backend worker -l info"]
     volumes:
-      - ./psg_mvp_backend:/code
+      - ./psg_mvp_backend:/project
     environment:
       - CELERY_BROKER_URL =redis://redis:6379/0'
       - CELERY_ACCEPT_CONTENT = ['json']

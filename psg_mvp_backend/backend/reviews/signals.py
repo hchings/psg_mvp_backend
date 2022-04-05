@@ -3,14 +3,28 @@ from os import path
 
 import coloredlogs, logging
 from django.conf import settings
-from django.db.models.signals import post_delete
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
+from backend.shared.tasks import update_algolia_record
+
 from .models import Review
+from .serializers import ReviewSerializer
 
 
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='DEBUG', logger=logger)
+
+# TODO: WIP
+@receiver(post_save, sender=Review)
+def fill_in_on_create(sender, instance, created, **kwargs):
+    if instance.state == 'published':
+
+        serializer = ReviewSerializer(instance,
+                                      indexing_algolia=True)
+        # update case in Algolia
+        update_algolia_record.delay(serializer.data, type="review")
+
 
 
 @receiver(post_delete, sender=Review)
@@ -42,8 +56,3 @@ def delete_media(sender, instance, **kwargs):
     except FileNotFoundError:
         logging.error('Post review %s\'s cache media no need cleaning. %s'
                       % (str(instance.uuid), path.join(settings.MEDIA_ROOT, dir_path)))
-
-    # 3. delete reference in ES
-    # s = Search(index="cases").using(es).query("match", id=str(instance.uuid))
-    # res = s.delete()
-    # logger.info("Removed %s ES record of case %s" % (res['deleted'], instance.uuid))

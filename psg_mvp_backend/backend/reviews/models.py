@@ -95,22 +95,23 @@ class ReviewTopic(models.Model):
         ('skill', 'skill'),
     )
 
-    SENTIMENTS = (
-        ('-1', 'negative'),
-        ('0', 'neutral'),
-        ('1', 'positive')
-    )
+    # SENTIMENTS = (
+    #     (-1, -1), # negative
+    #     (0, 0), # neutral
+    #     (1, 1) # positive
+    # )
 
-    # topic = MultiSelectField(choices=REVIEW_TOPICS)
     topic = models.CharField(max_length=20,
                              choices=REVIEW_TOPICS,
-                             null=True,
-                             blank=True)
-    sentiment = models.CharField(max_length=20,
-                                 choices=SENTIMENTS,
-                                 default='0',
-                                 null=True,
-                                 blank=True)
+                             null=False,
+                             blank=False)
+    sentiment = models.IntegerField(default=0,
+                                    null=True,
+                                    blank=True)
+
+    def __str__(self):
+        return "%s (%s)" % (self.topic, self.sentiment) if self.sentiment is not None \
+            else self.topic
 
 
 class ReviewTopicForm(forms.ModelForm):
@@ -136,14 +137,15 @@ class Review(models.Model):
 
     """
     STATES = (
-        ('skipped', 'skipped'),
+        ('hidden', 'hidden'),
         ('is_spam', 'is_spam'),
+        ('reviewing', 'reviewing'),
         ('published', 'published'),
     )
 
     SCRAP_SOURCES = (
-        ('Google', 'Google'),
-        ('Facebook', 'Facebook'),
+        ('google', 'Google'),
+        ('facebook', 'Facebook'),
         ('', ''),
     )
 
@@ -159,7 +161,8 @@ class Review(models.Model):
 
     posted = models.DateTimeField(auto_now=True, help_text="last modified")
     created = models.DateTimeField(auto_now_add=True, help_text="created")  # default=timezone.now
-    rating = models.FloatField(help_text="1 to 5", blank=True)
+    rating = models.PositiveIntegerField(help_text="1 to 5", blank=True)
+
     body = models.TextField(blank=False)
 
     author = models.EmbeddedModelField(
@@ -193,6 +196,7 @@ class Review(models.Model):
     # =================================
     #                NLP
     # =================================
+    # TODO: should this be Service Tag?
     services = models.ListField(blank=True,
                                 default=[],
                                 help_text="")
@@ -215,9 +219,13 @@ class Review(models.Model):
     hash = models.CharField(max_length=20, null=True, blank=True, editable=False)
     scp_time = models.DateTimeField(null=True, blank=True, help_text="the time on the original post")
     scp_user_pic = ProcessedImageField(upload_to=get_scp_user_pic_dir_name,
-                                       processors=[ResizeToFill(35, 35)],
+                                       processors=[ResizeToFill(60, 60)],
                                        format='JPEG',
                                        options={'quality': 100},
                                        blank=True,
                                        null=True,
                                        help_text='scrapped user profile pic')
+
+    def __str__(self):
+        text_preview = '' if not self.body else self.body[:min(len(self.body), 6)]
+        return '_'.join([self.clinic.display_name, text_preview])

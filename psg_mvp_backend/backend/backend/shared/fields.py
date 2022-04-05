@@ -46,7 +46,11 @@ class MongoDecimalField(DecimalField):
         return "{:f}".format(value)
 
 
-def embedded_model_method(obj, model, field_name, included_fields=[]):
+def embedded_model_method(obj,
+                          model,
+                          field_name,
+                          included_fields=[],
+                          value_mapping={}):
     """
     Serializer field for EmbeddedModelField from djongo.
     https://github.com/nesdis/djongo/issues/115.
@@ -57,6 +61,7 @@ def embedded_model_method(obj, model, field_name, included_fields=[]):
     :param(str) field_name:
     :param(list of str) included_fields: if set, the return json
         will only contain those explicitly specified fields
+    :param(dict): mapping to transform value. {ori_value: transformed_value}
     :return:
     """
 
@@ -71,6 +76,10 @@ def embedded_model_method(obj, model, field_name, included_fields=[]):
                 for key in list(embedded_dict.keys()):
                     if key.startswith('_') or (len(included_fields) > 0 and key not in included_fields):
                         embedded_dict.pop(key)
+                        continue
+                    if value_mapping:
+                        # transform dict value
+                        embedded_dict[key] = value_mapping.get(embedded_dict[key], embedded_dict[key])
                 embedded_list.append(embedded_dict)
             return_data = embedded_list
         else:
