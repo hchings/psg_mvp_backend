@@ -33,6 +33,7 @@ ALLOWED_HOSTS = ['0.0.0.0', 'localhost', 'api.surgi.fyi', 'www.api.surgi.fyi', '
 # For Algolia indexing
 ALGOLIA_CASE_INDEX = 'cases-prod'
 ALGOLIA_CLINIC_INDEX = 'clinics-brief-prod'
+ALGOLIA_REVIEW_INDEX = 'reviews-prod'
 ROOT_URL = 'https://api.surgi.fyi'
 
 

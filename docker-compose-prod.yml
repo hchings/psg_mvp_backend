@@ -52,23 +52,23 @@ services:
     # - ./psg_mvp_backend/.well-known/pki-validation:/var/.well-known/pki-validation
     depends_on:  # <-- wait for djangoapp to be "ready" before starting this service
       - web
-  elasticsearch: # Elasticsearch Instance
-    container_name: elasticsearch
-    build: ./es
-    volumes: # Persist ES data in seperate "esdata" volume
-      - ./esdata:/usr/share/elasticsearch/data
-    environment:
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-      - discovery.type=single-node
-      - http.port=9200
-      - http.cors.enabled=true
-      - http.cors.allow-origin=http://localhost:1358,http://127.0.0.1:1358
-      - http.cors.allow-headers=X-Requested-With,X-Auth-Token,Content-Type,Content-Length,Authorization
-      - http.cors.allow-credentials=true
-      - bootstrap.memory_lock=true
-    expose:
-      - "9300"
-      - "9200"
+#  elasticsearch: # Elasticsearch Instance
+#    container_name: elasticsearch
+#    build: ./es
+#    volumes: # Persist ES data in seperate "esdata" volume
+#      - ./esdata:/usr/share/elasticsearch/data
+#    environment:
+#      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+#      - discovery.type=single-node
+#      - http.port=9200
+#      - http.cors.enabled=true
+#      - http.cors.allow-origin=http://localhost:1358,http://127.0.0.1:1358
+#      - http.cors.allow-headers=X-Requested-With,X-Auth-Token,Content-Type,Content-Length,Authorization
+#      - http.cors.allow-credentials=true
+#      - bootstrap.memory_lock=true
+#    expose:
+#      - "9300"
+#      - "9200"
   cache:
     image: memcached
     ports:
