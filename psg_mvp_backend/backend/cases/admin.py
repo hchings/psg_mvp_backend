@@ -6,7 +6,7 @@ from annoying.functions import get_object_or_None
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 
-from .models import Case, CaseImages, CaseInviteToken, Hit
+from .models import Case, CaseImages, CaseInviteToken, Hit, PricePoint
 
 user_model = get_user_model()
 
@@ -111,7 +111,21 @@ class HitAdmin(admin.ModelAdmin):
     list_display = ('created', 'user', 'ip', 'session', 'user_agent', 'hitcount')
 
 
+class PricePointAdmin(admin.ModelAdmin):
+    list_display = ('_id', 'clinic_uuid', 'surgeries', 'min_price', 'max_price')
+
+    def surgeries(self, obj):
+        return ", ".join([item.name for item in obj.surgeries])
+
+    def min_price(self, obj):
+        return obj.surgery_meta.min_price
+
+    def max_price(self, obj):
+        return obj.surgery_meta.max_price
+
+
 admin.site.register(Case, CaseAdmin)
 admin.site.register(CaseImages, CaseImagesAdmin)
 admin.site.register(CaseInviteToken, CaseInviteTokenAdmin)
 admin.site.register(Hit, HitAdmin)
+admin.site.register(PricePoint, PricePointAdmin)

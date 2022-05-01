@@ -539,7 +539,6 @@ class Case(models.Model, HitCountMixin):
         """
         # clinic_obj = get_object_or_None(ClinicProfile, uuid=self.clinic.uuid)
 
-
         obj = {
             "objectID": self.uuid,
             "uuid": self.uuid,
@@ -549,7 +548,7 @@ class Case(models.Model, HitCountMixin):
                 "uuid": self.clinic.uuid,
             },
             "type": [get_category(surgery_obj.get('name', 'ERR')) for surgery_obj in self.surgeries
-                           if get_category(surgery_obj.get('name', 'ERR'))],
+                     if get_category(surgery_obj.get('name', 'ERR'))],
             "failed": self.failed,
             "is_official": self.is_official,
             "surgeries": [{"name": item.name} for item in self.surgeries],
@@ -570,6 +569,32 @@ class Case(models.Model, HitCountMixin):
             obj = obj_new
 
         return obj
+
+
+class PricePoint(models.Model):
+    """
+    The price point of a surgery service.
+    """
+    _id = models.ObjectIdField()
+    # many-to-one association w/ ClinicProfile model
+    clinic_uuid = models.CharField(max_length=30,
+                                   blank=True,
+                                   help_text="the uuid field of ClinicProfile")
+
+    surgeries = models.ArrayModelField(
+        model_container=SurgeryTag,
+        model_form_class=SurgeryTagForm,
+        default=[]
+    )
+
+    surgery_meta = models.EmbeddedModelField(
+        model_container=SurgeryMeta,
+        model_form_class=SurgeryMetaForm,
+        blank=True,
+        null=True
+    )
+
+    ori_url = models.URLField(blank=True, help_text="source link", max_length=1000)
 
 
 ############################################################

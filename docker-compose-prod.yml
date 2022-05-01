@@ -23,6 +23,9 @@ services:
                        gunicorn --certfile=/code/security/certificate.crt --keyfile=/code/security/private.key --bind 0.0.0.0:443 --chdir ./backend backend.wsgi"]
     environment:
       DJANGO_SETTINGS_MODULE: backend.settings
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?err}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?err}
+      AWS_DEFAULT_REGION: us-west-1
     volumes:
       - ./psg_mvp_backend:/project
     # links:

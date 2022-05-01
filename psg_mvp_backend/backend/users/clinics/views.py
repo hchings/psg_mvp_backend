@@ -2,6 +2,8 @@
 DRF Views for clinics.
 
 """
+from itertools import chain
+
 import coloredlogs, logging
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
@@ -16,8 +18,8 @@ from django.contrib.contenttypes.models import ContentType
 from backend.shared.permissions import IsAdminOrReadOnly, IsAdminOrIsClinicOwner
 from utils.drf.custom_fields import Base64ImageField
 from users.doctors.models import DoctorProfile
-from cases.models import Case
-from cases.serializers import CasePricePointsSerizlier
+from cases.models import Case, PricePoint
+from cases.serializers import CasePricePointsSerializer
 from .serializers import ClinicPublicSerializer, ClinicSavedSerializer, \
     ClinicHomeSerializer, ClinicDoctorsSerializer, ClinicProfileSerializer
 from .models import ClinicProfile, ClinicBranch
@@ -338,17 +340,19 @@ class ClinicPricePointsList(generics.ListAPIView):
 
     """
     name = 'clinic-price-points-list'
-    serializer_class = CasePricePointsSerizlier
+    serializer_class = CasePricePointsSerializer
     pagination_class = PageNumberPagination
 
     def get_queryset(self):
         clinic_uuid = self.kwargs['uuid']
-        print("clinic uuid:", clinic_uuid)
         if not clinic_uuid:
             return []
 
-        return Case.objects.filter(clinic={'uuid': clinic_uuid},
-                                    state="published").exclude(surgery_meta={'min_price': None}).order_by('-created')
+        case_queryset = Case.objects.filter(clinic={'uuid': clinic_uuid},
+                                   state="published").exclude(surgery_meta={'min_price': None}).order_by('-created')
+        price_point_queryset = PricePoint.objects.filter(clinic_uuid=clinic_uuid).exclude(surgery_meta={'min_price': None})
+
+        return list(chain(case_queryset, price_point_queryset))
 
 
 @api_view(['GET'])

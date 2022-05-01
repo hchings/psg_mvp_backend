@@ -918,29 +918,18 @@ class CaseDetailSerializer(serializers.ModelSerializer):
         return len(objs)
 
 
-class CasePricePointsSerizlier(serializers.ModelSerializer):
-    surgeries = serializers.SerializerMethodField(required=False)
-    timestamp = serializers.SerializerMethodField(required=False)
-    min_price = serializers.SerializerMethodField(required=False)
-    max_price = serializers.SerializerMethodField(required=False)
-
-    class Meta:
-        model = Case
-        fields = ('uuid', 'timestamp', 'surgeries', 'min_price', 'max_price')
-
-    def get_surgeries(self, obj):
-        """
-        To serialize ArrayModelField from djongo.
-        :param obj:
-        :return:
-        """
-        return embedded_model_method(obj, self.Meta.model, 'surgeries', included_fields=['name', 'mat'])
-
-    def get_min_price(self, obj):
-        return obj.surgery_meta.min_price
-
-    def get_max_price(self, obj):
-        return obj.surgery_meta.max_price
+class CasePricePointsSerializer(serializers.BaseSerializer):
+    """
+    This serializer can be used by both Case and PricePoint models to return
+    price points.
+    """
+    def to_representation(self, obj):
+        return {
+            'min_price': obj.surgery_meta.min_price,
+            'max_price': obj.surgery_meta.max_price,
+            'surgeries': embedded_model_method(obj, type(obj), 'surgeries', included_fields=['name', 'mat']),
+            'timestamp': self.get_timestamp(obj)
+        }
 
     def get_timestamp(self, obj):
         if obj.surgery_meta and obj.surgery_meta.year:
@@ -948,4 +937,4 @@ class CasePricePointsSerizlier(serializers.ModelSerializer):
                 return datetime.datetime.strptime('%s-%s' % (obj.surgery_meta.year, obj.surgery_meta.month),
                                                   '%Y-%m')
             return datetime.datetime.strptime(obj.surgery_meta.year, '%Y')
-        return obj.created
+        return obj.created or ''
