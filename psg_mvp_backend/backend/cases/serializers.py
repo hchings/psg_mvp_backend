@@ -335,10 +335,10 @@ class CaseCardSerializer(serializers.ModelSerializer):
         return img_url if self.context.get("request", None) else ROOT_URL + img_url
 
     def get_af_img_thumb(self, obj):
-        return "" if not obj.af_img_thumb else ROOT_URL + obj.af_img_cropped.url
+        return "" if not obj.af_img_thumb else ROOT_URL + obj.af_img_thumb.url
 
     def get_bf_img_thumb(self, obj):
-        return "" if not obj.bf_img_thumb else ROOT_URL + obj.bf_img_cropped.url
+        return "" if not obj.bf_img_thumb else ROOT_URL + obj.bf_img_thumb.url
 
     def get_objectID(self, obj):
         return str(obj.uuid)
