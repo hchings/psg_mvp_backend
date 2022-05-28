@@ -139,7 +139,7 @@ class Command(BaseCommand):
                 logger.warning("Detect review that should be dropped. Deletion complete.")
 
             source = row["src"].lower()
-            if source == 'Google':
+            if source.lower() == 'google':
                 text = self._clean_text(text)
 
             if objs:
