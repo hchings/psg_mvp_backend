@@ -1,12 +1,8 @@
 """
-Command to bulk insert all the reviews into DB from excel sheet.
-Reviews csv format is expected to be comply w/ the output of nlp-engine
+Command to bulk insert all the reviews into DB from s3.
 
 To run:
-    python manage.py load_reviews_db
-
-Example:
-    python manage.py load_reviews_db all_reviews_done.csv "Sep 2021"
+    python manage.py load_reviews_db "Sep 2021" --clean-up=False
 
 """
 import coloredlogs, logging
@@ -15,6 +11,9 @@ from ast import literal_eval
 import pprint
 
 import pandas as pd
+import boto3
+import botocore
+from zipfile import ZipFile
 import numpy as np
 import dateparser
 from dateparser import parse
@@ -35,6 +34,11 @@ coloredlogs.install(level='DEBUG', logger=logger)
 pp = pprint.PrettyPrinter(indent=4)
 
 TOPICS = ['topics', 'consult', 'env', 'price', 'service', 'skill']
+S3_BUCKET = "sagemaker-studio-hkwar4uafz8"
+S3_FILE = "all_reviews_done.json"
+
+S3_BUCKET_PIC = "sg-web-dev"
+S3_FILE_PIC = ['Facebook.zip', 'Google.zip'] # user profile pictures
 
 
 class Command(BaseCommand):
@@ -42,22 +46,34 @@ class Command(BaseCommand):
 
     """
     has_doctor_cnt = 0
+    clean_up = False
 
     def add_arguments(self, parser):
-        parser.add_argument("input_review_file",
-                            type=str,
-                            help="The file name of the review CSV file processed by the Nlp-engine.")
         parser.add_argument("scrapped_date",
                             type=str,
                             help="The rough <Month Year> when the reviews were scrapped. e.g., 'Sep 2021'")
+        parser.add_argument('--clean-up', default=True) # default will clean up
+
 
     def handle(self, *args, **options):
-        input_review_file = options["input_review_file"]
-        input_review_file_path =  os.path.join(FIXTURE_ROOT, input_review_file)
-        scrapped_date = options["scrapped_date"]
+        self.clean_up = options.get('clean-up', True)
 
-        # read in excel
-        df = pd.read_csv(input_review_file_path)
+        # ====== get review data =====
+        s3 = boto3.client('s3')
+        response = s3.get_object(Bucket=S3_BUCKET,
+                                 Key=S3_FILE)
+        status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+
+        if status == 200:
+            logger.info(f"Successfully read review scrap from S3 - Status:{status}")
+            df = pd.read_json(response.get("Body"))
+            df.fillna(0, inplace=True)
+            logger.info(df.head())
+        else:
+            logger.error(f"Failed to read review scrap from S3  - Status:{status}")
+            return
+
+        scrapped_date = options["scrapped_date"]
 
         # ensure columns and data shape
         assert(pd.Series(['user', 'date', 'rating', 'review',
@@ -65,36 +81,67 @@ class Command(BaseCommand):
                          'src', 'procedure', 'drop'] + TOPICS).isin(df.columns).all())
 
         # remove dropped reviews
-        df = df.loc[df["drop"].isnull()]
+        print(str(df.shape[0]))
+
+        df = df.loc[df["drop"].astype('bool') == False]
+        print(str(df.shape[0]))
         time_delta = parse("today") - parse(scrapped_date)
-        logger.info("%s review shape found in %s." % (str(df.shape[0]), input_review_file_path))
+        logger.info("%s review shape found in %s." % (str(df.shape[0]), "/".join([S3_BUCKET, S3_FILE])))
         logger.info("Scrapped date :%s\n delta=%s" % (parse(scrapped_date), time_delta))
+
+
+        # ===== get user pics data =====
+        if not os.path.isdir(os.path.join(FIXTURE_ROOT, S3_FILE_PIC[0].split(".")[0])) or \
+                not os.path.isdir(os.path.join(FIXTURE_ROOT, S3_FILE_PIC[1].split(".")[0])):
+
+            for pic_folder in S3_FILE_PIC:
+                zip_file = os.path.join(FIXTURE_ROOT, pic_folder)
+                try:
+                    if not os.path.exists(zip_file):
+                        logger.info("File %s not found. Loading from s3..." % zip_file)
+                        s3.download_file(S3_BUCKET_PIC, pic_folder, zip_file)
+                        logger.info("%s downloaded to %s" % (pic_folder, FIXTURE_ROOT))
+
+                    with ZipFile(zip_file, 'r') as zipObj:
+                        # Extract all the contents of zip file in current directory
+                        zipObj.extractall(path=FIXTURE_ROOT)
+                    logger.info("Unzipped.")
+
+                except botocore.exceptions.ClientError as e:
+                    if e.response['Error']['Code'] == "404":
+                        logger.error("Object %s not found in %s" % (pic_folder, S3_FILE_PIC))
+                    else:
+                        raise
+        else:
+            logger.info("Found both S3_FILE_PIC directories.")
 
         # store review obj in db
         for index, row in df.iterrows():
             logger.info("=====%s====" % index)
             # 1. check basic info
             text = row['review']
-
+            text = text.strip()
             clinic_uuid, place_id = str(row['clinic_uuid']).strip(), str(row['place_id']).strip()
-
-            if not text or not clinic_uuid  or text is np.nan \
+            if not text or not clinic_uuid or text is np.nan \
                     or clinic_uuid is np.nan:
                 logger.warning("review, clinic_uuid, or place_id missing. Skip.")
                 continue
 
-            text = text.strip()
-            source = row["src"].lower()
-
-            if source == 'Google':
-                text = self._clean_text(text)
-
             #    check whether the review already exist using hash
             user_info = UserInfo(scp=True,
                                  scp_username=row['user'].strip())
+
             hash = hash_text(user_info.scp_username + text)
-            # objs = Review.objects.filter(clinic={'place_id': place_id}, hash=hash)
-            objs = Review.objects.filter(clinic={'uuid': clinic_uuid}, hash=hash)
+            objs = Review.objects.filter(hash=hash)
+
+            if objs and row['drop'] == True:
+                objs.delete()
+                logger.warning("Detect review that should be dropped. Deletion complete.")
+
+            source = row["src"].lower()
+            if source == 'Google':
+                text = self._clean_text(text)
+
             if objs:
                 if 'Google' in text or '翻譯' in text:
                     objs[0].delete()
@@ -105,6 +152,9 @@ class Command(BaseCommand):
                 else:
                     logger.warning("review exist in db, skipped.")
                     continue
+
+                # tmp
+                objs.delete()
 
             try:
                 if place_id and place_id != np.nan and place_id != "nan":
@@ -184,7 +234,6 @@ class Command(BaseCommand):
 
             review = Review(hash=hash,
                             scp_time=created,
-                            scp_user_pic="",
                             author=user_info,
                             clinic=clinic_info,
                             body=text,
@@ -214,11 +263,17 @@ class Command(BaseCommand):
                 img_path = os.path.join(source.capitalize(), img_name)
                 logger.info("saving image from %s..." % img_path)
                 try:
+                    print(os.path.join(FIXTURE_ROOT, img_path))
+                    print("review", review, review.scp_user_pic, type(review.scp_user_pic))
                     with open(os.path.join(FIXTURE_ROOT, img_path), 'rb') as f:
-                        review.scp_user_pic.save("user_profile", f)
+                        # this will avoid calling post-save signal
+                        Review.objects.filter(hash=hash)[0].scp_user_pic.save("user_profile", f)
+                        # review.scp_user_pic.save("user_profile", f)
                 except FileNotFoundError as e:
                     logger.error("File not found: %s" % str(e))
-            # if index > 5:
+                    # break
+                    continue
+            # if index > 10:
             #   break
 
     @staticmethod
